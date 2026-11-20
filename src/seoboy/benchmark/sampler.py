@@ -57,6 +57,7 @@ class SiteSnapshot:
     pages: list[PageMetric] = field(default_factory=list)
     sitemap_urls: int = 0
     manual: bool = False
+    full: bool = False
     error: str | None = None
 
 
@@ -148,6 +149,8 @@ def _sitemap_candidates(
     robots: RobotsFile,
     allowed_hosts: tuple[str, ...],
     max_pages: int,
+    *,
+    full: bool = False,
 ) -> tuple[list[str], int]:
     sitemap_urls = [value for value in robots.sitemaps if value]
     if not sitemap_urls:
@@ -156,7 +159,10 @@ def _sitemap_candidates(
     found: list[str] = []
     total = 0
     base = f"{origins[-1]}/"
-    for raw_sitemap_url in sitemap_urls:
+    queue = list(sitemap_urls)
+    visited: set[str] = set()
+    while queue and len(found) < max_pages * 4 and len(visited) < 50:
+        raw_sitemap_url = queue.pop(0)
         sitemap_url = _absolute_url(raw_sitemap_url, base)
         if not _same_site(sitemap_url, allowed_hosts):
             continue
@@ -164,6 +170,9 @@ def _sitemap_candidates(
             normalized = normalize_url(sitemap_url)
         except InvalidUrl:
             continue
+        if normalized.url in visited:
+            continue
+        visited.add(normalized.url)
         if not robots.is_allowed(_origin_path(normalized.url), SEOBOY):
             continue
         result, _ = _fetch_follow(client, normalized.url, max_redirects=1)
@@ -171,26 +180,30 @@ def _sitemap_candidates(
             continue
         kind, locations = _sitemap_document(result.body)
         if kind == "sitemapindex":
-            for child in locations[:1]:
+            total += len(locations)
+            children = locations if full else locations[:1]
+            for child in children:
                 try:
                     child_norm = normalize_url(_absolute_url(child, base))
                 except InvalidUrl:
                     continue
-                if not robots.is_allowed(_origin_path(child_norm.url), SEOBOY):
-                    continue
-                child_result, _ = _fetch_follow(client, child_norm.url, max_redirects=1)
-                if child_result.status_code and 200 <= child_result.status_code < 300:
-                    _, locations = _sitemap_document(child_result.body)
-                else:
-                    locations = []
-        total += len(locations)
-        for value in locations:
-            if _page_candidate(value, allowed_hosts) and value not in found:
-                found.append(value)
-            if len(found) >= max_pages * 4:
+                if (
+                    child_norm.url not in visited
+                    and _same_site(child_norm.url, allowed_hosts)
+                    and robots.is_allowed(_origin_path(child_norm.url), SEOBOY)
+                ):
+                    queue.append(child_norm.url)
+            if found and not full:
                 break
-        if found:
-            break
+        elif kind == "urlset":
+            total += len(locations)
+            for value in locations:
+                if _page_candidate(value, allowed_hosts) and value not in found:
+                    found.append(value)
+                if len(found) >= max_pages * 4:
+                    break
+            if found and not full:
+                break
     return found, total
 
 
@@ -244,6 +257,7 @@ def collect_snapshot(
     interval_seconds: float = 0.5,
     timeout: float = 10.0,
     selected_urls: list[str] | None = None,
+    full: bool = False,
 ) -> SiteSnapshot:
     try:
         normalized = normalize_url(start_url)
@@ -303,7 +317,7 @@ def collect_snapshot(
         sitemap_count = 0
     else:
         sitemap_values, sitemap_count = _sitemap_candidates(
-            client, origins, robots, allowed_hosts, max_pages
+            client, origins, robots, allowed_hosts, max_pages, full=full
         )
         candidates = [final_normalized.url]
         for value in sitemap_values:
@@ -341,6 +355,7 @@ def collect_snapshot(
         pages=pages,
         sitemap_urls=sitemap_count,
         manual=bool(selected_urls),
+        full=full and not selected_urls,
     )
 
 

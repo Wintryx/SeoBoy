@@ -307,6 +307,11 @@ def render_benchmark(
         )
         if snapshot.manual:
             lines.append("- **Auswahl:** manuell vorgegebene URLs, keine Sitemap-Stichprobe.")
+        if snapshot.full:
+            lines.append(
+                "- **Modus:** sitemapweite Auswahl bis zum konfigurierten Budget, "
+                "nicht zwingend alle URLs."
+            )
         lines.append(
             f"- {summary['pages']} HTML-Seiten, {summary['indexable']} technisch indexierbar, "
             f"Ø {summary['average_words']} Wörter, Ø {summary['average_links']} Links"

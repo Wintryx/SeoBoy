@@ -9,6 +9,7 @@ from seoboy.crawl.html_extract import extract_page
 from seoboy.crawl.rendering import (
     RenderedPage,
     RenderingError,
+    _render_with_chrome,
     compare_pages,
     render_page,
     render_report,
@@ -45,10 +46,24 @@ class RenderingTests(unittest.TestCase):
         self.assertEqual(result.link_delta, 8)
         self.assertEqual(result.browser_schema, ("Organization",))
 
+    def test_chrome_fallback(self):
+        with patch(
+            "seoboy.crawl.rendering._chrome_path", return_value="chrome.exe"
+        ), patch("seoboy.crawl.rendering.subprocess.run") as run:
+            run.return_value.returncode = 0
+            run.return_value.stderr = b""
+            run.return_value.stdout = html(
+                "Chrome", "<h1>Gerendert</h1><p>Text</p>"
+            ).encode("utf-8")
+            page = _render_with_chrome("https://example.de/", 5000)
+        self.assertEqual(page.engine, "chrome")
+        self.assertEqual(page.title, "Chrome")
+        self.assertEqual(page.h1, "Gerendert")
+
     def test_missing_playwright_is_explained(self):
         with patch.dict("sys.modules", {"playwright": None, "playwright.sync_api": None}):
             with self.assertRaises(RenderingError) as context:
-                render_page("https://example.de/")
+                render_page("https://example.de/", engine="playwright")
         self.assertIn("Playwright ist nicht installiert", str(context.exception))
 
     def test_render_report_with_injected_browser(self):

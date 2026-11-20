@@ -6,7 +6,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import csv
 import json
+import os
 from pathlib import Path
+import shutil
+import subprocess
+import tempfile
 
 from seoboy.crawl.html_extract import ExtractedPage, extract_page
 from seoboy.crawl.http_client import HttpClient, decode_body
@@ -32,6 +36,7 @@ class RenderedPage:
     schema_types: tuple[str, ...]
     links: int
     content_type: str | None
+    engine: str = "playwright"
 
 
 @dataclass(frozen=True)
@@ -51,44 +56,60 @@ class RenderingComparison:
     note: str = ""
 
 
-def render_page(
-    url: str,
-    *,
-    timeout_ms: int = 15_000,
-    wait_until: str = "networkidle",
-    user_agent: str | None = None,
-    browser_name: str = "chromium",
-) -> RenderedPage:
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError as error:
+def _chrome_path() -> str | None:
+    configured = os.environ.get("SEOBOY_CHROME")
+    if configured and Path(configured).is_file():
+        return configured
+    for name in ("chrome", "google-chrome", "chromium", "msedge"):
+        found = shutil.which(name)
+        if found:
+            return found
+    if os.name == "nt":
+        for candidate in (
+            Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
+            / "Google" / "Chrome" / "Application" / "chrome.exe",
+            Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"))
+            / "Google" / "Chrome" / "Application" / "chrome.exe",
+            Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"))
+            / "Microsoft" / "Edge" / "Application" / "msedge.exe",
+        ):
+            if candidate.is_file():
+                return str(candidate)
+    return None
+
+
+def _render_with_chrome(url: str, timeout_ms: int) -> RenderedPage:
+    executable = _chrome_path()
+    if not executable:
         raise RenderingError(
-            "Playwright ist nicht installiert. Installation: "
+            "Weder Playwright noch Chrome/Edge gefunden. Installation: "
             "pip install 'seoboy[rendering]' && playwright install chromium"
-        ) from error
-    try:
-        with sync_playwright() as playwright:
-            engine = getattr(playwright, browser_name, None)
-            if engine is None:
-                raise RenderingError(f"Unbekannte Browser-Engine: {browser_name}")
-            browser = engine.launch(headless=True)
-            context = browser.new_context(user_agent=user_agent) if user_agent else browser.new_context()
-            page = context.new_page()
-            response = page.goto(url, wait_until=wait_until, timeout=timeout_ms)
-            html = page.content()
-            final_url = page.url
-            headers = response.headers if response is not None else {}
-            status = response.status if response is not None else None
-            browser.close()
-    except RenderingError:
-        raise
-    except Exception as error:
-        raise RenderingError(f"Rendering von {url} fehlgeschlagen: {error}") from error
-    extracted = extract_page(html, final_url, tuple(headers.items()))
+        )
+    with tempfile.TemporaryDirectory(prefix="seoboy-chrome-") as temporary:
+        result = subprocess.run(
+            [
+                executable,
+                "--headless=new",
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+                "--no-sandbox",
+                f"--user-data-dir={temporary}",
+                "--dump-dom",
+                url,
+            ],
+            capture_output=True,
+            check=False,
+            timeout=max(5, timeout_ms // 1000 + 5),
+        )
+    if result.returncode != 0 or not result.stdout:
+        detail = result.stderr.decode("utf-8", errors="replace")[:500]
+        raise RenderingError(f"Chrome-Rendering fehlgeschlagen: {detail or result.returncode}")
+    html = result.stdout.decode("utf-8", errors="replace")
+    extracted = extract_page(html, url, ())
     return RenderedPage(
         url=url,
-        final_url=final_url,
-        status=status,
+        final_url=url,
+        status=None,
         title=extracted.title,
         meta_description=extracted.meta_description,
         h1=extracted.h1,
@@ -98,8 +119,72 @@ def render_page(
         images_missing_alt=extracted.images_missing_alt,
         schema_types=extracted.schema_types,
         links=len(extracted.links),
-        content_type=headers.get("content-type"),
+        content_type=None,
+        engine="chrome",
     )
+
+
+def render_page(
+    url: str,
+    *,
+    timeout_ms: int = 15_000,
+    wait_until: str = "networkidle",
+    user_agent: str | None = None,
+    browser_name: str = "chromium",
+    engine: str = "auto",
+) -> RenderedPage:
+    if engine not in {"auto", "playwright", "chrome"}:
+        raise RenderingError(f"Unbekannte Rendering-Engine: {engine}")
+    if engine in {"auto", "playwright"}:
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError as error:
+            if engine == "playwright":
+                raise RenderingError(
+                    "Playwright ist nicht installiert. Installation: "
+                    "pip install 'seoboy[rendering]' && playwright install chromium"
+                ) from error
+            return _render_with_chrome(url, timeout_ms)
+        try:
+            with sync_playwright() as playwright:
+                browser_type = getattr(playwright, browser_name, None)
+                if browser_type is None:
+                    raise RenderingError(f"Unbekannte Browser-Engine: {browser_name}")
+                browser = browser_type.launch(headless=True)
+                context = (
+                    browser.new_context(user_agent=user_agent)
+                    if user_agent
+                    else browser.new_context()
+                )
+                page = context.new_page()
+                response = page.goto(url, wait_until=wait_until, timeout=timeout_ms)
+                html = page.content()
+                final_url = page.url
+                headers = response.headers if response is not None else {}
+                status = response.status if response is not None else None
+                browser.close()
+        except RenderingError:
+            raise
+        except Exception as error:
+            raise RenderingError(f"Rendering von {url} fehlgeschlagen: {error}") from error
+        extracted = extract_page(html, final_url, tuple(headers.items()))
+        return RenderedPage(
+            url=url,
+            final_url=final_url,
+            status=status,
+            title=extracted.title,
+            meta_description=extracted.meta_description,
+            h1=extracted.h1,
+            h1_count=extracted.h1_count,
+            word_count=extracted.word_count,
+            image_count=extracted.image_count,
+            images_missing_alt=extracted.images_missing_alt,
+            schema_types=extracted.schema_types,
+            links=len(extracted.links),
+            content_type=headers.get("content-type"),
+            engine="playwright",
+        )
+    return _render_with_chrome(url, timeout_ms)
 
 
 def compare_pages(
@@ -170,6 +255,7 @@ def render_report(
     timeout_ms: int = 15_000,
     wait_until: str = "networkidle",
     browser_name: str = "chromium",
+    engine: str = "auto",
 ) -> Path:
     client = HttpClient()
     comparisons: list[RenderingComparison] = []
@@ -187,6 +273,7 @@ def render_report(
             timeout_ms=timeout_ms,
             wait_until=wait_until,
             browser_name=browser_name,
+            engine=engine,
         )
         rendered.append(browser)
         comparisons.append(compare_pages(url, http_page, status, browser))
@@ -196,6 +283,7 @@ def render_report(
     payload = {
         "generated_at": iso_utc(),
         "browser": browser_name,
+        "engine": engine,
         "urls": urls,
         "rendered": [
             {

@@ -163,6 +163,11 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     benchmark.add_argument(
         "--max-pages", type=int, default=20, help="Seiten je Wettbewerber (Standard: 20)"
     )
+    benchmark.add_argument(
+        "--full",
+        action="store_true",
+        help="alle Sitemap-URLs bis zum max-pages-Budget auswerten",
+    )
     benchmark.add_argument("--out", type=Path, help="Zielverzeichnis des Vergleichs")
 
     doctor = commands.add_parser(
@@ -269,6 +274,12 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
         "--browser",
         choices=["chromium", "firefox", "webkit"],
         default="chromium",
+    )
+    render.add_argument(
+        "--engine",
+        choices=["auto", "playwright", "chrome"],
+        default="auto",
+        help="auto nutzt Playwright oder Chrome/Edge als Fallback",
     )
 
     update = commands.add_parser(
@@ -523,6 +534,7 @@ def main(argv: list[str] | None = None) -> int:
                     timeout_ms=args.timeout_ms,
                     wait_until=args.wait_until,
                     browser_name=args.browser,
+                    engine=args.engine,
                 )
             except RenderingError as error:
                 print(f"SeoBoy: {error}", file=sys.stderr)
@@ -762,6 +774,7 @@ def main(argv: list[str] | None = None) -> int:
                 max_pages=args.max_pages,
                 out=args.out,
                 selected_urls=selected or None,
+                full=args.full,
             )
             print(f"Wettbewerbsvergleich geschrieben: {folder}")
             return 0

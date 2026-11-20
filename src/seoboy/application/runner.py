@@ -391,12 +391,13 @@ def run_benchmark(
     max_pages: int = 20,
     out: Path | None = None,
     selected_urls: dict[str, list[str]] | None = None,
+    full: bool = False,
 ) -> Path:
     """Compare the latest own run with read-only competitor samples."""
     if not competitors:
         raise RunnerError("Für den Wettbewerbsvergleich wird mindestens eine URL benötigt.")
-    if not 1 <= max_pages <= 100:
-        raise RunnerError("--max-pages muss zwischen 1 und 100 liegen.")
+    if not 1 <= max_pages <= 1000:
+        raise RunnerError("--max-pages muss zwischen 1 und 1000 liegen.")
     connection = _open(config)
     try:
         run_id = _latest_completed_run(connection)
@@ -422,6 +423,7 @@ def run_benchmark(
                     label,
                     max_pages=max_pages,
                     selected_urls=manual,
+                    full=full,
                 )
             )
         except BenchmarkError as error:
@@ -461,6 +463,7 @@ def run_benchmark(
         "generated_at": iso_utc(),
         "tool_version": TOOL_VERSION,
         "max_pages_per_site": max_pages,
+        "full": full,
         "manual_urls": {
             snapshot.label: len(snapshot.pages)
             for snapshot in snapshots
