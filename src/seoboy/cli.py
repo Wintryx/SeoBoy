@@ -256,14 +256,19 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     geo_sample.add_argument("--api-key")
     geo_sample.add_argument("--model", default=DEFAULT_MODEL)
     geo_sample.add_argument("--max-calls", type=int, default=6)
-    geo_sample.add_argument("--max-tokens", type=int, default=800)
+    geo_sample.add_argument("--max-tokens", type=int, default=8192)
     geo_sample.add_argument("--temperature", type=float, default=0.2)
     geo_sample.add_argument(
-        "--thinking", choices=["disabled", "enabled"], default="disabled"
+        "--thinking", choices=["disabled", "enabled"], default="enabled"
+    )
+    geo_sample.add_argument(
+        "--reasoning-effort",
+        choices=["none", "low", "high", "max"],
+        default="max",
     )
     geo_sample.add_argument("--web-search", action="store_true")
     geo_sample.add_argument("--search-price", type=float, default=0.75)
-    geo_sample.add_argument("--budget-usd", type=float, default=0.50)
+    geo_sample.add_argument("--budget-usd", type=float, default=1.00)
     geo_sample.add_argument("--retention-days", type=int, default=30)
     geo_sample.add_argument("--input-price", type=float, default=0.30)
     geo_sample.add_argument("--output-price", type=float, default=1.20)
@@ -529,6 +534,7 @@ def main(argv: list[str] | None = None) -> int:
                     temperature=args.temperature,
                     max_tokens=args.max_tokens,
                     thinking=args.thinking,
+                    reasoning_effort=args.reasoning_effort,
                     web_search=args.web_search,
                     search_usd_per_1000=args.search_price,
                     max_calls=args.max_calls,
@@ -544,7 +550,11 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Prompt-Set: {prompt_set.version} ({prompt_set.language}/{prompt_set.region})")
                 for item in prompt_set.prompts[: config.max_calls]:
                     print(f"- {item.id}: {item.prompt}")
-                print(f"Geplant: {min(len(prompt_set.prompts), config.max_calls)} Aufrufe, Modell {config.model}")
+                print(
+                    f"Geplant: {min(len(prompt_set.prompts), config.max_calls)} Aufrufe, "
+                    f"Modell {config.model}, Thinking {config.thinking}, "
+                    f"Effort {config.reasoning_effort}"
+                )
                 return 0
             api_key = (
                 args.api_key

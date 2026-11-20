@@ -83,11 +83,28 @@ class GeoSamplingTests(unittest.TestCase):
             "usage": {"prompt_tokens": 1, "completion_tokens": 1},
         }
         with patch.object(sampling, "_post_json", return_value=payload) as post:
-            result = sampling.chat_completion("key", "Frage?")
+            result = sampling.chat_completion(
+                "key", "Frage?", thinking="disabled"
+            )
         self.assertEqual(result["content"], "Antwort")
         body = post.call_args.args[1]
         self.assertEqual(body["thinking"], {"type": "disabled"})
         self.assertFalse(body["stream"])
+
+    def test_max_reasoning_request(self):
+        payload = {
+            "model": "deepseek-flash",
+            "choices": [{"message": {"content": "Antwort"}}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+        }
+        with patch.object(sampling, "_post_json", return_value=payload) as post:
+            result = sampling.chat_completion(
+                "key", "Frage?", thinking="enabled", reasoning_effort="max"
+            )
+        body = post.call_args.args[1]
+        self.assertEqual(body["thinking"], {"type": "enabled"})
+        self.assertEqual(body["reasoning_effort"], "max")
+        self.assertEqual(result["model_version"], "DeepSeek-V4.1-Flash-1017")
 
     def test_web_search_request_and_citations(self):
         payload = {
@@ -119,7 +136,9 @@ class GeoSamplingTests(unittest.TestCase):
             "usage": {"prompt_tokens": 10, "completion_tokens": 5},
         }
         with patch.object(sampling, "_post_json", return_value=payload) as post:
-            result = sampling.chat_completion("key", "Frage?", web_search=True)
+            result = sampling.chat_completion(
+                "key", "Frage?", thinking="enabled", web_search=True
+            )
         body = post.call_args.args[1]
         self.assertEqual(
             body["tools"], [{"type": "deepseek_web_search"}]
@@ -147,7 +166,9 @@ class GeoSamplingTests(unittest.TestCase):
     def test_cli_requires_key(self):
         stdout = io.StringIO()
         stderr = io.StringIO()
-        with patch.dict("os.environ", {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True), patch.object(
+            cli, "load_env", return_value={}
+        ):
             with redirect_stdout(stdout), redirect_stderr(stderr):
                 code = cli.main(["geo-sample"])
         self.assertEqual(code, 2)

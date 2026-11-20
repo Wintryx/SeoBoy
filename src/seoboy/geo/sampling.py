@@ -20,6 +20,10 @@ from seoboy.shared.util import excel_safe, iso_utc
 
 DEFAULT_MODEL = "deepseek-flash"
 DEFAULT_BASE_URL = "https://api.deepseek.com/chat/completions"
+MODEL_VERSIONS = {
+    "deepseek-flash": "DeepSeek-V4.1-Flash-1017",
+    "deepseek-v4-pro": "DeepSeek-V4-Pro-0813",
+}
 DEFAULT_BRANDS = ("AW Audio", "aw-audio.de", "Arne Winter")
 DEFAULT_COMPETITORS = ("djmagic", "beats-per-micha", "topeventtechnik")
 DEFAULT_PROMPTS = (
@@ -81,12 +85,13 @@ class PromptSet:
 class SamplingConfig:
     model: str = DEFAULT_MODEL
     temperature: float = 0.2
-    max_tokens: int = 800
-    thinking: str = "disabled"
+    max_tokens: int = 8192
+    thinking: str = "enabled"
+    reasoning_effort: str = "max"
     web_search: bool = False
     search_usd_per_1000: float = 0.75
     max_calls: int = 6
-    budget_usd: float = 0.50
+    budget_usd: float = 1.00
     input_usd_per_mtok: float = 0.30
     output_usd_per_mtok: float = 1.20
     retention_days: int = 30
@@ -99,6 +104,8 @@ class SampleResult:
     language: str
     region: str
     model: str
+    model_version: str = ""
+    reasoning_effort: str = ""
     answer: str = ""
     answer_sha256: str = ""
     citations: tuple[str, ...] = ()
@@ -250,17 +257,18 @@ def chat_completion(
     *,
     model: str = DEFAULT_MODEL,
     temperature: float = 0.2,
-    max_tokens: int = 800,
-    thinking: str = "disabled",
+    max_tokens: int = 8192,
+    thinking: str = "enabled",
+    reasoning_effort: str = "max",
     web_search: bool = False,
     base_url: str = DEFAULT_BASE_URL,
     timeout: float = 90.0,
 ) -> dict[str, Any]:
     if not api_key:
         raise GeoSamplingError("Für GEO-Sampling wird ein DeepSeek-API-Key benötigt.")
-    if web_search and thinking != "disabled":
+    if reasoning_effort not in {"none", "low", "high", "max"}:
         raise GeoSamplingError(
-            "Websuche erfordert thinking=disabled, sonst antwortet DeepSeek ohne Suche."
+            "reasoning_effort muss none, low, high oder max sein."
         )
     body: dict[str, Any] = {
         "model": model,
@@ -270,6 +278,8 @@ def chat_completion(
         "thinking": {"type": thinking},
         "stream": False,
     }
+    if thinking == "enabled":
+        body["reasoning_effort"] = reasoning_effort
     if web_search:
         body["tools"] = [{"type": "deepseek_web_search"}]
     payload = _post_json(
@@ -313,6 +323,7 @@ def chat_completion(
         "content": content,
         "usage": usage,
         "model": str(payload.get("model") or model),
+        "model_version": MODEL_VERSIONS.get(model, model),
         "id": str(payload.get("id") or ""),
         "citations": tuple(citations),
     }
@@ -414,8 +425,10 @@ def run_sampling(
         raise GeoSamplingError("temperature muss zwischen 0 und 2 liegen.")
     if config.thinking not in {"disabled", "enabled"}:
         raise GeoSamplingError("thinking muss disabled oder enabled sein.")
-    if config.web_search and config.thinking != "disabled":
-        raise GeoSamplingError("Websuche erfordert thinking=disabled.")
+    if config.reasoning_effort not in {"none", "low", "high", "max"}:
+        raise GeoSamplingError(
+            "reasoning_effort muss none, low, high oder max sein."
+        )
     if config.search_usd_per_1000 < 0:
         raise GeoSamplingError("search_usd_per_1000 darf nicht negativ sein.")
     if config.budget_usd < 0:
@@ -442,6 +455,7 @@ def run_sampling(
                 temperature=config.temperature,
                 max_tokens=config.max_tokens,
                 thinking=config.thinking,
+                reasoning_effort=config.reasoning_effort,
                 web_search=config.web_search,
                 base_url=base_url,
                 timeout=timeout,
@@ -453,6 +467,8 @@ def run_sampling(
                 language=spec.language,
                 region=spec.region,
                 model=config.model,
+                model_version=MODEL_VERSIONS.get(config.model, config.model),
+                reasoning_effort=config.reasoning_effort,
                 sampled_at=iso_utc(),
                 error=str(error),
             )
@@ -487,6 +503,10 @@ def run_sampling(
             language=spec.language,
             region=spec.region,
             model=response["model"],
+            model_version=response.get(
+                "model_version", MODEL_VERSIONS.get(config.model, config.model)
+            ),
+            reasoning_effort=config.reasoning_effort,
             answer=answer,
             answer_sha256=hashlib.sha256(answer.encode("utf-8")).hexdigest()[:16],
             citations=citations,
@@ -506,6 +526,8 @@ def run_sampling(
                 "model": sample.model,
                 "prompt_id": sample.prompt_id,
                 "query": sample.query,
+                "model_version": sample.model_version,
+                "reasoning_effort": sample.reasoning_effort,
                 "language": sample.language,
                 "region": sample.region,
                 "answer": sample.answer,
@@ -533,6 +555,8 @@ def run_sampling(
         [
             "prompt_id",
             "query",
+            "model_version",
+            "reasoning_effort",
             "language",
             "region",
             "model",
@@ -549,6 +573,8 @@ def run_sampling(
             [
                 item.prompt_id,
                 item.query,
+                item.model_version,
+                item.reasoning_effort,
                 item.language,
                 item.region,
                 item.model,
@@ -577,7 +603,9 @@ def run_sampling(
         "# SeoBoy – GEO-Sampling",
         "",
         f"**Anbieter:** DeepSeek  ",
-        f"**Modell:** {config.model}  ",
+        f"**Modell:** {config.model} "
+        f"({MODEL_VERSIONS.get(config.model, config.model)})  ",
+        f"**Thinking:** {config.thinking}, Effort {config.reasoning_effort}  ",
         f"**Websuche:** {'ja' if config.web_search else 'nein'}  ",
         f"**Prompt-Set:** {prompt_set.version} ({prompt_set.language}/{prompt_set.region})  ",
         f"**Zeitraum:** {run.started_at} bis {run.finished_at}  ",
@@ -666,7 +694,9 @@ def run_sampling(
         "provider": "deepseek",
         "base_url": base_url,
         "model": config.model,
+        "model_version": MODEL_VERSIONS.get(config.model, config.model),
         "thinking": config.thinking,
+        "reasoning_effort": config.reasoning_effort,
         "web_search": config.web_search,
         "prompt_set": prompt_set.version,
         "language": prompt_set.language,
