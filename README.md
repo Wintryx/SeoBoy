@@ -162,8 +162,9 @@ Voraussetzungen und Sicherheitsregeln:
 ## Lokale Umgebung (.env)
 
 SeoBoy liest optional eine `.env` aus dem Arbeitsverzeichnis oder der Projektwurzel.
-Bereits gesetzte Umgebungsvariablen werden nicht überschrieben. Die Datei ist für lokale
-Pfade und optionale Datenquellen gedacht; Secrets gehören nicht hinein.
+Bereits gesetzte Umgebungsvariablen werden nicht überschrieben. Die Datei ist lokal und
+wird nicht versioniert; dort können auch API-Keys für lokale Läufe liegen. Niemals
+committen und niemals in `.env.example` eintragen.
 
 ```powershell
 Copy-Item .env.example .env
@@ -178,6 +179,8 @@ notepad .env
 | `SEOBOY_GSC_PROPERTY` | GSC-Property; sonst Start-URL mit abschließendem Slash |
 | `SEOBOY_GSC_TOKEN_STORE` | Pfad des persistenten OAuth-Token-Stores |
 | `SEOBOY_OPENSSL` | Optionaler OpenSSL-Pfad für die Service-Account-Signatur |
+| `SEOBOY_PSI_API_KEY` | API-Key für PageSpeed Insights und CrUX |
+| `SEOBOY_GEO_API_KEY` | DeepSeek-Key für GEO-Sampling; alternativ `DEEPSEEK_API_KEY` |
 | `SEOBOY_ENV_FILE` | Alternatives Env-File; muss vor dem Prozessstart gesetzt sein |
 
 Explizite CLI-Optionen haben Vorrang. `.env` ist in `.gitignore` und wird nicht
