@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.18.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.19.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -785,9 +785,35 @@ Ergebnisse sind `pass`, `finding`, `not_checked` oder `not_applicable`. Für
 `incomplete_link_graph`. Ausnahmen werden im Prüfergebnis gespeichert, unterdrücken aber
 nur die Maßnahme.
 
+## Fortschritt und externe Agenten
+
+Lange Läufe melden ihren Fortschritt auf **stderr**:
+
+```powershell
+seoboy run --progress human
+seoboy run --progress json --progress-interval 1
+```
+
+- `auto` (Default): human im Terminal, JSON bei Pipe/Agent.
+- `human`: lesbare Zeilen mit Phase, Zähler, Prozent und ETA.
+- `json`: JSONL für externe Agenten.
+- `off`: keine Fortschrittsausgabe.
+
+Beispiel:
+
+```json
+{"event":"progress","stage":"crawl","message":"Analysiere URLs","completed":12,"total":100,"unit":"URLs","percent":12.0,"elapsed_seconds":18.2,"eta_seconds":133.5,"eta":"2m 13s"}
+```
+
+Die ETA ist eine grobe Schätzung aus bisherigen Fortschritten. Sie ist bei
+unbekanntem URL-Bestand, langsameren Hosts oder Pausen entsprechend unsicher.
+Fortschritt wird gedrosselt, damit weder Terminal noch Agent unnötig geflutet werden.
+
 ## Berichte
 
-Ein Lauf schreibt in `reports/<datum>_<projekt-id>_<lauf-id>/`:
+Ein Lauf schreibt in `reports/<lokale-zeit>_<projekt-id>/`, zum Beispiel
+`reports/2026-11-20_13-42-10_aw-audio-de/`. Der frühere Hash/Run-ID-Suffix entfällt;
+bei einer Kollision im selben Projekt wird `-2`, `-3` usw. angehängt.
 
 | Datei | Inhalt |
 | --- | --- |

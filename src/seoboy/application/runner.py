@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+from typing import Any, Callable
 from urllib.parse import urlsplit
 
 from seoboy.gsc import importer as gsc
@@ -71,6 +72,14 @@ class BatchResult:
     config: ProjectConfig
     outcome: RunOutcome | None = None
     error: str | None = None
+
+
+Progress = Callable[[dict[str, Any]], None] | None
+
+
+def _progress(progress: Progress, stage: str, message: str, **extra: Any) -> None:
+    if progress is not None:
+        progress({"stage": stage, "message": message, **extra})
 
 
 def _open(config: ProjectConfig) -> sqlite3.Connection:
@@ -137,9 +146,14 @@ def _summary_message(status: str, results: list[RuleResult], actions: list[Actio
     )
 
 
-def run_project(config: ProjectConfig, gsc_dir: Path | None = None) -> RunOutcome:
+def run_project(
+    config: ProjectConfig,
+    gsc_dir: Path | None = None,
+    progress: Progress = None,
+) -> RunOutcome:
     if gsc_dir is not None and not gsc_dir.is_dir():
         raise RunnerError(f"GSC-Verzeichnis nicht gefunden: {gsc_dir}")
+    _progress(progress, "vorbereitung", "Projekt, Konfiguration und Datenbank vorbereiten")
     connection = _open(config)
     warnings: list[str] = []
     try:
@@ -176,7 +190,9 @@ def run_project(config: ProjectConfig, gsc_dir: Path | None = None) -> RunOutcom
                         f"{summary.metrics} Zeilen."
                     )
                 warnings.extend(summary.notes)
-                crawler = Crawler(connection, config, run_id, mode="crawl")
+                crawler = Crawler(
+                    connection, config, run_id, mode="crawl", progress=progress
+                )
                 try:
                     outcome = crawler.crawl()
                 except Exception as error:
@@ -196,8 +212,21 @@ def run_project(config: ProjectConfig, gsc_dir: Path | None = None) -> RunOutcom
                         ),
                         warnings=warnings,
                     )
+                _progress(
+                    progress,
+                    "analysis",
+                    "Regeln, Befunde und Maßnahmen auswerten",
+                )
                 status, report_dir, results, actions, _ = _finalize(
                     connection, config, run_id, outcome
+                )
+                _progress(
+                    progress,
+                    "reports",
+                    "Markdown- und CSV-Berichte schreiben",
+                    completed=1,
+                    total=1,
+                    unit="Schritt",
                 )
                 return RunOutcome(
                     run_id=run_id,
@@ -215,7 +244,10 @@ def run_project(config: ProjectConfig, gsc_dir: Path | None = None) -> RunOutcom
         connection.close()
 
 
-def resume_project(config: ProjectConfig, run_id: str) -> RunOutcome:
+def resume_project(
+    config: ProjectConfig, run_id: str, progress: Progress = None
+) -> RunOutcome:
+    _progress(progress, "vorbereitung", f"Lauf {run_id} zur Fortsetzung vorbereiten")
     connection = _open(config)
     try:
         with database_lock(config.database):
@@ -224,7 +256,9 @@ def resume_project(config: ProjectConfig, run_id: str) -> RunOutcome:
             except ResumeError:
                 raise
             prepare_resume(connection, run_id)
-            crawler = Crawler(connection, config, run_id, mode="crawl")
+            crawler = Crawler(
+                connection, config, run_id, mode="crawl", progress=progress
+            )
             try:
                 outcome = crawler.crawl()
             except Exception as error:
@@ -243,8 +277,21 @@ def resume_project(config: ProjectConfig, run_id: str) -> RunOutcome:
                         f"'seoboy run --resume {run_id}'."
                     ),
                 )
+            _progress(
+                progress,
+                "analysis",
+                "Regeln, Befunde und Maßnahmen auswerten",
+            )
             status, report_dir, results, actions, _ = _finalize(
                 connection, config, run_id, outcome
+            )
+            _progress(
+                progress,
+                "reports",
+                "Markdown- und CSV-Berichte schreiben",
+                completed=1,
+                total=1,
+                unit="Schritt",
             )
             return RunOutcome(
                 run_id=run_id,
@@ -259,7 +306,10 @@ def resume_project(config: ProjectConfig, run_id: str) -> RunOutcome:
         connection.close()
 
 
-def inspect_url(config: ProjectConfig, url: str) -> RunOutcome:
+def inspect_url(
+    config: ProjectConfig, url: str, progress: Progress = None
+) -> RunOutcome:
+    _progress(progress, "vorbereitung", f"Einzel-URL {url} vorbereiten")
     try:
         normalized = normalize_url(url, config.crawl.remove_query_params)
     except InvalidUrl as error:
@@ -278,7 +328,9 @@ def inspect_url(config: ProjectConfig, url: str) -> RunOutcome:
             )
             registry = UrlRegistry(connection, run_id, config.project_id, config)
             gsc.import_gsc_directory(connection, run_id, config, None, registry)
-            crawler = Crawler(connection, config, run_id, mode="inspect")
+            crawler = Crawler(
+                connection, config, run_id, mode="inspect", progress=progress
+            )
             try:
                 outcome = crawler.crawl()
             except Exception as error:
@@ -286,8 +338,17 @@ def inspect_url(config: ProjectConfig, url: str) -> RunOutcome:
                 raise RunnerError(
                     f"Prüfung von {normalized.url} fehlgeschlagen: {error}", run_id=run_id
                 ) from error
+            _progress(progress, "analysis", "Regeln und Befunde auswerten")
             status, report_dir, results, actions, _ = _finalize(
                 connection, config, run_id, outcome
+            )
+            _progress(
+                progress,
+                "reports",
+                "Bericht schreiben",
+                completed=1,
+                total=1,
+                unit="Schritt",
             )
             return RunOutcome(
                 run_id=run_id,

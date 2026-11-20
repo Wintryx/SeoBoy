@@ -69,7 +69,7 @@ class GscReportTests(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["status"], "common")
             self.assertEqual(rows[0]["clicks_delta"], "-5")
-            self.assertEqual(rows[0]["previous_run_id"], first_outcome.report_dir.name.rsplit("_", 1)[-1])
+            self.assertEqual(rows[0]["previous_run_id"], first_outcome.run_id)
 
     def test_page_only_gsc_writes_query_report_note(self):
         with tempfile.TemporaryDirectory() as tmp, FixtureSite() as site:

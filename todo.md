@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.18.0
+Stand: 20.11.2026, Version 0.19.0
 
 ## Priorisierung
 
@@ -28,6 +28,7 @@ Die nächsten Umsetzungsschritte mit Datenverträgen und Abnahmekriterien stehen
 | C4 | Manueller Maßnahmenstatus und Verlauf | Umsetzung und Wirkung im Tool nachhalten | **erledigt in 0.13.0** |
 | D1 | KI-Review des Gesamtaudits | Widersprüche, Datenlücken und Prioritätsfehler finden | **erledigt in 0.16.0** |
 | D2 | Keyword-Kannibalisierung | GSC- und On-Page-Evidenz statt bloßer URL-Zählung verbinden | **erledigt in 0.17.0** |
+| E1 | Fortschritt und lokale Report-Zeit | CLI/Agenten live informieren, Ordner lesbar machen | **erledigt in 0.19.0** |
 
 ## A – Direkter Buchungsnutzen
 
@@ -211,6 +212,18 @@ Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 - **Live:** aw-audio zeigt ein GSC-Paar für /hochzeit-dj/ und /dj-koeln/ auf Stufe B
   sowie ein schwaches Paar auf Stufe C; keine On-Page-Bestätigung.
 - Grenze: keine lizenzierte SERP-Überschneidung und keine Volltext-Embeddings.
+
+### E1 – Fortschritt und lokale Report-Zeit (erledigt)
+
+- **Umgesetzt:** `--progress auto|human|json|off` und `--progress-interval`.
+- **Umgesetzt:** JSONL-Ereignisse mit Phase, Zähler, Prozent, ETA und Zeitstempel.
+- **Umgesetzt:** Fortschritt für Vorbereitung, GSC, Crawl, Analyse, Berichte,
+  KI-Review und Abschluss; Rate-Limit verhindert Flutung.
+- **Umgesetzt:** Report-Ordner mit lokaler Zeit `YYYY-MM-DD_HH-MM-SS_projekt`.
+- **Umgesetzt:** Run-ID-Hash entfällt; Kollisionen werden mit `-2`, `-3` gelöst.
+- **Umgesetzt:** bestehende Reports werden über `manifest.json` gefunden.
+- Grenze: ETA ist eine Schätzung aus bisherigem Fortschritt; unbekannte URL-Zahlen
+  und langsame Hosts machen sie unsicher.
 
 ## Erledigt
 

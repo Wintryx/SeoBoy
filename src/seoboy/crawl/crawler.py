@@ -11,7 +11,7 @@ import secrets
 import sqlite3
 import threading
 import time
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 from xml.etree import ElementTree
 
 from seoboy.infrastructure import database
@@ -260,6 +260,7 @@ class Crawler:
         mode: Literal["crawl", "inspect"] = "crawl",
         client: HttpClient | None = None,
         runtime_seconds: float | None = None,
+        progress: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self.connection = connection
         self.config = config
@@ -289,11 +290,39 @@ class Crawler:
         self._pacer = RequestPacer(config.crawl.min_request_interval_ms / 1000.0)
         self._host_inflight: dict[str, int] = {}
         self._stop_reason_pending: str | None = None
+        self.progress = progress
+        self._last_progress_at = 0.0
+
+    def _progress(self, message: str, *, force: bool = False) -> None:
+        if self.progress is None:
+            return
+        now = time.monotonic()
+        if not force and now - self._last_progress_at < 0.8:
+            return
+        self._last_progress_at = now
+        row = self.connection.execute(
+            "SELECT COUNT(*) AS total, "
+            "SUM(CASE WHEN state = 'done' THEN 1 ELSE 0 END) AS done "
+            "FROM run_urls WHERE run_id = ?",
+            (self.run_id,),
+        ).fetchone()
+        total = max(self.max_urls, int(row["total"] or 0))
+        done = int(row["done"] or 0)
+        self.progress(
+            {
+                "stage": "crawl",
+                "message": message,
+                "completed": done,
+                "total": total,
+                "unit": "URLs",
+            }
+        )
 
     # ------------------------------------------------------------------ Run control
 
     def crawl(self) -> CrawlOutcome:
         self._normalize_interrupted()
+        self._progress("Crawl startet", force=True)
         executor = ThreadPoolExecutor(
             max_workers=self.max_workers, thread_name_prefix="seoboy-fetch"
         )
@@ -313,6 +342,7 @@ class Crawler:
                     tasks = self._collect_page_tasks()
                     if tasks:
                         self._run_page_tasks(tasks, executor)
+                    self._progress("Analysiere URLs")
                     if self._stop_reason_pending is not None:
                         reason = self._stop_reason_pending
                         self._stop_reason_pending = None

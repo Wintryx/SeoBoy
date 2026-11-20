@@ -23,7 +23,6 @@ from seoboy.shared.urls import relative_url
 from seoboy.shared.util import (
     excel_safe,
     format_local,
-    local_date_from_utc,
     parse_utc,
 )
 from seoboy.shared.version import TOOL_VERSION
@@ -398,6 +397,45 @@ def _safe_project(project_id: str) -> str:
     return cleaned or "project"
 
 
+def _report_stem(run: dict[str, Any]) -> str:
+    local = parse_utc(run["started_at"]).astimezone()
+    return f"{local:%Y-%m-%d_%H-%M-%S}_{_safe_project(run['project_id'])}"
+
+
+def _report_folder(base: Path, run: dict[str, Any]) -> Path:
+    stem = _report_stem(run)
+    for suffix in range(1, 1000):
+        name = stem if suffix == 1 else f"{stem}-{suffix}"
+        candidate = base / name
+        if not candidate.exists():
+            return candidate
+        manifest = candidate / "manifest.json"
+        try:
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if payload.get("run_id") == run["run_id"]:
+            return candidate
+    raise OSError(f"Kein freier Report-Ordner für {run['run_id']} gefunden.")
+
+
+def find_report_dir(config: ProjectConfig, run_id: str) -> Path | None:
+    """Find the report directory for a run by its manifest, including old names."""
+    if not config.reports_dir.is_dir():
+        return None
+    for candidate in config.reports_dir.iterdir():
+        if not candidate.is_dir():
+            continue
+        manifest = candidate / "manifest.json"
+        try:
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if payload.get("run_id") == run_id:
+            return candidate
+    return None
+
+
 def _write_csv(path: Path, header: list[str], rows: Iterable[Iterable[Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as stream:
@@ -422,8 +460,7 @@ def render_run_report(
     data = report.data
     run = data.run
     base_dir = Path(reports_dir) if reports_dir is not None else config.reports_dir
-    day = local_date_from_utc(run["started_at"])
-    folder = base_dir / f"{day.isoformat()}_{_safe_project(run['project_id'])}_{run_id}"
+    folder = find_report_dir(config, run_id) or _report_folder(base_dir, run)
     folder.mkdir(parents=True, exist_ok=True)
     raw = folder / "raw_data"
     raw.mkdir(parents=True, exist_ok=True)

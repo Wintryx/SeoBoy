@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.18.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.19.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -51,6 +51,7 @@ unnötiger Aufwand.
 | `src/seoboy/crawl/html_extract.py` | Titel, Beschreibung, H1, Wörter, Bilder, Schema, Links, Content-Terme |
 | `src/seoboy/crawl/rendering.py` | Playwright- oder Chrome/Edge-Renderer und DOM-Vergleich |
 | `src/seoboy/shared/urls.py` | URL-Normalisierung und Pfadmuster |
+| `src/seoboy/shared/progress.py` | Fortschrittsereignisse, JSONL und ETA |
 | `src/seoboy/gsc/importer.py` | GSC-Manifest, CSV-Import, UI-Aufbereiter |
 | `src/seoboy/gsc/api.py` | GSC-API, OAuth/Service-Account und URL Inspection |
 | `src/seoboy/gsc/oauth.py` | interaktiver Desktop-OAuth-Flow und Token-Store |
@@ -258,6 +259,10 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
 - Die Audit-Review nutzt standardmäßig Thinking disabled/none für zuverlässiges JSON;
   Reasoning-Stufen sind über .env oder CLI konfigurierbar.
 - Antworten sind Momentaufnahmen und keine Rankings.
+- Lange Läufe senden Fortschritt auf stderr; `--progress json` liefert JSONL
+  mit Phase, Zähler, Prozent und ETA für externe Agenten.
+- Report-Ordner verwenden lokale Zeit und keinen Run-ID-Hash; Kollisionen werden
+  mit einem numerischen Suffix aufgelöst.
 - Der GEO-Adapter und die KI-Review dürfen nur api.deepseek.com per HTTPS kontaktieren,
   keine Redirects folgen, keine Shell/Browser/Website/DB verändern und nur saubere
   Report-Ordner schreiben. Details stehen in SECURITY.md.

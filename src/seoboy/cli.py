@@ -49,7 +49,11 @@ from seoboy.ai.review import (
     run_ai_review,
     write_ai_review,
 )
-from seoboy.reporting.run_report import load_report_data, render_run_report
+from seoboy.reporting.run_report import (
+    find_report_dir,
+    load_report_data,
+    render_run_report,
+)
 from seoboy.infrastructure.env import load_env
 from seoboy.gsc.importer import GscError
 from seoboy.gsc.api import GscApiError
@@ -57,6 +61,7 @@ from seoboy.infrastructure.lock import LockError
 from seoboy.infrastructure.doctor import run_doctor
 from seoboy.infrastructure.update import UpdateError, apply_update, check_for_update
 from seoboy.application.runner import RunnerError
+from seoboy.shared.progress import ProgressReporter
 from seoboy.shared.version import __version__
 
 
@@ -79,6 +84,21 @@ def _env_flag(name: str, default: bool = False) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _add_progress_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--progress",
+        choices=["auto", "human", "json", "off"],
+        default="auto",
+        help="Fortschritt auf stderr: auto, human, json oder off",
+    )
+    parser.add_argument(
+        "--progress-interval",
+        type=float,
+        default=2.0,
+        help="Mindestabstand zwischen Fortschrittsmeldungen in Sekunden",
+    )
 
 
 def _parse_columns(value: str | None) -> dict[str, str] | None:
@@ -161,6 +181,7 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
         help="Zeitraum in Tagen, wenn kein Startdatum gesetzt ist (Standard: 28)",
     )
     run.add_argument("--resume", metavar="LAUF-ID", help="Pausierten Lauf fortsetzen")
+    _add_progress_options(run)
     run.add_argument(
         "--ai-review",
         action="store_true",
@@ -444,6 +465,7 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     inspect = commands.add_parser("inspect", help="Einzelne URL prüfen")
     inspect.add_argument("url", help="Zu prüfende URL")
     inspect.add_argument("--config", type=Path, default=default_config)
+    _add_progress_options(inspect)
 
     diff = commands.add_parser("diff", help="Zwei Läufe vergleichen")
     diff.add_argument("--base", required=True, metavar="LAUF-ID", help="Basislauf")
@@ -511,13 +533,21 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "run":
             config = _load(args.config)
+            reporter = ProgressReporter(args.progress, args.progress_interval)
+            reporter.emit(
+                stage="vorbereitung",
+                message=f"Projekt {config.project_id} vorbereiten",
+                force=True,
+            )
             if args.resume and (args.gsc_dir or args.gsc_credentials):
                 parser.error(
                     "--resume und die GSC-Optionen --gsc-dir/--gsc-credentials "
                     "schließen sich aus."
                 )
             if args.resume:
-                outcome = runner.resume_project(config, args.resume)
+                outcome = runner.resume_project(
+                    config, args.resume, progress=reporter.handle
+                )
             else:
                 gsc_value = args.gsc_dir
                 if gsc_value is None:
@@ -536,6 +566,11 @@ def main(argv: list[str] | None = None) -> int:
                         or os.environ.get("SEOBOY_GSC_CREDENTIALS")
                     )
                     if credential_value:
+                        reporter.emit(
+                            stage="gsc",
+                            message="GSC-Daten über die API abrufen",
+                            force=True,
+                        )
                         try:
                             credentials = gsc_api.load_credentials(credential_value)
                             start, end = _gsc_period(args, parser)
@@ -566,7 +601,9 @@ def main(argv: list[str] | None = None) -> int:
                                 temporary_gsc = None
                             gsc_dir = None
                 try:
-                    outcome = runner.run_project(config, gsc_dir)
+                    outcome = runner.run_project(
+                        config, gsc_dir, progress=reporter.handle
+                    )
                 finally:
                     if temporary_gsc is not None:
                         temporary_gsc.cleanup()
@@ -578,6 +615,11 @@ def main(argv: list[str] | None = None) -> int:
                         file=sys.stderr,
                     )
                 else:
+                    reporter.emit(
+                        stage="ai-review",
+                        message="Beratende KI-Review vorbereiten",
+                        force=True,
+                    )
                     review_connection = connect(config.database)
                     try:
                         review_outcome = run_ai_review(
@@ -594,6 +636,14 @@ def main(argv: list[str] | None = None) -> int:
                         )
                         review_path = write_ai_review(review_outcome)
                         runner.rerender_report(config, outcome.run_id)
+                        reporter.emit(
+                            stage="ai-review",
+                            message="KI-Review abgeschlossen",
+                            completed=1,
+                            total=1,
+                            unit="Schritt",
+                            force=True,
+                        )
                         print(f"KI-Review: {review_path}")
                     except (AIReviewError, OSError) as error:
                         print(f"Hinweis: KI-Review fehlgeschlagen: {error}", file=sys.stderr)
@@ -601,6 +651,11 @@ def main(argv: list[str] | None = None) -> int:
                         review_connection.close()
             for warning in outcome.warnings:
                 print(f"Hinweis: {warning}")
+            reporter.emit(
+                stage="fertig",
+                message=outcome.message,
+                force=True,
+            )
             print(outcome.message)
             if outcome.report_dir is not None:
                 print(f"Berichte: {outcome.report_dir}")
@@ -685,12 +740,7 @@ def main(argv: list[str] | None = None) -> int:
                         f"Hash {packet_hash(packet)[:16]}"
                     )
                     return 0
-                matches = [
-                    item
-                    for item in config.reports_dir.glob(f"*_{args.run}")
-                    if item.is_dir()
-                ]
-                report_dir = max(matches, key=lambda item: item.stat().st_mtime) if matches else None
+                report_dir = find_report_dir(config, args.run)
                 if report_dir is None:
                     report_dir = render_run_report(connection, config, args.run)
                 api_key = (
@@ -1090,7 +1140,13 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "inspect":
             config = _load(args.config)
-            outcome = runner.inspect_url(config, args.url)
+            reporter = ProgressReporter(args.progress, args.progress_interval)
+            outcome = runner.inspect_url(
+                config, args.url, progress=reporter.handle
+            )
+            reporter.emit(
+                stage="fertig", message=outcome.message, force=True
+            )
             print(outcome.message)
             if outcome.report_dir is not None:
                 print(f"Berichte: {outcome.report_dir}")
