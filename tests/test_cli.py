@@ -211,6 +211,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("127.0.0.1", report)
             self.assertIn("HTML-Seiten ausgewertet", report)
             self.assertTrue((folder / "raw_data" / "benchmark_pages.csv").is_file())
+            self.assertTrue((folder / "raw_data" / "benchmark_terms.csv").is_file())
             self.assertTrue((folder / "manifest.json").is_file())
 
     def test_benchmark_respects_competitor_robots(self):

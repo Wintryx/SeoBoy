@@ -62,6 +62,7 @@ class ExtractedPage:
     image_count: int = 0
     images_missing_alt: int = 0
     schema_types: tuple[str, ...] = ()
+    jsonld: tuple[str, ...] = ()
 
 
 def _directives(value: str | None) -> tuple[str, ...]:
@@ -320,4 +321,5 @@ def extract_page(
         image_count=parser.image_count,
         images_missing_alt=parser.images_missing_alt,
         schema_types=_schema_types(parser.jsonld_blocks),
+        jsonld=tuple(parser.jsonld_blocks),
     )

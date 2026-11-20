@@ -44,6 +44,8 @@ class PageMetric:
     images_missing_alt: int
     schema_types: tuple[str, ...]
     internal_links: int
+    title: str | None = None
+    h1: str | None = None
 
 
 @dataclass
@@ -226,6 +228,8 @@ def _metric(url: str, result: FetchResult) -> PageMetric:
         images_missing_alt=page.images_missing_alt,
         schema_types=page.schema_types,
         internal_links=len(page.links),
+        title=page.title,
+        h1=page.h1,
     )
 
 
@@ -362,6 +366,8 @@ def snapshot_from_run(data: RunData, label: str = "Eigene Seite") -> SiteSnapsho
                     else ()
                 ),
                 internal_links=int(signals.get("link_count", 0) or 0),
+                title=observation.title,
+                h1=str(signals.get("h1") or "") or None,
             )
         )
     if not has_metrics:

@@ -1,11 +1,21 @@
 import argparse
-from datetime import date
+from datetime import date, datetime
+import json
 import os
 from pathlib import Path
 import sqlite3
 import sys
 
+from seoboy.gsc import api as gsc_api
 from seoboy.gsc import importer as gsc_module
+from seoboy.crawl.rendering import RenderingError, render_report
+from seoboy.geo.audit import GeoError, audit_geo
+from seoboy.local_seo.audit import (
+    LocalSeoError,
+    audit_locations,
+    load_locations,
+    write_local_report,
+)
 from seoboy.application import runner
 from seoboy.infrastructure.config import ConfigError, init_config, load_config
 from seoboy.crawl.crawler import ResumeError
@@ -13,6 +23,7 @@ from seoboy.infrastructure.database import DatabaseError, migrate_database
 from seoboy.reporting.diff_report import DiffError
 from seoboy.infrastructure.env import load_env
 from seoboy.gsc.importer import GscError
+from seoboy.gsc.api import GscApiError
 from seoboy.infrastructure.lock import LockError
 from seoboy.infrastructure.update import UpdateError, apply_update, check_for_update
 from seoboy.application.runner import RunnerError
@@ -92,6 +103,57 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
         "--max-pages", type=int, default=20, help="Seiten je Wettbewerber (Standard: 20)"
     )
     benchmark.add_argument("--out", type=Path, help="Zielverzeichnis des Vergleichs")
+
+    gsc_fetch = commands.add_parser(
+        "gsc-fetch", help="GSC-Daten über die Search Console API laden"
+    )
+    gsc_fetch.add_argument("--property", required=True, help="GSC-Property")
+    gsc_fetch.add_argument("--start", required=True, type=_parse_date)
+    gsc_fetch.add_argument("--end", required=True, type=_parse_date)
+    gsc_fetch.add_argument("--out", required=True, type=Path)
+    gsc_fetch.add_argument("--credentials", type=Path)
+    gsc_fetch.add_argument("--search-type", default="web")
+    gsc_fetch.add_argument("--country", help="ISO-3-Ländercode, z. B. deu")
+    gsc_fetch.add_argument("--device", choices=["DESKTOP", "MOBILE", "TABLET"])
+    gsc_fetch.add_argument("--row-limit", type=int, default=25000)
+    gsc_fetch.add_argument("--max-rows", type=int, default=100000)
+
+    inspection = commands.add_parser(
+        "url-inspection", help="URL Inspection API für eine URL abfragen"
+    )
+    inspection.add_argument("--url", required=True)
+    inspection.add_argument("--property", required=True, help="GSC-Property")
+    inspection.add_argument("--credentials", type=Path)
+    inspection.add_argument("--out", type=Path)
+    inspection.add_argument("--language", default="de-DE")
+
+    geo = commands.add_parser(
+        "geo", help="GEO- und AI-Readiness beobachtbar prüfen"
+    )
+    geo.add_argument("--config", type=Path, default=default_config)
+    geo.add_argument("--out", type=Path)
+
+    local = commands.add_parser(
+        "local", help="Local-SEO- und NAP-Konsistenz für Standorte prüfen"
+    )
+    local.add_argument("--locations", type=Path, required=True)
+    local.add_argument("--out", type=Path)
+    local.add_argument("--timeout", type=float, default=15.0)
+    local.add_argument("--interval", type=float, default=0.5)
+
+    render = commands.add_parser(
+        "render", help="HTTP-Dokument und Browser-DOM mit Playwright vergleichen"
+    )
+    render.add_argument(
+        "--url", action="append", required=True, dest="urls", help="URL; mehrfach angebbar"
+    )
+    render.add_argument("--out", type=Path)
+    render.add_argument("--timeout-ms", type=int, default=15000)
+    render.add_argument(
+        "--wait-until",
+        choices=["load", "domcontentloaded", "networkidle", "commit"],
+        default="networkidle",
+    )
 
     update = commands.add_parser(
         "update", help="SeoBoy-CLI aus dem Git-Checkout aktualisieren"
@@ -207,6 +269,103 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"[{label}] Berichte: {outcome.report_dir}")
                 exit_code = max(exit_code, outcome.exit_code)
             return exit_code
+        if args.command == "geo":
+            config = _load(args.config)
+            try:
+                folder = audit_geo(config, args.out)
+            except GeoError as error:
+                print(f"SeoBoy: {error}", file=sys.stderr)
+                return 2
+            print(f"GEO-Bericht geschrieben: {folder}")
+            return 0
+        if args.command == "local":
+            try:
+                locations = load_locations(args.locations)
+                results = audit_locations(
+                    locations,
+                    timeout=args.timeout,
+                    interval_seconds=args.interval,
+                )
+                folder = args.out or (
+                    Path("reports")
+                    / f"local_{datetime.now().astimezone():%Y%m%dT%H%M%S}"
+                )
+                write_local_report(results, folder)
+            except LocalSeoError as error:
+                print(f"SeoBoy: {error}", file=sys.stderr)
+                return 2
+            print(f"Local-SEO-Bericht geschrieben: {folder}")
+            return 0
+        if args.command == "render":
+            if len(args.urls) > 10:
+                parser.error("render unterstützt höchstens 10 URLs pro Aufruf.")
+            if args.timeout_ms < 1000:
+                parser.error("--timeout-ms muss mindestens 1000 sein.")
+            folder = args.out or (
+                Path("reports")
+                / f"rendering_{datetime.now().astimezone():%Y%m%dT%H%M%S}"
+            )
+            try:
+                render_report(
+                    args.urls,
+                    out=folder,
+                    timeout_ms=args.timeout_ms,
+                    wait_until=args.wait_until,
+                )
+            except RenderingError as error:
+                print(f"SeoBoy: {error}", file=sys.stderr)
+                return 2
+            print(f"Rendering-Vergleich geschrieben: {folder}")
+            return 0
+        if args.command == "gsc-fetch":
+            credentials = gsc_api.load_credentials(args.credentials)
+            summary = gsc_api.fetch_to_directory(
+                credentials,
+                args.property,
+                args.start,
+                args.end,
+                args.out,
+                search_type=args.search_type,
+                country=args.country,
+                device=args.device,
+                row_limit=args.row_limit,
+                max_rows=args.max_rows,
+            )
+            print(f"GSC-Daten geschrieben: {summary.folder}")
+            print(
+                f"{summary.pages} Seitenzeilen, {summary.queries} Seiten-/Suchanfrage-Zeilen "
+                f"für {summary.period_start} bis {summary.period_end}"
+            )
+            print("Weiter mit: seoboy run --gsc-dir <verzeichnis>")
+            return 0
+        if args.command == "url-inspection":
+            credentials = gsc_api.load_credentials(args.credentials)
+            result = gsc_api.inspect_url(
+                credentials,
+                args.property,
+                args.url,
+                language_code=args.language,
+            )
+            folder = args.out or (
+                Path("reports")
+                / f"url-inspection_{datetime.now().astimezone():%Y%m%dT%H%M%S}"
+            )
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / "inspection.json").write_text(
+                json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            (folder / "00_URL_INSPECTION.md").write_text(
+                gsc_api.inspection_markdown(
+                    result, property_name=args.property, inspection_url=args.url
+                ).rstrip()
+                + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            print(f"URL-Inspection geschrieben: {folder}")
+            return 0
         if args.command == "update":
             if args.no_install and not args.apply:
                 parser.error("--no-install ist nur mit --apply zulässig.")
@@ -314,7 +473,16 @@ def main(argv: list[str] | None = None) -> int:
     except argparse.ArgumentTypeError as error:
         print(f"SeoBoy: {error}", file=sys.stderr)
         return 2
-    except (ConfigError, GscError, RunnerError, ResumeError, DiffError, DatabaseError, LockError) as error:
+    except (
+        ConfigError,
+        GscError,
+        GscApiError,
+        RunnerError,
+        ResumeError,
+        DiffError,
+        DatabaseError,
+        LockError,
+    ) as error:
         print(f"SeoBoy: {error}", file=sys.stderr)
         return 2
     except (OSError, sqlite3.Error) as error:

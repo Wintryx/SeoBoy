@@ -29,7 +29,11 @@ from seoboy.reporting.diff_report import DiffError, render_diff_report
 from seoboy.infrastructure.lock import database_lock
 from seoboy.crawl.registry import UrlRegistry
 from seoboy.reporting.run_report import render_run_report
-from seoboy.benchmark.report import render_benchmark, write_benchmark_csv
+from seoboy.benchmark.report import (
+    render_benchmark,
+    write_benchmark_csv,
+    write_benchmark_terms_csv,
+)
 from seoboy.benchmark.sampler import (
     BenchmarkError,
     SiteSnapshot,
@@ -438,6 +442,7 @@ def run_benchmark(
         report.rstrip() + "\n", encoding="utf-8", newline="\n"
     )
     write_benchmark_csv(raw / "benchmark_pages.csv", [own, *snapshots])
+    write_benchmark_terms_csv(raw / "benchmark_terms.csv", own, snapshots)
     manifest = {
         "kind": "competitor_benchmark",
         "project_id": config.project_id,
@@ -448,6 +453,7 @@ def run_benchmark(
         "files": [
             "04_COMPETITOR_BENCHMARK.md",
             "raw_data/benchmark_pages.csv",
+            "raw_data/benchmark_terms.csv",
         ],
         "sites": [
             {

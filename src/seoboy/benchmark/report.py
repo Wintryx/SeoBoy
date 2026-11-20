@@ -2,12 +2,61 @@
 
 from __future__ import annotations
 
+from collections import Counter
 import csv
 from pathlib import Path
+import re
 from typing import Any, Iterable
 
 from seoboy.benchmark.sampler import PageMetric, SiteSnapshot
 from seoboy.shared.util import excel_safe
+
+_STOPWORDS = {
+    "aber", "alle", "alles", "auch", "auf", "aus", "bei", "beim", "bin", "bis",
+    "bist", "dann", "das", "dass", "dem", "den", "der", "des", "die", "dies",
+    "doch", "dort", "ein", "eine", "einem", "einen", "einer", "eines", "für",
+    "hat", "hier", "ich", "im", "in", "ist", "ja", "kann", "mit", "nach",
+    "nicht", "noch", "nur", "oder", "ohne", "sich", "sie", "sind", "so",
+    "über", "und", "uns", "von", "vor", "war", "was", "wenn", "wer", "wie",
+    "wird", "wo", "zu", "zum", "zur", "the", "and", "for", "with", "from",
+    "this", "that", "your", "you", "our", "are", "was", "were", "has", "have",
+    "not", "but", "all", "can", "will", "more", "one", "two", "der", "die",
+    "kreis", "buchen",
+}
+
+
+def _terms(snapshot: SiteSnapshot) -> Counter[str]:
+    counts: Counter[str] = Counter()
+    for page in snapshot.pages:
+        if not page.has_content:
+            continue
+        text = " ".join(value for value in (page.title, page.h1) if value)
+        for term in re.findall(r"[A-Za-zÄÖÜäöüß0-9]{4,}", text.casefold()):
+            if term not in _STOPWORDS and not term.isdigit():
+                counts[term] += 1
+    return counts
+
+
+def content_gaps(
+    own: SiteSnapshot, competitors: list[SiteSnapshot]
+) -> list[tuple[str, int, list[int]]]:
+    own_terms = _terms(own)
+    competitor_terms = [_terms(snapshot) for snapshot in competitors]
+    brand_terms = {
+        term
+        for snapshot in competitors
+        for term in re.findall(r"[A-Za-zÄÖÜäöüß0-9]{4,}", snapshot.label.casefold())
+    }
+    candidates: list[tuple[int, str, list[int]]] = []
+    for term in {term for counts in competitor_terms for term in counts}:
+        if own_terms[term] > 0 or term in brand_terms:
+            continue
+        frequencies = [counts[term] for counts in competitor_terms]
+        score = sum(frequencies)
+        if score:
+            candidates.append((score, term, frequencies))
+    candidates.sort(key=lambda item: (-item[0], item[1]))
+    return [(term, own_terms[term], frequencies) for _, term, frequencies in candidates[:20]]
 
 
 def _content_pages(snapshot: SiteSnapshot) -> list[PageMetric]:
@@ -156,11 +205,34 @@ def render_benchmark(
                 lines.append(f"- … {len(issues) - 10} weitere laut CSV")
         lines.append("")
 
+    gaps = content_gaps(own, competitors)
+    if gaps:
+        lines.extend(
+            [
+                "## Begriffskandidaten aus Titeln und H1",
+                "",
+                "Begriffe, die in den Wettbewerber-Titeln/-H1 vorkommen, in der eigenen "
+                "Stichprobe aber nicht. Das ist eine oberflächliche Kandidatenliste, "
+                "keine TF-IDF- oder Suchintentionsanalyse.",
+                "",
+                "| Begriff | Eigene Seite | " + " | ".join(snapshot.label for snapshot in competitors) + " |",
+                "| --- | ---: | " + " | ".join("---:" for _ in competitors) + " |",
+            ]
+        )
+        for term, own_count, frequencies in gaps:
+            lines.append(
+                f"| {term} | {own_count} | "
+                + " | ".join(str(value) for value in frequencies)
+                + " |"
+            )
+        lines.append("")
+
     lines.extend(
         [
             "## Rohdaten",
             "",
             "- [Seitenmetriken](raw_data/benchmark_pages.csv)",
+            "- [Begriffskandidaten](raw_data/benchmark_terms.csv)",
             "",
             "Die Stichprobe ersetzt kein vollständiges Audit der Wettbewerbsseiten. "
             "Sie dient der relativen Einordnung von Inhaltstiefe, Metadaten, H1-Struktur "
@@ -178,6 +250,20 @@ def _write_csv(path: Path, header: list[str], rows: Iterable[Iterable[Any]]) -> 
         writer.writerow(header)
         for row in rows:
             writer.writerow([excel_safe(value) for value in row])
+
+
+def write_benchmark_terms_csv(
+    path: Path, own: SiteSnapshot, competitors: list[SiteSnapshot]
+) -> None:
+    gaps = content_gaps(own, competitors)
+    _write_csv(
+        path,
+        ["term", "own_count", *[snapshot.label for snapshot in competitors]],
+        [
+            [term, own_count, *frequencies]
+            for term, own_count, frequencies in gaps
+        ],
+    )
 
 
 def write_benchmark_csv(path: Path, snapshots: list[SiteSnapshot]) -> None:
