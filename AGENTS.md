@@ -6,8 +6,9 @@ Spezifikationen, ersetzt sie aber nicht.
 ## Zweck und Status
 
 SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist der MVP
-0.2.1: HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
-GSC-CSV-Import, Maßnahmenpriorisierung, Markdown-/CSV-Berichte und Audit-Diff.
+0.3.0: paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
+GSC-CSV-Import, Maßnahmenpriorisierung, Markdown-/CSV-Berichte, Audit-Diff und ein
+Batch-Modus für mehrere Projekte.
 
 ## Nicht verhandelbare Regeln
 
@@ -39,7 +40,7 @@ unnötiger Aufwand.
 | --- | --- |
 | `src/seoboy/cli.py` | Kommandozeile, Exitcodes, lokale `.env`-Defaults |
 | `src/seoboy/infrastructure/config.py` | Konfiguration, Profile, Ausnahmen, Kanonisierung |
-| `src/seoboy/crawl/crawler.py` | Warteschlange, Budgets, Retries, Sitemaps, Resume |
+| `src/seoboy/crawl/crawler.py` | Worker-Pool, Budgets, Retries, Sitemaps, Resume |
 | `src/seoboy/crawl/registry.py` | URL-, Discovery- und Jobregistrierung |
 | `src/seoboy/crawl/http_client.py` | HTTP ohne Redirect-Verfolgung, begrenzte Reads |
 | `src/seoboy/shared/robots.py` | robots.txt-Parser und Googlebot-Auswertung |
@@ -52,7 +53,7 @@ unnötiger Aufwand.
 | `src/seoboy/analysis/actions.py` | Maßnahmenbildung und Priorisierung |
 | `src/seoboy/reporting/run_report.py` | Markdown-/CSV-Berichte und Manifest |
 | `src/seoboy/reporting/diff_report.py` | Vergleich zweier Läufe |
-| `src/seoboy/application/runner.py` | Ablaufsteuerung run/resume/inspect/report/diff |
+| `src/seoboy/application/runner.py` | run/resume/inspect/report/diff und Batch |
 | `src/seoboy/infrastructure/env.py` | Optionales Laden von `.env` |
 | `migrations/001_initial.sql` | SQLite-Schema |
 
@@ -83,8 +84,8 @@ Die Tests benötigen nur die Standardbibliothek und PyYAML. Im Quellbaum kann
 
 Die Suite deckt URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter/-Import, Crawl, Limits, Retries, Redirect-Schleifen, Resume,
-Einzel-URL-Prüfung, Ausnahmen, Berichte und Diff ab. Sie nutzt einen lokalen
-HTTP-Server und benötigt kein Internet.
+Parallelität, Batch-Läufe, Einzel-URL-Prüfung, Ausnahmen, Berichte und Diff ab. Sie
+nutzt einen lokalen HTTP-Server und benötigt kein Internet.
 
 ## Lokale .env
 
@@ -105,8 +106,8 @@ niemals committed werden. Explizite CLI-Optionen haben Vorrang.
 Nur nach ausdrücklicher Freigabe und ausschließlich lesend. Empfohlen:
 
 1. Eigene lokale Konfiguration unter `local/<projekt>/seoboy.yaml` anlegen.
-2. `max_urls`, `max_requests`, `max_runtime_seconds` und
-   `min_request_interval_ms` konservativ setzen (z. B. 100 URLs, 1.500 ms).
+2. `max_urls`, `max_requests`, `max_runtime_seconds`, `max_workers` und
+   `min_request_interval_ms` konservativ setzen (z. B. 100 URLs, 8 Worker, 1.500 ms).
 3. Medien- und Admin-Pfade über `exclude_paths` ausschließen, wenn sie das Budget
    verbrauchen würden.
 4. Läufe nicht wiederholen, wenn der Zweck erreicht ist. Keine Lasttests.
@@ -171,8 +172,12 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
 
 ## Bekannte MVP-Grenzen
 
-- Crawler sequenziell; `max_parallel_per_host` wird noch nicht parallel genutzt.
 - robots.txt- und Sitemap-Abrufe folgen keinen Weiterleitungen.
+- Batch-Läufe benötigen getrennte SQLite-Datenbanken; derselbe DB-Pfad wird abgelehnt.
+- Dieselbe Website (Host und Port) wird im Batch nicht parallel geprüft.
+- Batch importiert keine GSC-Daten; GSC bleibt der Einzellauf mit `--gsc-dir`.
+- Der Batch nutzt Threads. Bei sehr großen, CPU-lastigen Batches wäre ein Prozess-Pool
+  die nächste Ausbaustufe.
 - Das Analyse-Read-Model liest SQLite direkt. Bei mehreren Bounded Contexts sollte es
   in Repository und Read-Model getrennt werden.
 - Der GSC-Importer nutzt die Crawl-Registry. Eine spätere API-Anbindung sollte über einen

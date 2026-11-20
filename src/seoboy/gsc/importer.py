@@ -575,12 +575,10 @@ def import_gsc_directory(
             metadata["mapping_issues"].extend(issues)
             for key in counts:
                 counts[key] += file_counts.get(key, 0)
+            metric_rows: list[tuple[Any, ...]] = []
             for row in item.parsed.rows:
                 status_value, url_id = mapping.get(row.source_page, ("unmatched", None))
-                connection.execute(
-                    "INSERT INTO gsc_metrics(run_id, dataset_id, source_page, query, url_id, "
-                    "mapping_status, clicks, impressions, position) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                metric_rows.append(
                     (
                         run_id,
                         dataset_id,
@@ -591,9 +589,16 @@ def import_gsc_directory(
                         row.clicks,
                         row.impressions,
                         row.position,
-                    ),
+                    )
                 )
-                metrics += 1
+            if metric_rows:
+                connection.executemany(
+                    "INSERT INTO gsc_metrics(run_id, dataset_id, source_page, query, url_id, "
+                    "mapping_status, clicks, impressions, position) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    metric_rows,
+                )
+            metrics += len(metric_rows)
             datasets += 1
         metadata["mapping"] = counts
         metadata["error_count"] = len(errors)

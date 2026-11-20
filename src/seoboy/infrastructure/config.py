@@ -33,6 +33,7 @@ CRAWL_KEYS = {
     "max_requests",
     "max_runtime_seconds",
     "max_parallel_per_host",
+    "max_workers",
     "min_request_interval_ms",
     "max_redirects",
     "request_timeout_seconds",
@@ -65,6 +66,7 @@ class CrawlSettings:
     max_requests: int = 1500
     max_runtime_seconds: float = 900.0
     max_parallel_per_host: int = 2
+    max_workers: int = 8
     min_request_interval_ms: int = 500
     max_redirects: int = 10
     request_timeout_seconds: float = 15.0
@@ -193,6 +195,7 @@ class ProjectConfig:
                 "max_requests": self.crawl.max_requests,
                 "max_runtime_seconds": self.crawl.max_runtime_seconds,
                 "max_parallel_per_host": self.crawl.max_parallel_per_host,
+                "max_workers": self.crawl.max_workers,
                 "min_request_interval_ms": self.crawl.min_request_interval_ms,
                 "max_redirects": self.crawl.max_redirects,
                 "request_timeout_seconds": self.crawl.request_timeout_seconds,
@@ -318,6 +321,11 @@ def _parse_crawl(value: Any) -> CrawlSettings:
         max_parallel_per_host=_integer(
             data.get("max_parallel_per_host", defaults.max_parallel_per_host),
             "crawl.max_parallel_per_host",
+            1,
+        ),
+        max_workers=_integer(
+            data.get("max_workers", defaults.max_workers),
+            "crawl.max_workers",
             1,
         ),
         min_request_interval_ms=_integer(
@@ -593,6 +601,7 @@ def init_config(path: Path | str, url: str) -> None:
             "max_requests": 1500,
             "max_runtime_seconds": 900,
             "max_parallel_per_host": 2,
+            "max_workers": 8,
             "min_request_interval_ms": 500,
             "max_redirects": 10,
             "request_timeout_seconds": 15,

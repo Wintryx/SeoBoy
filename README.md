@@ -5,13 +5,15 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: MVP 0.2.1 mit einer Website pro Projekt, HTTP-Crawl, optionalem
-GSC-CSV-Import, technischen Kernregeln, Markdown-/CSV-Berichten und Audit-Diff. Der
-Audit arbeitet ausschließlich lesend.
+Aktueller Stand: MVP 0.3.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+optionalem GSC-CSV-Import, technischen Kernregeln, Markdown-/CSV-Berichten, Audit-Diff
+und einem Batch-Modus für mehrere Projekte. Der Audit arbeitet ausschließlich lesend.
 
 ## Funktionsumfang
 
 - HTTP-Crawl mit robots.txt, XML-Sitemaps, Sitemap-Indizes, internen Links und Redirects
+- Parallele Seitenabrufe mit globalem Worker-Pool, Host-Limit und Mindestabstand
+- Batch-Modus für mehrere Projekte mit getrennten SQLite-Datenbanken
 - URL-Normalisierung mit stabilen Identitäten und nachvollziehbaren Herkunftsarten
 - Budgets für URLs, Anfragen und Laufzeit; Wiederaufnahme nach Pause oder Abbruch
 - Wiederholungen bei 429, 5xx und Timeouts, inklusive Retry-After
@@ -74,6 +76,7 @@ seoboy init --url https://example.de/
 seoboy migrate
 seoboy run
 seoboy run --gsc-dir .\imports\gsc
+seoboy batch --config .\projekt-a\seoboy.yaml --config .\projekt-b\seoboy.yaml --workers 2
 seoboy inspect https://example.de/leistungen/
 seoboy diff --base <lauf-id> --target <lauf-id>
 seoboy report --run <lauf-id>
@@ -100,6 +103,7 @@ crawl:
   max_requests: 1500
   max_runtime_seconds: 900
   max_parallel_per_host: 2
+  max_workers: 8
   min_request_interval_ms: 500
   max_redirects: 10
   request_timeout_seconds: 15
@@ -152,8 +156,9 @@ Erläuterungen:
 - `rule_exceptions` unterdrücken nur die Maßnahme. Der Befund bleibt mit Ausnahme im
   Prüfergebnis sichtbar; das Ablaufdatum gilt bis einschließlich des Kalendertags.
 - `remove_query_params` entfernt passende Query-Parameter vollständig (Muster mit `*`).
-- `max_parallel_per_host` wird angenommen, aber der MVP arbeitet sequenziell; pro Host
-  läuft höchstens eine Anfrage gleichzeitig.
+- `max_workers` begrenzt die parallelen Seitenabrufe im gesamten Lauf.
+  `max_parallel_per_host` begrenzt zusätzlich die gleichzeitigen Anfragen pro Host.
+  `min_request_interval_ms` erzwingt den Mindestabstand zwischen Startzeitpunkten.
 - Die GSC-Schwellen sind optional und entsprechen den Vorgaben aus Teil 2.
 
 ## Crawl-Verhalten
@@ -170,6 +175,9 @@ Erläuterungen:
   Googlebot-Auswertung für `INDEX_ROBOTS_BLOCKED` erfolgt getrennt aus derselben Datei.
   Ein nicht erreichbarer robots.txt-Abruf wird als `unreachable` gespeichert; die
   Googlebot-Prüfung bleibt dann ungeprüft.
+- **Parallelität:** Bis zu `max_workers` Seiten werden gleichzeitig abgerufen,
+  pro Host höchstens `max_parallel_per_host`. SQLite-Schreibvorgänge bleiben auf dem
+  Hauptthread serialisiert; dadurch bleiben Transaktionen und IDs konsistent.
 - **Budgets:** `max_urls` zählt zugelassene Seiten, `max_requests` jede reservierte
   Anfrage einschließlich Hilfsabrufen, Redirects und Wiederholungen. Sitemap- und
   robots-Abrufe belegen keinen Seitenplatz. Bei ausgeschöpftem Gesamtbudget endet der
@@ -183,6 +191,32 @@ Erläuterungen:
   Versuche bleiben im Anfragebudget und werden erneut eingeplant.
 - **Berichte:** Ein pausierter Lauf erzeugt noch keine Berichte. Nach dem Abschluss
   schreibt `run` die Berichte; `report --run <lauf-id>` kann sie erneut rendern.
+
+## Parallelität und Batch
+
+Seitenabrufe laufen in einem Thread-Pool. Die Netzwerk-Ebene arbeitet parallel, während
+SQLite-Schreibvorgänge, Budgetprüfung und Zustandsübergänge auf dem Hauptthread bleiben.
+So bleiben Transaktionen, IDs und Resume-Semantik deterministisch.
+
+```yaml
+crawl:
+  max_workers: 8              # globale parallele Seitenabrufe
+  max_parallel_per_host: 2    # gleichzeitige Anfragen pro Host
+  min_request_interval_ms: 500
+```
+
+Für mehrere Projekte gibt es `batch`:
+
+```powershell
+seoboy batch --config .\projekt-a\seoboy.yaml --config .\projekt-b\seoboy.yaml --workers 2
+```
+
+Jede Konfiguration benötigt eine **eigene SQLite-Datenbank**; derselbe Datenbankpfad wird
+im Batch bewusst abgelehnt, weil SQLite nur einen Schreiber gleichzeitig zulässt. Auch
+dieselbe Website (Host und Port) wird nicht parallel geprüft, um die Last pro Server zu
+begrenzen. GSC-Daten werden im Batch nicht importiert; dafür bleibt `run --gsc-dir` der
+richtige Weg. Der Batch-Exitcode ist `0`, wenn alle Läufe erfolgreich sind, `1` bei
+mindestens einem Teillauf und `2` bei einem Fehler.
 
 ## Google Search Console
 
@@ -298,8 +332,9 @@ dann als behoben, wenn die Quellseite im Ziellauf vollständig ausgewertet wurde
 
 Die Tests decken URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter und -Import, den vollständigen Crawl, Limits, Wiederholungen,
-Redirect-Schleifen, Wiederaufnahme, Einzel-URL-Prüfung, Ausnahmen, Berichte und den
-Lauf-Vergleich ab. Sie verwenden einen lokalen HTTP-Server und benötigen kein Netzwerk.
+Redirect-Schleifen, Wiederaufnahme, Parallelität, Batch-Läufe, Einzel-URL-Prüfung,
+Ausnahmen, Berichte und den Lauf-Vergleich ab. Sie verwenden einen lokalen HTTP-Server
+und benötigen kein Netzwerk.
 
 ## Projektstruktur
 

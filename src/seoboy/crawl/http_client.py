@@ -8,6 +8,7 @@ import http.client
 import re
 import socket
 import ssl
+import threading
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -126,7 +127,15 @@ class HttpClient:
     def __init__(self, timeout: float = 15.0, max_bytes: int = 5_000_000) -> None:
         self.timeout = timeout
         self.max_bytes = max_bytes
-        self._opener = urllib.request.build_opener(_NoRedirect())
+        # Opener sind nicht für die gemeinsame Nutzung durch Threads gedacht.
+        self._local = threading.local()
+
+    def _opener(self) -> urllib.request.OpenerDirector:
+        opener = getattr(self._local, "opener", None)
+        if opener is None:
+            opener = urllib.request.build_opener(_NoRedirect())
+            self._local.opener = opener
+        return opener
 
     def fetch(self, url: str) -> FetchResult:
         request = urllib.request.Request(
@@ -142,7 +151,7 @@ class HttpClient:
         )
         started = time.monotonic()
         try:
-            with self._opener.open(request, timeout=self.timeout) as response:
+            with self._opener().open(request, timeout=self.timeout) as response:
                 status = response.status
                 headers = {key.lower(): value for key, value in response.headers.items()}
                 header_items = tuple(response.headers.items())

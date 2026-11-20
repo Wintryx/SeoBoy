@@ -37,6 +37,9 @@ class FixtureSite:
     def __init__(self) -> None:
         self.routes: dict[str, Route] = {}
         self.requests: Counter = Counter()
+        self.active_count = 0
+        self.max_active = 0
+        self._active_lock = threading.Lock()
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
         self.base = ""
@@ -74,6 +77,16 @@ class FixtureSite:
                 return
 
             def do_GET(self) -> None:  # noqa: N802
+                with site._active_lock:
+                    site.active_count += 1
+                    site.max_active = max(site.max_active, site.active_count)
+                try:
+                    self._handle()
+                finally:
+                    with site._active_lock:
+                        site.active_count -= 1
+
+            def _handle(self) -> None:
                 path = urlsplit(self.path).path
                 site.requests[path] += 1
                 route = site.routes.get(path)

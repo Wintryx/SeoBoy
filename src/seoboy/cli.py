@@ -65,6 +65,17 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     run.add_argument("--gsc-dir", type=Path, help="Verzeichnis mit GSC-Manifest und CSV-Dateien")
     run.add_argument("--resume", metavar="LAUF-ID", help="Pausierten Lauf fortsetzen")
 
+    batch = commands.add_parser("batch", help="Mehrere Projekte parallel prüfen")
+    batch.add_argument(
+        "--config",
+        type=Path,
+        action="append",
+        required=True,
+        dest="configs",
+        help="Projektkonfiguration; mehrfach angebbar",
+    )
+    batch.add_argument("--workers", type=int, default=4, help="Parallele Projekte (Standard: 4)")
+
     inspect = commands.add_parser("inspect", help="Einzelne URL prüfen")
     inspect.add_argument("url", help="Zu prüfende URL")
     inspect.add_argument("--config", type=Path, default=default_config)
@@ -138,6 +149,30 @@ def main(argv: list[str] | None = None) -> int:
             if outcome.report_dir is not None:
                 print(f"Berichte: {outcome.report_dir}")
             return outcome.exit_code
+        if args.command == "batch":
+            if args.workers < 1:
+                parser.error("--workers muss mindestens 1 sein.")
+            configs = [_load(path) for path in args.configs]
+            results = runner.run_projects(configs, workers=args.workers)
+            exit_code = 0
+            for result in results:
+                label = result.config.project_id
+                if result.error is not None:
+                    print(f"[{label}] Fehler: {result.error}", file=sys.stderr)
+                    exit_code = 2
+                    continue
+                outcome = result.outcome
+                if outcome is None:
+                    print(f"[{label}] Fehler: kein Ergebnis", file=sys.stderr)
+                    exit_code = 2
+                    continue
+                for warning in outcome.warnings:
+                    print(f"[{label}] Hinweis: {warning}")
+                print(f"[{label}] {outcome.message}")
+                if outcome.report_dir is not None:
+                    print(f"[{label}] Berichte: {outcome.report_dir}")
+                exit_code = max(exit_code, outcome.exit_code)
+            return exit_code
         if args.command == "inspect":
             config = _load(args.config)
             outcome = runner.inspect_url(config, args.url)

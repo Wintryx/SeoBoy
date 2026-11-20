@@ -272,6 +272,68 @@ class EndToEndTests(unittest.TestCase):
             finally:
                 connection.close()
 
+    def test_parallel_page_fetching(self):
+        with FixtureSite() as site:
+            site.add("/robots.txt", body="User-agent: *\nAllow: /\n", content_type="text/plain")
+            links = "".join(f"<a href='/p{i}/'>P{i}</a>" for i in range(6))
+            site.add_html("/", "Start", links)
+            for index in range(6):
+                site.add(f"/p{index}/", body=html(f"Seite {index}"), delay=0.15)
+            config = make_config(
+                self.directory,
+                site.base,
+                crawl={
+                    "max_workers": 4,
+                    "max_parallel_per_host": 4,
+                    "min_request_interval_ms": 0,
+                },
+            )
+            outcome = runner.run_project(config)
+            self.assertEqual(outcome.status, "completed")
+            self.assertGreaterEqual(site.max_active, 2)
+            connection = connect(config.database)
+            try:
+                checked = connection.execute(
+                    "SELECT COUNT(*) FROM run_urls r JOIN crawl_jobs j "
+                    "ON j.url_id = r.url_id AND j.purpose = 'page' "
+                    "WHERE r.run_id = ? AND r.state = 'finished'",
+                    (outcome.run_id,),
+                ).fetchone()[0]
+                self.assertEqual(checked, 7)
+            finally:
+                connection.close()
+
+    def test_parallelism_is_limited_per_host(self):
+        with FixtureSite() as site:
+            site.add("/robots.txt", body="User-agent: *\nAllow: /\n", content_type="text/plain")
+            links = "".join(f"<a href='/p{i}/'>P{i}</a>" for i in range(8))
+            site.add_html("/", "Start", links)
+            for index in range(8):
+                site.add(f"/p{index}/", body=html(f"Seite {index}"), delay=0.12)
+            config = make_config(
+                self.directory,
+                site.base,
+                crawl={
+                    "max_workers": 4,
+                    "max_parallel_per_host": 2,
+                    "min_request_interval_ms": 0,
+                },
+            )
+            outcome = runner.run_project(config)
+            self.assertEqual(outcome.status, "completed")
+            self.assertLessEqual(site.max_active, 2)
+            connection = connect(config.database)
+            try:
+                checked = connection.execute(
+                    "SELECT COUNT(*) FROM run_urls r JOIN crawl_jobs j "
+                    "ON j.url_id = r.url_id AND j.purpose = 'page' "
+                    "WHERE r.run_id = ? AND r.state = 'finished'",
+                    (outcome.run_id,),
+                ).fetchone()[0]
+                self.assertEqual(checked, 9)
+            finally:
+                connection.close()
+
     def test_url_limit_creates_partial_run(self):
         with FixtureSite() as site:
             site.add("/robots.txt", body="User-agent: *\nAllow: /\n", content_type="text/plain")

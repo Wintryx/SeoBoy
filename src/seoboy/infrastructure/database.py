@@ -42,6 +42,13 @@ def connect(path: Path | str) -> sqlite3.Connection:
     connection.execute("PRAGMA busy_timeout = 10000")
     connection.execute("PRAGMA journal_mode = WAL")
     connection.execute("PRAGMA synchronous = NORMAL")
+    # Lokale Analyse: größerer Cache und In-Memory-Temporaries.
+    connection.execute("PRAGMA cache_size = -32000")
+    connection.execute("PRAGMA temp_store = MEMORY")
+    try:
+        connection.execute("PRAGMA mmap_size = 268435456")
+    except sqlite3.OperationalError:
+        pass
     return connection
 
 

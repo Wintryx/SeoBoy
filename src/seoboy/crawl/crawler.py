@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import gzip
 import json
 import secrets
 import sqlite3
+import threading
 import time
 from typing import Any, Literal
 from xml.etree import ElementTree
@@ -72,6 +74,32 @@ class Reservation:
 class CrawlOutcome:
     status: Literal["complete", "partial", "paused"]
     stop_reason: str | None
+
+
+@dataclass(frozen=True)
+class PageTask:
+    job: sqlite3.Row
+    reservation: Reservation
+    url: str
+    origin: str
+    delay: float
+
+
+class RequestPacer:
+    """Startet Anfragen pro Origin im konfigurierten Mindestabstand."""
+
+    def __init__(self, interval_seconds: float) -> None:
+        self.interval = max(0.0, interval_seconds)
+        self._lock = threading.Lock()
+        self._next_start: dict[str, float] = {}
+
+    def reserve(self, origin: str) -> float:
+        now = time.monotonic()
+        with self._lock:
+            allowed = max(now, self._next_start.get(origin, now))
+            self._next_start[origin] = allowed + self.interval
+            delay = max(0.0, allowed - now)
+        return delay
 
 
 def _new_run_id() -> str:
@@ -254,33 +282,116 @@ class Crawler:
             raise ValueError(f"Lauf '{run_id}' wurde nicht gefunden.")
         self.max_urls = int(row["max_urls"])
         self.max_requests = int(row["max_requests"])
+        self.max_workers = 1 if mode == "inspect" else max(1, config.crawl.max_workers)
+        self.max_parallel_per_host = max(1, config.crawl.max_parallel_per_host)
         self.follow_links = mode == "crawl"
         self.fetch_sitemaps = mode == "crawl"
+        self._pacer = RequestPacer(config.crawl.min_request_interval_ms / 1000.0)
+        self._host_inflight: dict[str, int] = {}
+        self._stop_reason_pending: str | None = None
 
     # ------------------------------------------------------------------ Laufsteuerung
 
     def crawl(self) -> CrawlOutcome:
         self._normalize_interrupted()
-        while True:
-            if self._runtime_exceeded():
-                return self._pause()
-            try:
-                if self._pending_jobs() == 0:
-                    return self._finish()
-                if self._requests_used() >= self.max_requests:
-                    return self._stop_partial(STOP_REQUEST_LIMIT)
-                job = self._next_job()
-                if job is None:
+        executor = ThreadPoolExecutor(
+            max_workers=self.max_workers, thread_name_prefix="seoboy-fetch"
+        )
+        try:
+            while True:
+                if self._runtime_exceeded():
+                    return self._pause()
+                try:
+                    if self._pending_jobs() == 0:
+                        return self._finish()
+                    if self._requests_used() >= self.max_requests:
+                        return self._stop_partial(STOP_REQUEST_LIMIT)
+                    auxiliary = self._next_job((ROBOTS, SITEMAP))
+                    if auxiliary is not None:
+                        self._dispatch(auxiliary)
+                        continue
+                    tasks = self._collect_page_tasks()
+                    if tasks:
+                        self._run_page_tasks(tasks, executor)
+                    if self._stop_reason_pending is not None:
+                        reason = self._stop_reason_pending
+                        self._stop_reason_pending = None
+                        return self._stop_partial(reason)
+                    if tasks:
+                        continue
                     if self._pending_jobs() == 0:
                         return self._finish()
                     self._sleep_until_next()
-                    continue
-                self._dispatch(job)
+                except RequestLimitReached:
+                    return self._stop_partial(STOP_REQUEST_LIMIT)
+                except UrlLimitReached:
+                    return self._stop_partial(STOP_URL_LIMIT)
+        finally:
+            executor.shutdown(wait=True)
+
+    def _collect_page_tasks(self) -> list[PageTask]:
+        now = iso_utc()
+        rows = self.connection.execute(
+            "SELECT j.job_id, j.url_id, j.purpose, j.priority, j.not_before_at, "
+            "u.normalized_url FROM crawl_jobs j "
+            "JOIN urls u ON u.url_id = j.url_id "
+            "WHERE j.run_id = ? AND j.state = 'pending' AND j.purpose = 'page' "
+            "AND j.not_before_at <= ? "
+            "ORDER BY j.priority ASC, u.normalized_url ASC, j.job_id ASC LIMIT ?",
+            (self.run_id, now, max(20, self.max_workers * 8)),
+        ).fetchall()
+        tasks: list[PageTask] = []
+        for job in rows:
+            if len(tasks) >= self.max_workers:
+                break
+            try:
+                origin = origin_of(job["normalized_url"])
+            except InvalidUrl:
+                continue
+            if self._host_inflight.get(origin, 0) >= self.max_parallel_per_host:
+                continue
+            try:
+                task = self._prepare_page(job)
             except RequestLimitReached:
-                return self._stop_partial(STOP_REQUEST_LIMIT)
+                self._stop_reason_pending = STOP_REQUEST_LIMIT
+                break
             except UrlLimitReached:
-                return self._stop_partial(STOP_URL_LIMIT)
-        # unerreichbar
+                self._stop_reason_pending = STOP_URL_LIMIT
+                break
+            if task is None:
+                continue
+            self._host_inflight[origin] = self._host_inflight.get(origin, 0) + 1
+            tasks.append(task)
+        return tasks
+
+    def _run_page_tasks(
+        self, tasks: list[PageTask], executor: ThreadPoolExecutor
+    ) -> None:
+        futures = {executor.submit(self._fetch_page, task): task for task in tasks}
+        for future in as_completed(futures):
+            task = futures[future]
+            try:
+                try:
+                    result = future.result()
+                except Exception as error:
+                    result = FetchResult(
+                        url=task.url,
+                        status_code=None,
+                        error_code="network_error",
+                        error_detail=str(error)[:500],
+                    )
+                self._store_page(task.job, task.reservation, result)
+            finally:
+                remaining = self._host_inflight.get(task.origin, 1) - 1
+                if remaining <= 0:
+                    self._host_inflight.pop(task.origin, None)
+                else:
+                    self._host_inflight[task.origin] = remaining
+
+    def _fetch_page(self, task: PageTask) -> FetchResult:
+        if task.delay > 0:
+            time.sleep(task.delay)
+        return self.client.fetch(task.url)
 
     def _runtime_exceeded(self) -> bool:
         return (time.monotonic() - self._started) >= self.runtime_seconds
@@ -354,16 +465,20 @@ class Crawler:
             )
         return CrawlOutcome("partial", reason)
 
-    def _next_job(self) -> sqlite3.Row | None:
+    def _next_job(self, purposes: tuple[str, ...] | None = None) -> sqlite3.Row | None:
         now = iso_utc()
-        rows = self.connection.execute(
+        query = (
             "SELECT j.job_id, j.url_id, j.purpose, j.priority, j.not_before_at, "
             "u.normalized_url FROM crawl_jobs j "
             "JOIN urls u ON u.url_id = j.url_id "
-            "WHERE j.run_id = ? AND j.state = 'pending' AND j.not_before_at <= ? "
-            "ORDER BY j.priority ASC, u.normalized_url ASC, j.job_id ASC LIMIT 100",
-            (self.run_id, now),
-        ).fetchall()
+            "WHERE j.run_id = ? AND j.state = 'pending' AND j.not_before_at <= ?"
+        )
+        parameters: list[Any] = [self.run_id, now]
+        if purposes:
+            query += " AND j.purpose IN (" + ", ".join("?" for _ in purposes) + ")"
+            parameters.extend(purposes)
+        query += " ORDER BY j.priority ASC, u.normalized_url ASC, j.job_id ASC LIMIT 100"
+        rows = self.connection.execute(query, parameters).fetchall()
         for row in rows:
             try:
                 origin = origin_of(row["normalized_url"])
@@ -399,9 +514,7 @@ class Crawler:
     # ------------------------------------------------------------------ Dispatch
 
     def _dispatch(self, job: sqlite3.Row) -> None:
-        if job["purpose"] == PAGE:
-            self._dispatch_page(job)
-        elif job["purpose"] == ROBOTS:
+        if job["purpose"] == ROBOTS:
             self._dispatch_robots(job)
         elif job["purpose"] == SITEMAP:
             self._dispatch_sitemap(job)
@@ -723,7 +836,7 @@ class Crawler:
 
     # ------------------------------------------------------------------ Seiten
 
-    def _dispatch_page(self, job: sqlite3.Row) -> None:
+    def _prepare_page(self, job: sqlite3.Row) -> PageTask | None:
         run_url = self.connection.execute(
             "SELECT state, admitted_at, click_depth FROM run_urls "
             "WHERE run_id = ? AND url_id = ?",
@@ -732,18 +845,18 @@ class Crawler:
         if run_url is None:
             with transaction(self.connection):
                 self._mark_job(job["job_id"], "skipped", "url_missing")
-            return
+            return None
         if run_url["state"] in {"blocked", "excluded", "deferred"}:
             with transaction(self.connection):
                 self._mark_job(job["job_id"], "skipped", run_url["state"])
-            return
+            return None
 
         origin = origin_of(job["normalized_url"])
         origin_row = self._get_origin(origin)
         if origin_row["robots_state"] == "unknown":
             robots_state = self._ensure_robots_job(origin, job["url_id"])
             if robots_state in {"pending", "in_flight"}:
-                return
+                return None
             origin_row = self._get_origin(origin)
         if origin_row["robots_state"] == "available":
             robots = self._robots_file(origin)
@@ -754,13 +867,19 @@ class Crawler:
                     with transaction(self.connection):
                         self._mark_url(job["url_id"], "blocked", "robots_disallowed")
                         self._mark_job(job["job_id"], "skipped", "robots_disallowed")
-                    return
+                    return None
 
         reservation = self._reserve(job, admit_page=True)
         if reservation is None:
-            return
-        result = self.client.fetch(job["normalized_url"])
-        self._store_page(job, reservation, result)
+            return None
+        delay = self._pacer.reserve(origin)
+        return PageTask(
+            job=job,
+            reservation=reservation,
+            url=job["normalized_url"],
+            origin=origin,
+            delay=delay,
+        )
 
     def _store_page(
         self, job: sqlite3.Row, reservation: Reservation, result: FetchResult

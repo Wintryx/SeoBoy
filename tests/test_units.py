@@ -173,6 +173,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(profile.business_value, "high")
         self.assertIs(profile.expected_indexable, True)
         self.assertEqual(profile.source, "start_default")
+        self.assertEqual(self.config.crawl.max_workers, 8)
 
     def test_other_defaults(self):
         profile = self.config.profile_for("https://example.de/unbekannt/")

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 import sqlite3
+from urllib.parse import urlsplit
 
 from seoboy.gsc import importer as gsc
 from seoboy.analysis.actions import ActionDraft, build_actions, persist_actions
@@ -44,6 +47,13 @@ class RunOutcome:
     warnings: list[str] = field(default_factory=list)
     findings: int = 0
     actions: int = 0
+
+
+@dataclass
+class BatchResult:
+    config: ProjectConfig
+    outcome: RunOutcome | None = None
+    error: str | None = None
 
 
 def _open(config: ProjectConfig) -> sqlite3.Connection:
@@ -297,6 +307,52 @@ def rerender_report(config: ProjectConfig, run_id: str) -> Path:
             raise RunnerError(f"Berichte konnten nicht geschrieben werden: {error}") from error
     finally:
         connection.close()
+
+
+def run_projects(
+    configs: list[ProjectConfig], *, workers: int = 4
+) -> list[BatchResult]:
+    """Führt mehrere Projekte parallel aus; jede Konfiguration braucht eine eigene DB."""
+    if not configs:
+        return []
+    databases = [os.path.normcase(str(config.database.resolve())) for config in configs]
+    if len(set(databases)) != len(databases):
+        raise RunnerError(
+            "Für den Batch-Modus benötigt jede Konfiguration eine eigene Datenbank. "
+            "Mehrere Läufe in derselben SQLite-Datenbank werden nicht parallel gestartet."
+        )
+    site_owner: dict[tuple[str, int], int] = {}
+    for index, config in enumerate(configs):
+        parts = urlsplit(config.start_url)
+        host = (parts.hostname or "").casefold()
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+        key = (host, port)
+        owner = site_owner.get(key)
+        if owner is not None and owner != index:
+            raise RunnerError(
+                "Batch-Konfigurationen dürfen nicht gleichzeitig dieselbe Website "
+                f"prüfen ({host}:{port}). Bitte die Läufe nacheinander starten."
+            )
+        site_owner[key] = index
+    limit = max(1, min(int(workers), len(configs)))
+    results: list[BatchResult | None] = [None] * len(configs)
+    with ThreadPoolExecutor(max_workers=limit, thread_name_prefix="seoboy-project") as executor:
+        futures = {
+            executor.submit(run_project, config, None): index
+            for index, config in enumerate(configs)
+        }
+        for future in as_completed(futures):
+            index = futures[future]
+            config = configs[index]
+            try:
+                outcome = future.result()
+                results[index] = BatchResult(config=config, outcome=outcome)
+            except Exception as error:
+                results[index] = BatchResult(
+                    config=config,
+                    error=f"{type(error).__name__}: {error}",
+                )
+    return [result for result in results if result is not None]
 
 
 def compare_runs(config: ProjectConfig, base_run_id: str, target_run_id: str) -> Path:

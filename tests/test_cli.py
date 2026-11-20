@@ -113,6 +113,58 @@ class CliTests(unittest.TestCase):
         self.assertIn("Manifest aktualisiert", output)
         self.assertTrue((self.directory / "out" / "manifest.json").is_file())
 
+    def test_batch_runs_two_projects(self):
+        with FixtureSite() as site_a, FixtureSite() as site_b:
+            for site, label in ((site_a, "A"), (site_b, "B")):
+                site.add(
+                    "/robots.txt",
+                    body="User-agent: *\nAllow: /\n",
+                    content_type="text/plain",
+                )
+                site.add_html("/", f"Start {label}")
+            dir_a = self.directory / "a"
+            dir_b = self.directory / "b"
+            dir_a.mkdir()
+            dir_b.mkdir()
+            config_a = make_config(dir_a, site_a.base, project_id="batch-a")
+            config_b = make_config(dir_b, site_b.base, project_id="batch-b")
+            code, output, error = run_cli(
+                [
+                    "batch",
+                    "--config", str(config_a.config_path),
+                    "--config", str(config_b.config_path),
+                    "--workers", "2",
+                ]
+            )
+            self.assertEqual(code, 0, error)
+            self.assertIn("[batch-a]", output)
+            self.assertIn("[batch-b]", output)
+            for config in (config_a, config_b):
+                connection = connect(config.database)
+                try:
+                    status = connection.execute("SELECT status FROM runs").fetchone()[0]
+                    self.assertEqual(status, "completed")
+                finally:
+                    connection.close()
+
+    def test_batch_rejects_shared_database(self):
+        config_a = make_config(self.directory, "https://example.de/", project_id="a")
+        config_b = make_config(
+            self.directory, "https://example.de/", project_id="b", file_name="b.yaml"
+        )
+        with self.assertRaises(runner.RunnerError):
+            runner.run_projects([config_a, config_b])
+
+    def test_batch_rejects_shared_host(self):
+        dir_a = self.directory / "a"
+        dir_b = self.directory / "b"
+        dir_a.mkdir()
+        dir_b.mkdir()
+        config_a = make_config(dir_a, "https://example.de/", project_id="a")
+        config_b = make_config(dir_b, "https://example.de/", project_id="b")
+        with self.assertRaises(runner.RunnerError):
+            runner.run_projects([config_a, config_b])
+
     def test_resume_with_changed_config_exits_2(self):
         with FixtureSite() as site:
             site.add("/robots.txt", body="User-agent: *\nAllow: /\n", content_type="text/plain")
