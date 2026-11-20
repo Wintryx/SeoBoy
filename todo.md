@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.7.0
+Stand: 20.11.2026, Version 0.8.0
 
 ## Priorisierung
 
@@ -9,8 +9,9 @@ Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand �
 | Rang | Vorhaben | Nutzen | Status |
 | --- | --- | --- | --- |
 | A1 | GSC: Suchanfrage × Zielseite, Chancen und Mehr-URL-Fälle | Zeigt, welche Seiten für welche Nachfrage tatsächlich Klicks bringen | **erledigt in 0.7.0** |
-| A2 | GSC standardmäßig in jeden Lauf, inklusive OAuth und Token-Ablage | Macht A1 zur Routine statt zum manuellen Export | offen |
-| A3 | Maßnahmen mit gemeinsamer Ursache bündeln | CTA und 404 werden als eine Baustelle sichtbar; weniger Reportrauschen | offen |
+| A2 | GSC standardmäßig in jeden Lauf (Service-Account) | Macht A1 zur Routine statt zum manuellen Export | **erledigt in 0.8.0** |
+| A2b | Interaktiver OAuth-Flow und persistente Token-Ablage | Komfort für Nutzer ohne Service-Account | offen |
+| A3 | Maßnahmen mit gemeinsamer Ursache bündeln | CTA und 404 werden als eine Baustelle sichtbar; weniger Reportrauschen | **erledigt in 0.8.0** |
 | A4 | GSC-Query-/Seitenverlauf über mehrere Läufe | Messbar machen, ob eine Änderung Klicks und Anfragen verbessert | offen |
 | B1 | URL Inspection in SQLite und Audit-Diff | Indexstatus und Canonical-Abweichungen dauerhaft nachvollziehen | offen |
 | B2 | TF-IDF-Content-Gaps aus dem Hauptinhalt | Inhaltliche Lücken belastbarer priorisieren als Titel/H1-Listen | offen |
@@ -34,23 +35,27 @@ Der Bericht enthält stärkste Zielseiten und Suchanfragen, Query-/Seitenpaare,
 Chancen auf Position 5–20 mit CTR unter 5 Prozent, Mehr-URL-Fälle und Klickveränderungen
 zum Vorzeitraum. Nur eindeutig zugeordnete Zeilen werden ausgewertet.
 
-### A2 – GSC automatisieren
+### A2 – GSC automatisieren (Service-Account erledigt)
 
-- Interaktiver Desktop-OAuth-Flow mit lokalem Redirect
-- Verschlüsselte oder OS-geschützte Token-Ablage
-- Automatische Token-Erneuerung, Retry/Backoff und Quotenbegrenzung
-- API-Ergebnis direkt an den Lauf übergeben, ohne manuellen CSV-Zwischenschritt
-- Abgleich der API-Abdeckung mit dem CSV-Import
+- **Umgesetzt:** `seoboy run` holt GSC-Daten bei konfigurierten Zugangsdaten automatisch,
+  importiert sie in einen temporären Ordner und schreibt danach den Query-/Zielseitenbericht.
+- **Umgesetzt:** OAuth-Refresh-Token und Service-Account-JSON; Service-Account-Signatur
+  über cryptography oder OpenSSL; Access-Token-Cache nur im Arbeitsspeicher.
+- **Umgesetzt:** Property-, Zeitraum- und Tagesoptionen; `SEOBOY_GSC_CREDENTIALS` und
+  `SEOBOY_GSC_PROPERTY`.
+- Offen: interaktiver Desktop-OAuth-Flow, persistente Token-Ablage, Retry/Backoff und
+  Quotenbegrenzung, Abgleich der API-Abdeckung mit dem CSV-Import.
 
-Nutzen: Der wichtigste Bericht wird nur zur Routine, wenn er nicht von einem manuellen Export abhängt.
+Nutzen: Der wichtigste Bericht wird zur Routine, ohne manuellen Export.
 
-### A3 – Ursachen bündeln
+### A3 – Ursachen bündeln (erledigt)
 
-- `LINK_BROKEN` und `HTTP_UNAVAILABLE` auf dasselbe Ziel als eine Maßnahme darstellen
-- Im Maßnahmenplan Quelle, Ziel und Folgefehler gemeinsam erklären
-- Die getrennten Regel-IDs für Diagnose und Historie beibehalten
+- Der Maßnahmenplan markiert bei einem defekten Link das zusätzliche
+  `HTTP_UNAVAILABLE`-Ergebnis als **gemeinsame Ursache**.
+- Die Executive Summary zählt die durch dieselbe Ziel-URL verbundenen Befunde.
+- Die getrennten Regel-IDs bleiben für Diagnose und Historie erhalten.
 
-Nutzen: Ein defekter Button ist eine Baustelle, nicht drei. Das reduziert falsche Priorisierung.
+Nutzen: Ein defekter Button ist eine Baustelle, nicht drei.
 
 ### A4 – Verlauf und Wirkung
 

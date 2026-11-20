@@ -5,7 +5,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.7.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.8.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -416,8 +416,37 @@ seoboy url-inspection `
 ```
 
 Ein interaktiver OAuth-Browserflow und die dauerhafte Token-Ablage sind noch offen;
-aktuell wird ein vorhandener Refresh-Token verwendet. Zugangsdaten gehören nicht ins
-Repository und nicht in Berichte.
+aktuell wird ein vorhandener Refresh-Token oder ein Service-Account verwendet.
+Zugangsdaten gehören nicht ins Repository und nicht in Berichte.
+
+### Service-Account und automatischer GSC-Lauf
+
+Neben OAuth-Refresh-Tokens wird eine Google-Service-Account-JSON unterstützt, wie sie
+unter anderem im Aw-audio-Projekt liegt. Die Datei bleibt außerhalb des Repositories.
+
+Für die Service-Account-Signatur wird entweder das optionale Paket cryptography oder
+OpenSSL benötigt:
+
+    .\.venv\Scripts\python.exe -m pip install -e ".[gsc-service-account]"
+
+Auf Windows wird ein vorhandenes OpenSSL aus Git automatisch gefunden; alternativ kann
+der Pfad über SEOBOY_OPENSSL gesetzt werden.
+
+Ein Lauf kann die GSC-Daten direkt holen und danach crawlen:
+
+    seoboy run `
+      --gsc-credentials C:\secrets\google-service-account.json `
+      --gsc-property https://example.de/ `
+      --gsc-start 2026-10-01 --gsc-end 2026-10-31
+
+Ohne Start-/Enddatum werden die letzten 28 Tage bis gestern verwendet; --gsc-days ändert
+den Zeitraum. SEOBOY_GSC_CREDENTIALS und SEOBOY_GSC_PROPERTY können die Optionen ersetzen.
+--gsc-dir hat Vorrang vor dem automatischen Abruf. Bei --resume wird kein GSC-Abruf
+ausgeführt.
+
+Der Access-Token wird nur im Arbeitsspeicher zwischengespeichert, nie in Berichte oder
+Logs geschrieben. Eine dauerhafte Token-Ablage und ein interaktiver OAuth-Browserflow
+bleiben offen.
 
 ### Playwright-Rendering
 

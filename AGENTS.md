@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.7.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.8.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -111,6 +111,10 @@ gesetzte Umgebungsvariablen werden nicht überschrieben.
 | --- | --- |
 | `SEOBOY_CONFIG` | Standardpfad für `--config` |
 | `SEOBOY_GSC_DIR` | Standard für `seoboy run --gsc-dir`; bei `--resume` ignoriert |
+| `SEOBOY_GSC_CREDENTIALS` | OAuth- oder Service-Account-JSON für den automatischen GSC-Abruf |
+| `SEOBOY_GSC_PROPERTY` | GSC-Property; sonst Start-URL mit abschließendem Slash |
+| `SEOBOY_GSC_ACCESS_TOKEN` | Kurzlebiger Access-Token für Tests/Notfälle; nicht speichern |
+| `SEOBOY_OPENSSL` | Optionaler OpenSSL-Pfad für die Service-Account-Signatur |
 | `SEOBOY_ENV_FILE` | Alternatives Env-File; muss vor dem Prozessstart gesetzt sein |
 
 `.env.example` ist die dokumentierte Vorlage. `.env` selbst ist in `.gitignore` und darf
@@ -206,8 +210,8 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   in Repository und Read-Model getrennt werden.
 - Der GSC-Importer nutzt die Crawl-Registry. Die API-Anbindung liegt getrennt in
   `gsc/api.py`.
-- GSC-API und URL Inspection benötigen einen vorhandenen Refresh-Token; ein interaktiver
-  OAuth-Browserflow und die persistente Token-Ablage sind offen.
+- GSC-API und URL Inspection akzeptieren Refresh-Token oder Service-Account; ein
+  interaktiver OAuth-Browserflow und die persistente Token-Ablage sind offen.
 - Playwright ist optional und benötigt eine separate Browser-Installation.
 - Local SEO und GEO sind beobachtungsbasiert; externe Unternehmensprofile, lokale
   Suchergebnisse und KI-Antwortstichproben sind noch nicht angebunden.
