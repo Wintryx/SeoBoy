@@ -153,6 +153,8 @@ Erläuterungen:
   Lauf als Teillauf mit `deferred`-URLs.
 - **Wiederholungen:** bis zu drei Versuche bei 429, 5xx und Timeouts. Retry-After und die
   Mindestpause pro Origin bleiben über Pausen hinweg gespeichert.
+- **Hilfsabrufe:** robots.txt und Sitemap-Dokumente werden im MVP ohne Verfolgung von
+  Weiterleitungen geladen. Ein Redirect wird als nicht verfügbar bzw. ungültig ausgewiesen.
 - **Wiederaufnahme:** `run --resume <lauf-id>` prüft Konfigurationshash und Versionen.
   Bei Abweichung endet der Aufruf mit Code 2, ohne den Lauf zu verändern. Unterbrochene
   Versuche bleiben im Anfragebudget und werden erneut eingeplant.
