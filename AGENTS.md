@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.16.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.16.1:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -238,7 +238,8 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
 - URL Inspection ist auf API-Kontingente begrenzt; der Batch-Modus prüft standardmäßig
   höchstens 10 und maximal 100 wichtige URLs.
 - Playwright ist optional; ohne Playwright kann `render --engine chrome` einen
-  vorhandenen Chrome/Edge ohne HTTP-Status nutzen.
+  vorhandenen Chrome/Edge ohne HTTP-Status nutzen. Node.js ist für diesen
+  Chrome-Headless-Fallback nicht erforderlich.
 - Local SEO prüft konfigurierte Profil-URLs per Textabgleich und importiert lokale
   Messergebnisse aus CSV; offizielle Profil-APIs und Suchmaschinenabfragen sind nicht
   angebunden.

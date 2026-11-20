@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.16.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.16.1 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -568,20 +568,22 @@ bleibt nur im Arbeitsspeicher und wird nie in Berichte oder Logs geschrieben.
 
 ### Playwright-Rendering
 
-Rendering ist optional und benötigt Playwright plus Chromium:
+Rendering ist optional. Für einen DOM-Snapshot genügt ein vorhandener Chrome/Edge;
+Playwright und Node.js sind dafür nicht nötig:
 
 ```powershell
-.\venv\Scripts\python.exe -m pip install -e ".[rendering]"
-.\venv\Scripts\playwright.exe install chromium
 seoboy render --url https://example.de/ --url https://example.de/leistungen/
-seoboy render --browser firefox --url https://example.de/
 seoboy render --engine chrome --url https://example.de/
 ```
 
+`--engine auto` nutzt Playwright nur, wenn es installiert ist, sonst den lokalen
+Chrome/Edge-Headless-Browser. `--engine chrome` erzwingt den Chrome/Edge-Weg.
+
 Der Bericht vergleicht HTTP-Dokument und Browser-DOM (Titel, Beschreibung, H1, Wörter,
-Links, Schema). `--engine auto` nutzt Playwright, falls installiert, sonst einen
-vorhandenen Chrome/Edge-Headless-Browser. Der Chrome-Fallback liefert keinen
-verlässlichen HTTP-Status; das wird im Bericht ausgewiesen.
+Links, Schema). Der Chrome-Fallback liefert keinen verlässlichen HTTP-Status und keine
+Response-Header; das wird im Bericht ausgewiesen. Für Screenshots, Netzwerk-Matrix,
+Firefox/WebKit, Performance-Messwerte und CI ist Playwright plus separate
+Browser-Installation weiterhin die bessere Wahl.
 
 ### Local SEO
 

@@ -284,6 +284,7 @@ def render_report(
         "generated_at": iso_utc(),
         "browser": browser_name,
         "engine": engine,
+        "used_engines": sorted({item.engine for item in rendered}),
         "urls": urls,
         "rendered": [
             {
@@ -335,6 +336,15 @@ def render_report(
         f"**Erzeugt:** {datetime.now().astimezone():%Y-%m-%d %H:%M %Z}",
         f"**URLs:** {len(urls)}",
         f"**Wartezeit:** {wait_until}, Timeout {timeout_ms} ms",
+        f"**Verwendete Engine:** {', '.join(sorted({item.engine for item in rendered}))}",
+        *(
+            [
+                "**Hinweis:** Chrome/Edge-Fallback. HTTP-Status und Response-Header",
+                "sind dabei nicht zuverlässig verfügbar; Node.js/Playwright werden nicht benötigt.",
+            ]
+            if any(item.engine == "chrome" for item in rendered)
+            else []
+        ),
         "",
         "| URL | HTTP | Browser | Titel geändert | Meta geändert | H1 geändert | Wörter Δ | Links Δ | Hinweis |",
         "| --- | ---: | ---: | :---: | :---: | :---: | ---: | ---: | --- |",
