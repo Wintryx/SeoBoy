@@ -294,6 +294,20 @@ Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 - Grenze: nur DeepSeek-Stichproben, keine Aussage über ChatGPT/Gemini/Perplexity/AI Overviews.
 - Offen: geplante Wiederholungen und weitere Plattformadapter.
 
+## Offene Punkte und externe Voraussetzungen
+
+| Punkt | Status | Voraussetzung |
+| --- | --- | --- |
+| Zeitpläne, E-Mail-/Webhook-Alarme, 24/7-Erreichbarkeit | **offen, blockiert** | dauerhaft laufender Host oder externer Scheduler; der lokale Monitor ist nur manuell/extern anstoßbar |
+| Echte SERP-Daten für Stufe 3 | **offen, blockiert** | lizenzierter SERP-Anbieter oder berechtigte Exporte; keine erfundenen Rankings |
+| Live-Inhaltsvergleich der Wettbewerber | **offen** | Seiten-/Hostbudget, robots.txt und kuratierte Rollen; noch nicht implementiert |
+| Backlink-Liveprüfung und bestätigte Entfernung | **offen** | ausgewählte Quellenliste, Hostbudget und Quellprüfung; kein Outreach |
+| Weitere KI-Plattformen (ChatGPT, Gemini, Perplexity, AI Overviews) | **offen, blockiert** | jeweilige API/Exportrechte; DeepSeek ist die einzige Quelle |
+| Geplante GEO-Wiederholungen | **offen, blockiert** | API-Budget und Scheduler; `geo-trends` liest nur vorhandene Läufe |
+| Echte AW-Audio-Keyword- und Backlinkdaten | **offen, blockiert** | `keywords.yaml`, SERP-/Backlink-CSV und Freigabe der Datenquellen |
+| Manuelle Rollen-/Review-Überschreibung | **offen** | CLI/UI für Rollen und Review-Status; Import schützt bereits lokale Review-Felder |
+| Filter nach Befundstatus/Priorität in der HTML-Übersicht | **offen** | derzeit nur Seitentyp und HTTP-Status |
+
 ## Erledigt
 
 - Lokaler HTTP-Crawl mit robots.txt, Sitemaps, Redirects, Budgets und Resume
