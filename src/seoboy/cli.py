@@ -25,6 +25,7 @@ from seoboy.infrastructure.env import load_env
 from seoboy.gsc.importer import GscError
 from seoboy.gsc.api import GscApiError
 from seoboy.infrastructure.lock import LockError
+from seoboy.infrastructure.doctor import run_doctor
 from seoboy.infrastructure.update import UpdateError, apply_update, check_for_update
 from seoboy.application.runner import RunnerError
 from seoboy.shared.version import __version__
@@ -103,6 +104,14 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
         "--max-pages", type=int, default=20, help="Seiten je Wettbewerber (Standard: 20)"
     )
     benchmark.add_argument("--out", type=Path, help="Zielverzeichnis des Vergleichs")
+
+    doctor = commands.add_parser(
+        "doctor", help="Umgebung, Konfiguration und optionale Funktionen prüfen"
+    )
+    doctor.add_argument("--config", type=Path, default=default_config)
+    doctor.add_argument(
+        "--strict", action="store_true", help="Warnungen als Fehler behandeln"
+    )
 
     gsc_fetch = commands.add_parser(
         "gsc-fetch", help="GSC-Daten über die Search Console API laden"
@@ -316,6 +325,25 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"SeoBoy: {error}", file=sys.stderr)
                 return 2
             print(f"Rendering-Vergleich geschrieben: {folder}")
+            return 0
+        if args.command == "doctor":
+            report = run_doctor(args.config)
+            print(f"SeoBoy {report.version} – Systemcheck")
+            for check in report.checks:
+                label = {
+                    "ok": "OK",
+                    "warning": "HINWEIS",
+                    "error": "FEHLER",
+                }.get(check.status, check.status.upper())
+                print(f"[{label}] {check.name}: {check.detail}")
+            errors = len(report.errors)
+            warnings = len(report.warnings)
+            print(
+                f"Ergebnis: {len(report.checks)} Prüfungen, "
+                f"{errors} Fehler, {warnings} Hinweise"
+            )
+            if errors or (args.strict and warnings):
+                return 2
             return 0
         if args.command == "gsc-fetch":
             credentials = gsc_api.load_credentials(args.credentials)
