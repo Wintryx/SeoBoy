@@ -8,8 +8,8 @@ import unittest
 
 from seoboy.infrastructure.config import ConfigError, init_config, load_config
 from seoboy.crawl.html_extract import extract_page, link_header_canonicals
-from seoboy.benchmark.report import content_gaps_tfidf
-from seoboy.benchmark.sampler import PageMetric, SiteSnapshot
+from seoboy.benchmark.report import content_gaps_tfidf, similar_pages
+from seoboy.benchmark.sampler import PageMetric, SiteSnapshot, collect_snapshot
 from seoboy.infrastructure.database import DatabaseError, connect, migrate_database
 from seoboy.shared.robots import RobotsFile
 from seoboy.shared.agents import GOOGLEBOT, SEOBOY
@@ -226,6 +226,74 @@ class BenchmarkContentTests(unittest.TestCase):
         self.assertIn("licht", terms)
         self.assertIn("planung", terms)
         self.assertNotIn("hochzeit", terms)
+
+    def test_simhash_marks_identical_pages(self):
+        first = SiteSnapshot(
+            label="one",
+            start_url="https://one.example/",
+            final_url="https://one.example/",
+            pages=[
+                self.page(
+                    "https://one.example/a/",
+                    {
+                        "hochzeit": 3,
+                        "dj": 2,
+                        "musik": 2,
+                        "planung": 1,
+                        "licht": 1,
+                        "technik": 1,
+                        "gaeste": 1,
+                        "feier": 1,
+                        "location": 1,
+                        "stimmung": 1,
+                    },
+                )
+            ],
+        )
+        second = SiteSnapshot(
+            label="two",
+            start_url="https://two.example/",
+            final_url="https://two.example/",
+            pages=[
+                self.page(
+                    "https://two.example/a/",
+                    {
+                        "hochzeit": 3,
+                        "dj": 2,
+                        "musik": 2,
+                        "planung": 1,
+                        "licht": 1,
+                        "technik": 1,
+                        "gaeste": 1,
+                        "feier": 1,
+                        "location": 1,
+                        "stimmung": 1,
+                    },
+                )
+            ],
+        )
+        pairs = similar_pages([first, second])
+        self.assertEqual(len(pairs), 1)
+        self.assertEqual(pairs[0]["distance"], 0)
+
+    def test_manual_competitor_urls(self):
+        from tests.support import FixtureSite
+
+        with FixtureSite() as site:
+            site.add("/robots.txt", body="User-agent: *\nAllow: /\n", content_type="text/plain")
+            site.add_html("/", "Start", "<a href='/a/'>A</a><a href='/b/'>B</a>")
+            site.add_html("/a/", "A", "<h1>A</h1>")
+            site.add_html("/b/", "B", "<h1>B</h1>")
+            snapshot = collect_snapshot(
+                site.base,
+                "manual",
+                max_pages=5,
+                selected_urls=[site.url("/b/")],
+            )
+        self.assertTrue(snapshot.manual)
+        urls = {page.url for page in snapshot.pages}
+        self.assertIn(site.url("/b/"), urls)
+        self.assertNotIn(site.url("/a/"), urls)
 
 
 class ConfigTests(unittest.TestCase):

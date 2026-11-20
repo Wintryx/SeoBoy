@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import csv
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 import hashlib
 import json
 import os
@@ -52,12 +52,68 @@ class GscFetchSummary:
     queries: int
 
 
+def default_token_store() -> Path:
+    configured = os.environ.get("SEOBOY_GSC_TOKEN_STORE")
+    if configured:
+        return Path(configured).expanduser()
+    if os.name == "nt":
+        base = Path(
+            os.environ.get("LOCALAPPDATA")
+            or (Path.home() / "AppData" / "Local")
+        )
+    else:
+        base = Path(os.environ.get("XDG_CONFIG_HOME") or (Path.home() / ".config"))
+    return base / "SeoBoy" / "gsc-oauth.json"
+
+
+def save_token_store(
+    path: Path | str,
+    *,
+    client_id: str,
+    client_secret: str,
+    refresh_token: str,
+    token_uri: str,
+    scopes: list[str],
+) -> Path:
+    target = Path(path).expanduser()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        target.parent.chmod(0o700)
+    except OSError:
+        pass
+    payload = {
+        "type": "oauth_token_store",
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "refresh_token": refresh_token,
+        "token_uri": token_uri,
+        "scopes": scopes,
+        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    temporary = target.with_name(target.name + ".tmp")
+    temporary.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    try:
+        temporary.chmod(0o600)
+    except OSError:
+        pass
+    temporary.replace(target)
+    return target
+
+
 def load_credentials(path: Path | str | None = None) -> GscCredentials:
     raw_path = path or os.environ.get("SEOBOY_GSC_CREDENTIALS")
     if not raw_path:
+        candidate = default_token_store()
+        if candidate.is_file():
+            raw_path = candidate
+    if not raw_path:
         raise GscApiError(
-            "Keine GSC-Zugangsdatei angegeben. Nutze --credentials oder "
-            "SEOBOY_GSC_CREDENTIALS."
+            "Keine GSC-Zugangsdatei angegeben. Nutze --credentials, "
+            "SEOBOY_GSC_CREDENTIALS oder 'seoboy gsc-auth'."
         )
     target = Path(raw_path).expanduser()
     try:

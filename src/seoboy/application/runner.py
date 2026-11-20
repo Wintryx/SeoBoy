@@ -33,6 +33,7 @@ from seoboy.benchmark.report import (
     render_benchmark,
     write_benchmark_csv,
     write_benchmark_content_terms_csv,
+    write_benchmark_similar_pages_csv,
     write_benchmark_terms_csv,
 )
 from seoboy.benchmark.sampler import (
@@ -389,6 +390,7 @@ def run_benchmark(
     *,
     max_pages: int = 20,
     out: Path | None = None,
+    selected_urls: dict[str, list[str]] | None = None,
 ) -> Path:
     """Compare the latest own run with read-only competitor samples."""
     if not competitors:
@@ -412,12 +414,14 @@ def run_benchmark(
         label = urlsplit(competitor).hostname or f"Wettbewerb {index}"
         if any(snapshot.label == label for snapshot in snapshots):
             label = f"{label} #{index}"
+        manual = selected_urls.get(competitor) if selected_urls else None
         try:
             snapshots.append(
                 collect_snapshot(
                     competitor,
                     label,
                     max_pages=max_pages,
+                    selected_urls=manual,
                 )
             )
         except BenchmarkError as error:
@@ -447,6 +451,9 @@ def run_benchmark(
     write_benchmark_content_terms_csv(
         raw / "benchmark_content_terms.csv", own, snapshots
     )
+    write_benchmark_similar_pages_csv(
+        raw / "benchmark_similar_pages.csv", [own, *snapshots]
+    )
     manifest = {
         "kind": "competitor_benchmark",
         "project_id": config.project_id,
@@ -454,11 +461,17 @@ def run_benchmark(
         "generated_at": iso_utc(),
         "tool_version": TOOL_VERSION,
         "max_pages_per_site": max_pages,
+        "manual_urls": {
+            snapshot.label: len(snapshot.pages)
+            for snapshot in snapshots
+            if snapshot.manual
+        },
         "files": [
             "04_COMPETITOR_BENCHMARK.md",
             "raw_data/benchmark_pages.csv",
             "raw_data/benchmark_terms.csv",
             "raw_data/benchmark_content_terms.csv",
+            "raw_data/benchmark_similar_pages.csv",
         ],
         "sites": [
             {

@@ -56,6 +56,7 @@ class SiteSnapshot:
     final_url: str
     pages: list[PageMetric] = field(default_factory=list)
     sitemap_urls: int = 0
+    manual: bool = False
     error: str | None = None
 
 
@@ -242,6 +243,7 @@ def collect_snapshot(
     max_pages: int = 20,
     interval_seconds: float = 0.5,
     timeout: float = 10.0,
+    selected_urls: list[str] | None = None,
 ) -> SiteSnapshot:
     try:
         normalized = normalize_url(start_url)
@@ -285,22 +287,37 @@ def collect_snapshot(
     allowed_hosts = tuple(dict.fromkeys([normalized.host, final_normalized.host]))
     origins = list(dict.fromkeys([normalized.origin, final_normalized.origin]))
 
-    sitemap_values, sitemap_count = _sitemap_candidates(
-        client, origins, robots, allowed_hosts, max_pages
-    )
-    candidates = [final_normalized.url]
-    for value in sitemap_values:
-        if value not in candidates:
-            candidates.append(value)
-    if len(candidates) == 1 and home_result.is_html:
-        home_page = extract_page(
-            decode_body(home_result), home_result.url, home_result.header_items
+    if selected_urls:
+        candidates = [final_normalized.url]
+        for value in selected_urls:
+            try:
+                normalized_candidate = normalize_url(value)
+            except InvalidUrl:
+                continue
+            if (
+                _same_site(normalized_candidate.url, allowed_hosts)
+                and _page_candidate(normalized_candidate.url, allowed_hosts)
+                and normalized_candidate.url not in candidates
+            ):
+                candidates.append(normalized_candidate.url)
+        sitemap_count = 0
+    else:
+        sitemap_values, sitemap_count = _sitemap_candidates(
+            client, origins, robots, allowed_hosts, max_pages
         )
-        for value in home_page.links:
-            if _page_candidate(value, allowed_hosts) and value not in candidates:
+        candidates = [final_normalized.url]
+        for value in sitemap_values:
+            if value not in candidates:
                 candidates.append(value)
-            if len(candidates) >= max_pages:
-                break
+        if len(candidates) == 1 and home_result.is_html:
+            home_page = extract_page(
+                decode_body(home_result), home_result.url, home_result.header_items
+            )
+            for value in home_page.links:
+                if _page_candidate(value, allowed_hosts) and value not in candidates:
+                    candidates.append(value)
+                if len(candidates) >= max_pages:
+                    break
 
     pages: list[PageMetric] = []
     for index, candidate in enumerate(candidates[:max_pages]):
@@ -323,6 +340,7 @@ def collect_snapshot(
         final_url=final_url,
         pages=pages,
         sitemap_urls=sitemap_count,
+        manual=bool(selected_urls),
     )
 
 

@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from seoboy import cli
 from seoboy.gsc import api as gsc_api
+from seoboy.gsc import oauth as gsc_oauth
 from seoboy.application import runner
 from seoboy.benchmark.sampler import collect_snapshot
 from seoboy.crawl.crawler import Crawler, create_run
@@ -52,6 +53,23 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0, error)
         self.assertIn("SQLite-Schema 2", output)
         self.assertTrue((self.directory / "data" / "seoboy.db").is_file())
+
+    def test_gsc_auth_cli(self):
+        token_store = self.directory / "oauth.json"
+        with patch.object(gsc_oauth, "login", return_value=token_store):
+            code, output, error = run_cli(
+                [
+                    "gsc-auth",
+                    "--client-id",
+                    "id",
+                    "--client-secret",
+                    "secret",
+                    "--token-store",
+                    str(token_store),
+                ]
+            )
+        self.assertEqual(code, 0, error)
+        self.assertIn("OAuth-Token gespeichert", output)
 
     def test_run_fetches_gsc_automatically(self):
         with FixtureSite() as site:
@@ -287,11 +305,34 @@ class CliTests(unittest.TestCase):
             self.assertTrue(
                 (folder / "raw_data" / "benchmark_content_terms.csv").is_file()
             )
-            self.assertIn(
-                "Inhaltliche Begriffe (TF-IDF)",
-                (folder / "04_COMPETITOR_BENCHMARK.md").read_text(encoding="utf-8"),
+            self.assertTrue(
+                (folder / "raw_data" / "benchmark_similar_pages.csv").is_file()
             )
+            benchmark_text = (folder / "04_COMPETITOR_BENCHMARK.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("Inhaltliche Begriffe (TF-IDF)", benchmark_text)
+            self.assertIn("Ähnliche Seiten (SimHash)", benchmark_text)
             self.assertTrue((folder / "manifest.json").is_file())
+
+            code, output, error = run_cli(
+                [
+                    "benchmark",
+                    "--config",
+                    str(config.config_path),
+                    "--competitor-url",
+                    competitor.url("/b/"),
+                    "--max-pages",
+                    "5",
+                    "--out",
+                    str(self.directory / "benchmark-manual"),
+                ]
+            )
+            self.assertEqual(code, 0, error)
+            manual_text = (
+                self.directory / "benchmark-manual" / "04_COMPETITOR_BENCHMARK.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("manuell vorgegebene URLs", manual_text)
 
     def test_benchmark_respects_competitor_robots(self):
         with FixtureSite() as site:

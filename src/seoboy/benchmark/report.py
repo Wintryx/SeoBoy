@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 import csv
+import hashlib
 import math
 from pathlib import Path
 import re
@@ -150,6 +151,59 @@ def content_gaps_tfidf(
     return candidates[:30]
 
 
+def _simhash(terms: dict[str, int]) -> int:
+    vector = [0] * 64
+    for term, count in terms.items():
+        digest = hashlib.blake2b(term.encode("utf-8"), digest_size=8).digest()
+        value = int.from_bytes(digest, "big")
+        for bit in range(64):
+            vector[bit] += count if (value >> bit) & 1 else -count
+    result = 0
+    for bit, weight in enumerate(vector):
+        if weight >= 0:
+            result |= 1 << bit
+    return result
+
+
+def similar_pages(
+    snapshots: list[SiteSnapshot], max_distance: int = 3
+) -> list[dict[str, Any]]:
+    documents: list[tuple[str, str, str, int]] = []
+    for snapshot in snapshots:
+        for page in snapshot.pages:
+            if not page.has_content or len(page.content_terms) < 10:
+                continue
+            documents.append(
+                (snapshot.label, page.url, _simhash(page.content_terms), 0)
+            )
+    result: list[dict[str, Any]] = []
+    for index, (label_a, url_a, hash_a, _) in enumerate(documents):
+        for label_b, url_b, hash_b, _ in documents[index + 1 :]:
+            distance = (hash_a ^ hash_b).bit_count()
+            if distance > max_distance:
+                continue
+            result.append(
+                {
+                    "label_a": label_a,
+                    "url_a": url_a,
+                    "label_b": label_b,
+                    "url_b": url_b,
+                    "distance": distance,
+                    "similarity": 1 - distance / 64,
+                }
+            )
+    result.sort(
+        key=lambda item: (
+            item["distance"],
+            item["label_a"],
+            item["url_a"],
+            item["label_b"],
+            item["url_b"],
+        )
+    )
+    return result
+
+
 def _content_pages(snapshot: SiteSnapshot) -> list[PageMetric]:
     return [page for page in snapshot.pages if page.has_content]
 
@@ -251,6 +305,8 @@ def render_benchmark(
         lines.append(
             f"- Start: {snapshot.start_url} · final: {snapshot.final_url}"
         )
+        if snapshot.manual:
+            lines.append("- **Auswahl:** manuell vorgegebene URLs, keine Sitemap-Stichprobe.")
         lines.append(
             f"- {summary['pages']} HTML-Seiten, {summary['indexable']} technisch indexierbar, "
             f"Ø {summary['average_words']} Wörter, Ø {summary['average_links']} Links"
@@ -358,6 +414,39 @@ def render_benchmark(
             ]
         )
 
+    similar = similar_pages(snapshots)
+    lines.extend(
+        [
+            "## Ähnliche Seiten (SimHash)",
+            "",
+            "Seiten mit sehr ähnlichen Hauptinhalten. SimHash vergleicht Termhäufigkeiten "
+            "und meldet Paare mit einer Hamming-Distanz von höchstens 3 von 64 Bit. "
+            "Das ist ein Ähnlichkeitshinweis, kein Duplicate-Content-Urteil.",
+            "",
+        ]
+    )
+    if similar:
+        lines.extend(
+            [
+                "| Seite A | Seite B | Distanz | Ähnlichkeit |",
+                "| --- | --- | ---: | ---: |",
+            ]
+        )
+        for item in similar[:15]:
+            lines.append(
+                f"| {item['label_a']}: {item['url_a']} | "
+                f"{item['label_b']}: {item['url_b']} | {item['distance']} | "
+                f"{item['similarity'] * 100:.0f} % |"
+            )
+        lines.append("")
+    else:
+        lines.extend(
+            [
+                "Keine Paare mit ausreichend ähnlichen Content-Termen gefunden.",
+                "",
+            ]
+        )
+
     lines.extend(
         [
             "## Rohdaten",
@@ -365,6 +454,7 @@ def render_benchmark(
             "- [Seitenmetriken](raw_data/benchmark_pages.csv)",
             "- [Begriffskandidaten](raw_data/benchmark_terms.csv)",
             "- [TF-IDF-Begriffe](raw_data/benchmark_content_terms.csv)",
+            "- [Ähnliche Seiten](raw_data/benchmark_similar_pages.csv)",
             "",
             "Die Stichprobe ersetzt kein vollständiges Audit der Wettbewerbsseiten. "
             "Sie dient der relativen Einordnung von Inhaltstiefe, Metadaten, H1-Struktur "
@@ -425,6 +515,26 @@ def write_benchmark_content_terms_csv(
                 *item["competitor_counts"],
             ]
             for item in rows
+        ],
+    )
+
+
+def write_benchmark_similar_pages_csv(
+    path: Path, snapshots: list[SiteSnapshot]
+) -> None:
+    _write_csv(
+        path,
+        ["label_a", "url_a", "label_b", "url_b", "distance", "similarity"],
+        [
+            [
+                item["label_a"],
+                item["url_a"],
+                item["label_b"],
+                item["url_b"],
+                item["distance"],
+                round(item["similarity"], 6),
+            ]
+            for item in similar_pages(snapshots)
         ],
     )
 

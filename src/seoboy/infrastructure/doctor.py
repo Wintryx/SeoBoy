@@ -11,6 +11,7 @@ import shutil
 import sqlite3
 import sys
 
+from seoboy.gsc.api import default_token_store
 from seoboy.infrastructure.config import ConfigError, load_config
 from seoboy.infrastructure.database import MIN_SQLITE_VERSION, schema_version
 from seoboy.shared.version import __version__
@@ -129,6 +130,10 @@ def _config_checks(config_path: Path) -> list[Check]:
 
 def _credential_check() -> Check:
     raw = os.environ.get("SEOBOY_GSC_CREDENTIALS")
+    if not raw:
+        candidate = default_token_store()
+        if candidate.is_file():
+            raw = str(candidate)
     if not raw:
         return _check(
             "GSC-API-Zugang",

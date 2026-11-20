@@ -6,9 +6,11 @@ from pathlib import Path
 import sqlite3
 import sys
 import tempfile
+from urllib.parse import urlsplit
 
 from seoboy.gsc import api as gsc_api
 from seoboy.gsc import importer as gsc_module
+from seoboy.gsc import oauth as gsc_oauth
 from seoboy.crawl.rendering import RenderingError, render_report
 from seoboy.geo.audit import GeoError, audit_geo
 from seoboy.local_seo.audit import (
@@ -146,9 +148,14 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     benchmark.add_argument(
         "--competitor",
         action="append",
-        required=True,
         dest="competitors",
         help="Wettbewerbs-URL; mehrfach angebbar",
+    )
+    benchmark.add_argument(
+        "--competitor-url",
+        action="append",
+        dest="competitor_urls",
+        help="Manuell ausgewählte Wettbewerbsseite; mehrfach angebbar",
     )
     benchmark.add_argument(
         "--max-pages", type=int, default=20, help="Seiten je Wettbewerber (Standard: 20)"
@@ -162,6 +169,20 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     doctor.add_argument(
         "--strict", action="store_true", help="Warnungen als Fehler behandeln"
     )
+
+    gsc_auth = commands.add_parser(
+        "gsc-auth", help="Interaktive Search-Console-Anmeldung per OAuth"
+    )
+    gsc_auth.add_argument(
+        "--client-file",
+        type=Path,
+        help="Google-OAuth-Clientdatei (Desktop-Client)",
+    )
+    gsc_auth.add_argument("--client-id")
+    gsc_auth.add_argument("--client-secret")
+    gsc_auth.add_argument("--token-store", type=Path)
+    gsc_auth.add_argument("--no-browser", action="store_true")
+    gsc_auth.add_argument("--timeout", type=int, default=180)
 
     gsc_fetch = commands.add_parser(
         "gsc-fetch", help="GSC-Daten über die Search Console API laden"
@@ -451,6 +472,26 @@ def main(argv: list[str] | None = None) -> int:
             if errors or (args.strict and warnings):
                 return 2
             return 0
+        if args.command == "gsc-auth":
+            if args.client_file:
+                client = gsc_oauth.load_client_config(args.client_file)
+            elif args.client_id and args.client_secret:
+                client = gsc_oauth.OAuthClient(
+                    client_id=args.client_id,
+                    client_secret=args.client_secret,
+                )
+            else:
+                parser.error(
+                    "--client-file oder --client-id und --client-secret sind erforderlich."
+                )
+            target = gsc_oauth.login(
+                client,
+                token_store=args.token_store,
+                open_browser=not args.no_browser,
+                timeout=args.timeout,
+            )
+            print(f"OAuth-Token gespeichert: {target}")
+            return 0
         if args.command == "gsc-fetch":
             credentials = gsc_api.load_credentials(args.credentials)
             summary = gsc_api.fetch_to_directory(
@@ -627,11 +668,24 @@ def main(argv: list[str] | None = None) -> int:
                 return 2
         if args.command == "benchmark":
             config = _load(args.config)
+            competitors = list(args.competitors or [])
+            selected: dict[str, list[str]] = {}
+            for value in args.competitor_urls or []:
+                parts = urlsplit(value)
+                origin = f"{parts.scheme}://{parts.netloc}/"
+                if origin not in competitors:
+                    competitors.append(origin)
+                selected.setdefault(origin, []).append(value)
+            if not competitors:
+                parser.error(
+                    "Mindestens --competitor oder --competitor-url ist erforderlich."
+                )
             folder = runner.run_benchmark(
                 config,
-                args.competitors,
+                competitors,
                 max_pages=args.max_pages,
                 out=args.out,
+                selected_urls=selected or None,
             )
             print(f"Wettbewerbsvergleich geschrieben: {folder}")
             return 0
