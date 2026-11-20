@@ -20,6 +20,8 @@ Grundsätze:
 4. Secrets liegen außerhalb des Repositories.
 5. Jede Erweiterung hat einen klaren Fehlerpfad und Tests.
 
+Die nächsten Schritte für [Monitoring und Wettbewerbsanalyse](monitoring-und-wettbewerb/README.md) sind als eigene Spezifikationen dokumentiert. Sie ergänzen die bestehenden Verträge um Projektübersicht, Keyword-Messungen, konkrete Wettbewerbsvergleiche, lokale Backlink-Importe und KI-Zeitreihen.
+
 ## 2. Statusmatrix
 
 | Bereich | Lokal umgesetzt | Externer Vertrag nötig | Status |
@@ -279,8 +281,10 @@ Danach:
 - Modell: deepseek-flash = DeepSeek-V4.1-Flash-1017
 - Höhere Stufe: deepseek-v4-pro = DeepSeek-V4-Pro-0813
 - Endpoint: https://api.deepseek.com/chat/completions
-- Standard: Thinking enabled, reasoning_effort=max
+- Standard: Thinking enabled, reasoning_effort=high
 - Optional: Thinking disabled für den günstigen Modus
+- Optional: reasoning_effort=max für gezielte Tiefenprüfungen
+- Konfiguration: SEOBOY_GEO_THINKING, SEOBOY_GEO_REASONING_EFFORT, SEOBOY_GEO_MODEL
 - Optional: serverseitige Websuche deepseek_web_search mit Quellen/Zitaten
 - API-Key: SEOBOY_GEO_API_KEY, DEEPSEEK_API_KEY oder --api-key; nie im Repo
 
@@ -309,7 +313,8 @@ Optionen:
 ### 9.4 Kosten und Fehler
 
 - Standard: 6 Aufrufe, 8192 Output-Tokens, 1.00 USD Budget.
-- Standard-Modell: DeepSeek-V4.1-Flash-1017 mit Thinking enabled und Effort max.
+- Standard-Modell: DeepSeek-V4.1-Flash-1017 mit Thinking enabled und Effort high.
+- Effort max ist optional und für einzelne Tiefenprüfungen gedacht.
 - Peak-Preise als konservative Schätzung: 0.30 USD/1M Input, 1.20 USD/1M Output.
 - Websuche: 0.75 USD je 1.000 Suchschritte, zusätzlich zu Tokens.
 - Max-Reasoning plus Websuche kann pro Prompt über 100.000 Input-Tokens erzeugen;
@@ -354,8 +359,7 @@ Ein echter Adapter braucht:
 - Rate-Limit, Kosten und Aufbewahrung
 - keine Umgehung von Bot-Schutz oder Suchmaschinen-AGB
 
-Bis dahin bleiben die Sitemap-Stichprobe und manuelle Wettbewerbs-URLs der belastbare
-Rahmen.
+Bis zur Anbindung eines Anbieters bleiben die Sitemap-Stichprobe und manuelle Wettbewerbs-URLs nutzbar. Die geplanten lokalen CSV-Importe für [Suchergebnisse](monitoring-und-wettbewerb/02-lokales-keyword-monitoring.md) und [Backlinkbeobachtungen](monitoring-und-wettbewerb/04-backlinks-und-linkchancen.md) benötigen keinen Live-Adapter.
 
 ## 11. Datenmodell
 

@@ -1,10 +1,12 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.17.0
+Stand: 20.11.2026, Version 0.18.0
 
 ## Priorisierung
 
 Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand – nicht nach technischer Attraktivität. Die verbindliche Detail-Spezifikation steht in [docs/erweiterungen_spezifikation.md](docs/erweiterungen_spezifikation.md).
+
+Die nächsten Umsetzungsschritte mit Datenverträgen und Abnahmekriterien stehen in [Monitoring und Wettbewerbsanalyse](docs/monitoring-und-wettbewerb/README.md).
 
 | Rang | Vorhaben | Nutzen | Status |
 | --- | --- | --- | --- |

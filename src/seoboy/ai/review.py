@@ -40,6 +40,8 @@ class ReviewConfig:
     max_actions: int = 25
     max_tokens: int = DEFAULT_MAX_TOKENS
     budget_usd: float = DEFAULT_BUDGET_USD
+    thinking: str = "disabled"
+    reasoning_effort: str = "none"
     use_cache: bool = True
     refresh: bool = False
 
@@ -56,6 +58,8 @@ class ReviewOutcome:
     cost_usd: float
     cached: bool
     generated_at: str
+    thinking: str = "disabled"
+    reasoning_effort: str = "none"
 
 
 def _clean(value: object, limit: int = 1000) -> str:
@@ -417,6 +421,10 @@ def run_ai_review(
         raise AIReviewError("budget_usd darf nicht negativ sein.")
     if review_config.model not in MODEL_VERSIONS:
         raise AIReviewError("Unbekanntes Review-Modell.")
+    if review_config.thinking not in {"disabled", "enabled"}:
+        raise AIReviewError("Review-Thinking muss disabled oder enabled sein.")
+    if review_config.reasoning_effort not in {"none", "low", "high", "max"}:
+        raise AIReviewError("Review-Reasoning-effort ist ungültig.")
     report = load_report_data(connection, config, run_id)
     if report_dir is None:
         folder = render_run_report(connection, config, run_id)
@@ -428,6 +436,7 @@ def run_ai_review(
     digest = packet_hash(packet)
     cache_key = hashlib.sha256(
         f"{digest}|{review_config.model}|{review_config.max_tokens}|"
+        f"{review_config.thinking}|{review_config.reasoning_effort}|"
         f"{PROMPT_VERSION}|{SCHEMA_VERSION}".encode("utf-8")
     ).hexdigest()
     cache_path = _cache_path(config, cache_key)
@@ -446,6 +455,8 @@ def run_ai_review(
                 cost_usd=float(cached_payload.get("cost_usd") or 0.0),
                 cached=True,
                 generated_at=str(cached_payload.get("generated_at") or iso_utc()),
+                thinking=review_config.thinking,
+                reasoning_effort=review_config.reasoning_effort,
             )
     if not api_key:
         raise AIReviewError("Für ai-review wird ein DeepSeek-API-Key benötigt.")
@@ -460,8 +471,8 @@ def run_ai_review(
             model=review_config.model,
             temperature=0.1,
             max_tokens=review_config.max_tokens,
-            thinking="disabled",
-            reasoning_effort="none",
+            thinking=review_config.thinking,
+            reasoning_effort=review_config.reasoning_effort,
             json_mode=True,
             timeout=timeout,
         )
@@ -480,6 +491,8 @@ def run_ai_review(
         "usage": usage,
         "cost_usd": cost,
         "generated_at": generated_at,
+        "thinking": review_config.thinking,
+        "reasoning_effort": review_config.reasoning_effort,
         "review": review,
         "unsupported_refs": unsupported,
     }
@@ -496,6 +509,8 @@ def run_ai_review(
         cost_usd=cost,
         cached=False,
         generated_at=generated_at,
+        thinking=review_config.thinking,
+        reasoning_effort=review_config.reasoning_effort,
     )
 
 
@@ -521,6 +536,7 @@ def write_ai_review(outcome: ReviewOutcome) -> Path:
         "> Maßnahmen oder Prioritäten und ersetzt keine Messung.",
         "",
         f"**Modell:** {_md(outcome.model)} ({_md(outcome.model_version)})  ",
+        f"**Thinking:** {_md(outcome.thinking)}, Effort {_md(outcome.reasoning_effort)}  ",
         f"**Prompt-Version:** {PROMPT_VERSION}  ",
         f"**Packung:** {outcome.packet_hash[:16]}  ",
         f"**Cache:** {'Treffer' if outcome.cached else 'neu'}  ",
@@ -618,6 +634,8 @@ def write_ai_review(outcome: ReviewOutcome) -> Path:
                 "packet_hash": outcome.packet_hash,
                 "model": outcome.model,
                 "model_version": outcome.model_version,
+                "thinking": outcome.thinking,
+                "reasoning_effort": outcome.reasoning_effort,
                 "usage": outcome.usage,
                 "cost_usd": outcome.cost_usd,
                 "cached": outcome.cached,

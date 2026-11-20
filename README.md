@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.17.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.18.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -188,6 +188,13 @@ notepad .env
 | `SEOBOY_OPENSSL` | Optionaler OpenSSL-Pfad für die Service-Account-Signatur |
 | `SEOBOY_PSI_API_KEY` | API-Key für PageSpeed Insights und CrUX |
 | `SEOBOY_GEO_API_KEY` | DeepSeek-Key für GEO-Sampling; alternativ `DEEPSEEK_API_KEY` |
+| `SEOBOY_GEO_MODEL` | `deepseek-flash` oder `deepseek-v4-pro` |
+| `SEOBOY_GEO_THINKING` | `enabled` oder `disabled` |
+| `SEOBOY_GEO_REASONING_EFFORT` | `none`, `low`, `high` oder `max`; Default `high` |
+| `SEOBOY_GEO_WEB_SEARCH` | true oder false für die serverseitige Websuche |
+| `SEOBOY_AI_REVIEW_MODEL` | Modell für die beratende Audit-Review |
+| `SEOBOY_AI_REVIEW_THINKING` | `disabled` oder `enabled`; Default `disabled` |
+| `SEOBOY_AI_REVIEW_REASONING_EFFORT` | `none` bis `max`; Default `none` |
 | `SEOBOY_ENV_FILE` | Alternatives Env-File; muss vor dem Prozessstart gesetzt sein |
 
 Explizite CLI-Optionen haben Vorrang. `.env` ist in `.gitignore` und wird nicht
@@ -665,9 +672,11 @@ seoboy geo-sample `
 Der Bericht enthält Marken-Erwähnungen, eigene und fremde URL-Zitate, Wettbewerber-
 Erwähnungen, Tokens und eine konservative Kosten-Schätzung. Standardmäßig werden sechs
 deutsche Prompts mit **DeepSeek-V4.1-Flash-1017** (`deepseek-flash`), aktiviertem
-Thinking und `reasoning_effort=max` verwendet. Für die höhere Qualitätsstufe:
-`--model deepseek-v4-pro`. `--thinking disabled` ist der günstige Modus ohne Reasoning.
-Eigene Prompt-Sets lassen sich per YAML mit `--prompts` übergeben.
+Thinking und `reasoning_effort=high` verwendet. `high` ist der Qualitäts-/Effizienz-
+Default; `max` ist für gezielte Tiefenprüfungen gedacht und deutlich teurer.
+`--thinking disabled` ist der günstige Modus ohne Reasoning. Für die höhere
+Modellstufe: `--model deepseek-v4-pro`. Eigene Prompt-Sets lassen sich per YAML mit
+`--prompts` übergeben.
 
 `--web-search` aktiviert die serverseitige DeepSeek-Websuche, auch im Max-Modus.
 Das Modell entscheidet, ob es sucht, und liefert Quellen und Zitate; die Suche kostet
@@ -677,6 +686,29 @@ gemessen.
 Rohantworten werden nur lokal unter `reports/.../raw_data/geo_answers.jsonl` gespeichert;
 `--retention-days` dokumentiert die Aufbewahrungsfrist, die Löschung erfolgt manuell.
 Ein API-Key wird nie in Berichte, Logs oder Commits geschrieben.
+
+## Reasoning-Stufen für KI-Aufgaben
+
+Empfehlung für den realen Betrieb:
+
+| Aufgabe | Default | Begründung |
+| --- | --- | --- |
+| GEO-Sampling | high | gute Antwortqualität, deutlich günstiger als max |
+| Audit-Review | disabled/none | strukturiertes JSON, schnell und zuverlässig |
+| Tiefenprüfung | max | nur für einzelne, bewusst gewählte Läufe |
+
+Für Tests und Smoke-Checks:
+
+```text
+SEOBOY_GEO_THINKING=disabled
+SEOBOY_GEO_REASONING_EFFORT=none
+SEOBOY_AI_REVIEW_THINKING=disabled
+SEOBOY_AI_REVIEW_REASONING_EFFORT=none
+```
+
+Diese Werte können in der lokalen, ignorierten .env stehen. Explizite CLI-Optionen
+haben Vorrang. max ist kein Garant für bessere Ergebnisse; bei der GEO-Messung zählt
+eine reproduzierbare, repräsentative Antwort mehr als maximale Reasoning-Tiefe.
 
 ## Keyword-Kannibalisierung
 

@@ -69,6 +69,18 @@ def _parse_date(value: str) -> date:
         ) from None
 
 
+def _env_choice(name: str, default: str, choices: tuple[str, ...]) -> str:
+    value = os.environ.get(name, "").strip().lower()
+    return value if value in choices else default
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _parse_columns(value: str | None) -> dict[str, str] | None:
     if not value:
         return None
@@ -157,7 +169,25 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     run.add_argument(
         "--ai-review-model",
         choices=["deepseek-flash", "deepseek-v4-pro"],
-        default="deepseek-flash",
+        default=_env_choice(
+            "SEOBOY_AI_REVIEW_MODEL", "deepseek-flash", ("deepseek-flash", "deepseek-v4-pro")
+        ),
+    )
+    run.add_argument(
+        "--ai-review-thinking",
+        choices=["disabled", "enabled"],
+        default=_env_choice(
+            "SEOBOY_AI_REVIEW_THINKING", "disabled", ("disabled", "enabled")
+        ),
+    )
+    run.add_argument(
+        "--ai-review-reasoning-effort",
+        choices=["none", "low", "high", "max"],
+        default=_env_choice(
+            "SEOBOY_AI_REVIEW_REASONING_EFFORT",
+            "none",
+            ("none", "low", "high", "max"),
+        ),
     )
 
     batch = commands.add_parser("batch", help="Mehrere Projekte parallel prüfen")
@@ -273,7 +303,25 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     ai_review.add_argument(
         "--model",
         choices=["deepseek-flash", "deepseek-v4-pro"],
-        default="deepseek-flash",
+        default=_env_choice(
+            "SEOBOY_AI_REVIEW_MODEL", "deepseek-flash", ("deepseek-flash", "deepseek-v4-pro")
+        ),
+    )
+    ai_review.add_argument(
+        "--thinking",
+        choices=["disabled", "enabled"],
+        default=_env_choice(
+            "SEOBOY_AI_REVIEW_THINKING", "disabled", ("disabled", "enabled")
+        ),
+    )
+    ai_review.add_argument(
+        "--reasoning-effort",
+        choices=["none", "low", "high", "max"],
+        default=_env_choice(
+            "SEOBOY_AI_REVIEW_REASONING_EFFORT",
+            "none",
+            ("none", "low", "high", "max"),
+        ),
     )
     ai_review.add_argument("--max-findings", type=int, default=40)
     ai_review.add_argument("--max-actions", type=int, default=25)
@@ -293,20 +341,34 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     geo_sample.add_argument(
         "--model",
         choices=["deepseek-flash", "deepseek-v4-pro"],
-        default=DEFAULT_MODEL,
+        default=_env_choice(
+            "SEOBOY_GEO_MODEL", DEFAULT_MODEL, ("deepseek-flash", "deepseek-v4-pro")
+        ),
     )
     geo_sample.add_argument("--max-calls", type=int, default=6)
     geo_sample.add_argument("--max-tokens", type=int, default=8192)
     geo_sample.add_argument("--temperature", type=float, default=0.2)
     geo_sample.add_argument(
-        "--thinking", choices=["disabled", "enabled"], default="enabled"
+        "--thinking",
+        choices=["disabled", "enabled"],
+        default=_env_choice(
+            "SEOBOY_GEO_THINKING", "enabled", ("disabled", "enabled")
+        ),
     )
     geo_sample.add_argument(
         "--reasoning-effort",
         choices=["none", "low", "high", "max"],
-        default="max",
+        default=_env_choice(
+            "SEOBOY_GEO_REASONING_EFFORT",
+            "high",
+            ("none", "low", "high", "max"),
+        ),
     )
-    geo_sample.add_argument("--web-search", action="store_true")
+    geo_sample.add_argument(
+        "--web-search",
+        action=argparse.BooleanOptionalAction,
+        default=_env_flag("SEOBOY_GEO_WEB_SEARCH", False),
+    )
     geo_sample.add_argument("--search-price", type=float, default=0.75)
     geo_sample.add_argument("--budget-usd", type=float, default=1.00)
     geo_sample.add_argument("--retention-days", type=int, default=30)
@@ -524,7 +586,11 @@ def main(argv: list[str] | None = None) -> int:
                             outcome.run_id,
                             report_dir=outcome.report_dir,
                             api_key=review_key,
-                            review_config=ReviewConfig(model=args.ai_review_model),
+                            review_config=ReviewConfig(
+                                model=args.ai_review_model,
+                                thinking=args.ai_review_thinking,
+                                reasoning_effort=args.ai_review_reasoning_effort,
+                            ),
                         )
                         review_path = write_ai_review(review_outcome)
                         runner.rerender_report(config, outcome.run_id)
@@ -599,6 +665,8 @@ def main(argv: list[str] | None = None) -> int:
                 report = load_report_data(connection, config, args.run)
                 review_config = ReviewConfig(
                     model=args.model,
+                    thinking=args.thinking,
+                    reasoning_effort=args.reasoning_effort,
                     max_findings=args.max_findings,
                     max_actions=args.max_actions,
                     max_tokens=args.max_tokens,

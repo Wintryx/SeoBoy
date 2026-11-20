@@ -185,8 +185,11 @@ Die Antwort wird auf maximal 10 Cross-Cutting-Issues, 10 Prioritätsvorschläge,
 ## 6. Effizienz
 
 - Ein Aufruf pro Lauf, nicht ein Aufruf pro Befund.
-- Standardmodell: deepseek-flash, Thinking disabled, max_tokens 4096.
-- Optional: deepseek-v4-pro für eine höhere Qualitätsstufe.
+- Standardmodell: deepseek-flash, Thinking disabled, Effort none, max_tokens 4096.
+- Optional: deepseek-v4-pro oder höhere Reasoning-Stufen über
+  SEOBOY_AI_REVIEW_THINKING und SEOBOY_AI_REVIEW_REASONING_EFFORT.
+- Reasoning bleibt bei der strukturierten Review standardmäßig aus, weil JSON-Zuverlässigkeit
+  und Kosten wichtiger sind als maximale Denktiefe.
 - Standardbudget: 0,25 USD pro Review.
 - Harte Grenzen: 40 Befunde, 25 Maßnahmen, 60.000 Zeichen Packung.
 - Cache-Schlüssel: SHA-256 aus Packung, Modell, Prompt-Version und Schema-Version.

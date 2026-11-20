@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.17.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.18.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -135,6 +135,13 @@ gesetzte Umgebungsvariablen werden nicht überschrieben.
 | `SEOBOY_OPENSSL` | Optionaler OpenSSL-Pfad für die Service-Account-Signatur |
 | `SEOBOY_PSI_API_KEY` | API-Key für PageSpeed Insights und CrUX |
 | `SEOBOY_GEO_API_KEY` | DeepSeek-Key für GEO-Sampling; alternativ `DEEPSEEK_API_KEY` |
+| `SEOBOY_GEO_MODEL` | `deepseek-flash` oder `deepseek-v4-pro` |
+| `SEOBOY_GEO_THINKING` | `enabled` oder `disabled` |
+| `SEOBOY_GEO_REASONING_EFFORT` | `none`, `low`, `high` oder `max`; Default `high` |
+| `SEOBOY_GEO_WEB_SEARCH` | true/false für die DeepSeek-Websuche |
+| `SEOBOY_AI_REVIEW_MODEL` | `deepseek-flash` oder `deepseek-v4-pro` |
+| `SEOBOY_AI_REVIEW_THINKING` | `disabled` oder `enabled` |
+| `SEOBOY_AI_REVIEW_REASONING_EFFORT` | `none` bis `max`; Default `none` |
 | `SEOBOY_ENV_FILE` | Alternatives Env-File; muss vor dem Prozessstart gesetzt sein |
 
 `.env.example` ist die dokumentierte Vorlage. `.env` selbst ist in `.gitignore` und darf
@@ -247,7 +254,10 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   angebunden.
 - PageSpeed/CrUX benötigt einen API-Key; ohne Key bleibt der Befehl klar deaktiviert.
 - GEO-Sampling nutzt standardmäßig DeepSeek-V4.1-Flash-1017 mit Thinking enabled
-  und reasoning_effort=max; Antworten sind Momentaufnahmen und keine Rankings.
+  und reasoning_effort=high; max ist für Tiefenprüfungen optional und teurer.
+- Die Audit-Review nutzt standardmäßig Thinking disabled/none für zuverlässiges JSON;
+  Reasoning-Stufen sind über .env oder CLI konfigurierbar.
+- Antworten sind Momentaufnahmen und keine Rankings.
 - Der GEO-Adapter und die KI-Review dürfen nur api.deepseek.com per HTTPS kontaktieren,
   keine Redirects folgen, keine Shell/Browser/Website/DB verändern und nur saubere
   Report-Ordner schreiben. Details stehen in SECURITY.md.

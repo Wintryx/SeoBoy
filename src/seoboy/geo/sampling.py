@@ -92,7 +92,7 @@ class SamplingConfig:
     temperature: float = 0.2
     max_tokens: int = 8192
     thinking: str = "enabled"
-    reasoning_effort: str = "max"
+    reasoning_effort: str = "high"
     web_search: bool = False
     search_usd_per_1000: float = 0.75
     max_calls: int = 6
@@ -304,7 +304,7 @@ def chat_completion(
     temperature: float = 0.2,
     max_tokens: int = 8192,
     thinking: str = "enabled",
-    reasoning_effort: str = "max",
+    reasoning_effort: str = "high",
     web_search: bool = False,
     json_mode: bool = False,
     base_url: str = DEFAULT_BASE_URL,
