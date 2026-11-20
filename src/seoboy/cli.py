@@ -20,6 +20,16 @@ from seoboy.local_seo.audit import (
     load_local_rankings,
     write_local_report,
 )
+from seoboy.geo.sampling import (
+    DEFAULT_BASE_URL,
+    DEFAULT_BRANDS,
+    DEFAULT_COMPETITORS,
+    DEFAULT_MODEL,
+    GeoSamplingError,
+    SamplingConfig,
+    load_prompt_set,
+    run_sampling,
+)
 from seoboy.performance.audit import PerformanceError, run_performance
 from seoboy.application import runner
 from seoboy.analysis.audit_data import RunData
@@ -237,6 +247,31 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     performance.add_argument("--api-key")
     performance.add_argument("--no-lighthouse", action="store_true")
     performance.add_argument("--no-crux", action="store_true")
+
+    geo_sample = commands.add_parser(
+        "geo-sample", help="Budgetierte KI-Antwortstichproben über DeepSeek erzeugen"
+    )
+    geo_sample.add_argument("--prompts", type=Path)
+    geo_sample.add_argument("--out", type=Path)
+    geo_sample.add_argument("--api-key")
+    geo_sample.add_argument("--model", default=DEFAULT_MODEL)
+    geo_sample.add_argument("--max-calls", type=int, default=6)
+    geo_sample.add_argument("--max-tokens", type=int, default=800)
+    geo_sample.add_argument("--temperature", type=float, default=0.2)
+    geo_sample.add_argument(
+        "--thinking", choices=["disabled", "enabled"], default="disabled"
+    )
+    geo_sample.add_argument("--web-search", action="store_true")
+    geo_sample.add_argument("--search-price", type=float, default=0.75)
+    geo_sample.add_argument("--budget-usd", type=float, default=0.50)
+    geo_sample.add_argument("--retention-days", type=int, default=30)
+    geo_sample.add_argument("--input-price", type=float, default=0.30)
+    geo_sample.add_argument("--output-price", type=float, default=1.20)
+    geo_sample.add_argument("--domain", default="")
+    geo_sample.add_argument("--brand", action="append")
+    geo_sample.add_argument("--competitor", action="append")
+    geo_sample.add_argument("--timeout", type=float, default=90.0)
+    geo_sample.add_argument("--dry-run", action="store_true")
 
     geo = commands.add_parser(
         "geo", help="GEO- und AI-Readiness beobachtbar prüfen"
@@ -486,6 +521,76 @@ def main(argv: list[str] | None = None) -> int:
                 return 2
             print(f"Performance-Bericht geschrieben: {folder}")
             return 0
+        if args.command == "geo-sample":
+            try:
+                prompt_set = load_prompt_set(args.prompts)
+                config = SamplingConfig(
+                    model=args.model,
+                    temperature=args.temperature,
+                    max_tokens=args.max_tokens,
+                    thinking=args.thinking,
+                    web_search=args.web_search,
+                    search_usd_per_1000=args.search_price,
+                    max_calls=args.max_calls,
+                    budget_usd=args.budget_usd,
+                    input_usd_per_mtok=args.input_price,
+                    output_usd_per_mtok=args.output_price,
+                    retention_days=args.retention_days,
+                )
+            except GeoSamplingError as error:
+                print(f"SeoBoy: {error}", file=sys.stderr)
+                return 2
+            if args.dry_run:
+                print(f"Prompt-Set: {prompt_set.version} ({prompt_set.language}/{prompt_set.region})")
+                for item in prompt_set.prompts[: config.max_calls]:
+                    print(f"- {item.id}: {item.prompt}")
+                print(f"Geplant: {min(len(prompt_set.prompts), config.max_calls)} Aufrufe, Modell {config.model}")
+                return 0
+            api_key = (
+                args.api_key
+                or os.environ.get("SEOBOY_GEO_API_KEY")
+                or os.environ.get("DEEPSEEK_API_KEY")
+                or ""
+            )
+            if not api_key:
+                print(
+                    "SeoBoy: Für geo-sample wird ein DeepSeek-API-Key benötigt "
+                    "(--api-key, SEOBOY_GEO_API_KEY oder DEEPSEEK_API_KEY).",
+                    file=sys.stderr,
+                )
+                return 2
+            brands = tuple(
+                dict.fromkeys(DEFAULT_BRANDS + tuple(args.brand or ()))
+            )
+            competitors = tuple(
+                dict.fromkeys(DEFAULT_COMPETITORS + tuple(args.competitor or ()))
+            )
+            folder = args.out or (
+                Path("reports")
+                / f"geo_sampling_{datetime.now().astimezone():%Y%m%dT%H%M%S}"
+            )
+            try:
+                run = run_sampling(
+                    api_key=api_key,
+                    prompt_set=prompt_set,
+                    config=config,
+                    out=folder,
+                    brands=brands,
+                    competitors=competitors,
+                    domain=args.domain,
+                    base_url=os.environ.get("SEOBOY_GEO_BASE_URL") or DEFAULT_BASE_URL,
+                    timeout=args.timeout,
+                )
+            except GeoSamplingError as error:
+                print(f"SeoBoy: {error}", file=sys.stderr)
+                return 2
+            print(f"GEO-Sampling geschrieben: {folder}")
+            print(
+                f"Stichproben: {len(run.samples)}, erfolgreich: {run.successful}, "
+                f"Fehler: {run.failed}, Tokens: {run.total_tokens}, "
+                f"Kosten (Peak-Schätzung): {run.estimated_cost:.6f} USD"
+            )
+            return 0 if run.successful else 2
         if args.command == "geo":
             config = _load(args.config)
             try:
