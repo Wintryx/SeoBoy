@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.9.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.10.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -51,6 +51,7 @@ unnötiger Aufwand.
 | `src/seoboy/shared/urls.py` | URL-Normalisierung und Pfadmuster |
 | `src/seoboy/gsc/importer.py` | GSC-Manifest, CSV-Import, UI-Aufbereiter |
 | `src/seoboy/gsc/api.py` | GSC-API, OAuth/Service-Account und URL Inspection |
+| `src/seoboy/gsc/inspection_store.py` | URL-Inspection-Persistenz, Auswahl und Bericht |
 | `src/seoboy/analysis/audit_data.py` | Geladene Laufdaten für Regeln und Berichte |
 | `src/seoboy/analysis/rules.py` | Technische Regeln und Prüfengine |
 | `src/seoboy/analysis/rules_gsc.py` | Search-Console-Regeln |
@@ -68,7 +69,8 @@ unnötiger Aufwand.
 | `src/seoboy/infrastructure/env.py` | Optionales Laden von `.env` |
 | `src/seoboy/infrastructure/doctor.py` | Systemcheck für den Betrieb ohne Agent |
 | `src/seoboy/infrastructure/update.py` | Git-basierter CLI-Updater mit Rollback |
-| `migrations/001_initial.sql` | SQLite-Schema |
+| `migrations/001_initial.sql` | SQLite-Basisschema |
+| `migrations/002_url_inspections.sql` | persistente URL-Inspection-Ergebnisse |
 
 Die verbindlichen Anforderungen stehen in:
 - `01_architektur_und_techstack_md.md`
@@ -98,7 +100,8 @@ Die Tests benötigen nur die Standardbibliothek und PyYAML. Im Quellbaum kann
 Die Suite deckt URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter/-Import, Crawl, Limits, Retries, Redirect-Schleifen, Resume,
 Parallelität, Batch-Läufe, Unterseitenanalyse, Wettbewerbsbenchmark, GSC-Query-/
-Zielseitenbericht, GSC-Verlauf, GSC-API/URL Inspection, Playwright-Vergleich mit injiziertem Browser,
+Zielseitenbericht, GSC-Verlauf, GSC-API/URL Inspection, URL-Inspection-Persistenz
+und -Diff, Playwright-Vergleich mit injiziertem Browser,
 Local SEO, GEO, Einzel-URL-Prüfung,
 Ausnahmen, Berichte, Diff, den Systemcheck und den Git-Updater ab. Sie nutzt lokale
 HTTP-Server, lokale Git-Repositories und benötigt kein Internet.
@@ -213,6 +216,8 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   `gsc/api.py`.
 - GSC-API und URL Inspection akzeptieren Refresh-Token oder Service-Account; ein
   interaktiver OAuth-Browserflow und die persistente Token-Ablage sind offen.
+- URL Inspection ist auf API-Kontingente begrenzt; der Batch-Modus prüft standardmäßig
+  höchstens 10 und maximal 100 wichtige URLs.
 - Playwright ist optional und benötigt eine separate Browser-Installation.
 - Local SEO und GEO sind beobachtungsbasiert; externe Unternehmensprofile, lokale
   Suchergebnisse und KI-Antwortstichproben sind noch nicht angebunden.

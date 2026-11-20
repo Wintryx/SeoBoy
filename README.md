@@ -5,7 +5,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.9.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.10.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -29,6 +29,7 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - GSC-Auswertung Suchanfrage × Zielseite mit Chancen und Mehr-URL-Erkennung
 - GSC-Verlauf zwischen Läufen mit Klick-, Impressions-, CTR- und Positionsdelta
 - GSC-API-Abruf über Refresh-Token oder Service-Account und URL Inspection API
+- Persistente URL-Inspection-Ergebnisse, 06-Bericht und Audit-Diff
 - Aufbereiter für den deutschen GSC-UI-Seitenexport (Semikolon, Dezimalkomma)
 - Optionales Playwright-Rendering mit HTTP-/Browser-DOM-Vergleich
 - Local-SEO-Prüfung für Standorte, NAP und LocalBusiness-Schema
@@ -435,6 +436,27 @@ Ein interaktiver OAuth-Browserflow und die dauerhafte Token-Ablage sind noch off
 aktuell wird ein vorhandener Refresh-Token oder ein Service-Account verwendet.
 Zugangsdaten gehören nicht ins Repository und nicht in Berichte.
 
+### URL Inspection für einen Lauf
+
+Neben der Einzel-URL-Abfrage kann SeoBoy die wichtigsten HTML-URLs eines Laufs
+automatisch prüfen und dauerhaft speichern:
+
+    seoboy url-inspection --run <LAUF-ID> --limit 10
+
+Die Auswahl bevorzugt geschäftlich wichtige, erreichbare HTML-Seiten. Die Ergebnisse
+landen in der SQLite-Tabelle url_inspections und im Laufbericht:
+
+- 06_URL_INSPECTION.md
+- raw_data/url_inspections.csv
+
+Standard sind 10 URLs, maximal 100. Eine fehlgeschlagene API-Abfrage wird als Fehlerzeile
+gespeichert, nicht als erfolgreicher Indexstatus. Die Property wird aus der Start-URL
+abgeleitet oder über --property gesetzt; Zugangsdaten kommen aus
+SEOBOY_GSC_CREDENTIALS/--credentials.
+
+Der Audit-Diff vergleicht gespeicherte Inspection-Ergebnisse derselben URL und ergänzt
+05_AUDIT_DIFF.md um Verdict, Coverage, Indexing, Robots, Fetch und Canonicals.
+
 ### Service-Account und automatischer GSC-Lauf
 
 Neben OAuth-Refresh-Tokens wird eine Google-Service-Account-JSON unterstützt, wie sie
@@ -552,6 +574,7 @@ Ein Lauf schreibt in `reports/<datum>_<projekt-id>_<lauf-id>/`:
 | `03_PAGE_ANALYSIS.md` | Unterseitenanalyse mit Titel-/Beschreibungslänge, H1, Wörtern, Alt-Texten und Schema |
 | `04_GSC_QUERY_PAGES.md` | Suchanfragen, Zielseiten, Chancen und Mehr-URL-Fälle bei GSC-Daten |
 | `05_GSC_HISTORY.md` | Vergleich des GSC-Zeitraums mit dem jüngsten vergleichbaren Lauf |
+| `06_URL_INSPECTION.md` | Gespeicherte URL-Inspection-Ergebnisse für wichtige URLs |
 | `raw_data/all_urls.csv` | URL-Inventar mit Herkunft, Status, Profil, HTTP-Status |
 | `raw_data/pages.csv` | Seitenmetriken je Unterseite |
 | `raw_data/rule_results.csv` | vollständige Prüfergebnisse inklusive Evidenzverweisen |
@@ -559,6 +582,7 @@ Ein Lauf schreibt in `reports/<datum>_<projekt-id>_<lauf-id>/`:
 | `raw_data/gsc_metrics.csv` | alle gespeicherten GSC-Zeilen mit Granularität und Zuordnung |
 | `raw_data/gsc_query_pages.csv` | Query-/Zielseitenzeilen inklusive Vorzeitraum und CTR |
 | `raw_data/gsc_history.csv` | Seiten-/Query-/Paarvergleich zwischen zwei Läufen |
+| `raw_data/url_inspections.csv` | gespeicherte Inspection-Ergebnisse je Lauf |
 | `manifest.json` | Lauf-, Tool- und Regelversionen, Status, Abdeckung, Datenquellen |
 
 CSV-Dateien sind UTF-8 mit BOM. Textwerte, die wie eine Tabellenformel beginnen, werden
@@ -580,8 +604,9 @@ Die Tests decken URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter und -Import, den vollständigen Crawl, Limits, Wiederholungen,
 Redirect-Schleifen, Wiederaufnahme, Parallelität, Batch-Läufe, Unterseitenanalyse,
 Wettbewerbsbenchmark, GSC-API/URL Inspection, GSC-Query-/Zielseitenbericht,
-GSC-Verlauf, Playwright-Vergleich (mit injiziertem Browser), Local SEO, GEO, Einzel-URL-Prüfung,
-Ausnahmen, Berichte, den Lauf-Vergleich, den Systemcheck und den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
+GSC-Verlauf, URL-Inspection-Persistenz und -Diff, Playwright-Vergleich (mit injiziertem
+Browser), Local SEO, GEO, Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich,
+den Systemcheck und den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
 kein Netzwerk; die Updater-Tests nutzen lokale Git-Repositories.
 
 ## Projektstruktur
@@ -594,7 +619,8 @@ kennen keine HTTP- oder CLI-Details. Vollständiges DDD mit Aggregaten, Reposito
 Domain Events wäre für diesen lokalen Batch-Audit unnötiger Aufwand.
 
 ```text
-migrations/001_initial.sql     SQLite-Schema
+migrations/001_initial.sql     SQLite-Basisschema
+migrations/002_url_inspections.sql  persistente URL-Inspection-Ergebnisse
 AGENTS.md                       Arbeitsanweisung für KI-Agenten
 .env.example                    dokumentierte lokale Umgebungsvariablen
 local/                          lokale Konfigurationen und Laufdaten (ignoriert)
@@ -616,6 +642,7 @@ src/seoboy/
   gsc/
     api.py                     GSC-API und URL Inspection
     importer.py                GSC-Import und UI-Aufbereiter
+    inspection_store.py        URL-Inspection-Persistenz und Bericht
   infrastructure/
     config.py                  Konfiguration und Kanonisierung
     database.py                SQLite und Migrationen
@@ -658,7 +685,7 @@ Berichte werden nicht versioniert.
 ## Nächste Ausbaustufen
 
 - Interaktiver Desktop-OAuth-Flow und sichere Token-Ablage
-- Persistente Migrationen für URL Inspection, Wettbewerber, Local SEO und GEO
+- Persistente Migrationen für Wettbewerber, Local SEO und GEO
 - Vollständige Wettbewerber-Läufe, TF-IDF-Content-Gaps, SERP- und Backlink-Adapter
 - Playwright-Browser-Matrix, Screenshots und Performance-/CrUX-Messungen
 - Reproduzierbare KI-Antwortstichproben für GEO

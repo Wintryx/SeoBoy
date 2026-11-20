@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.9.0
+Stand: 20.11.2026, Version 0.10.0
 
 ## Priorisierung
 
@@ -13,7 +13,7 @@ Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand �
 | A2b | Interaktiver OAuth-Flow und persistente Token-Ablage | Komfort für Nutzer ohne Service-Account | offen |
 | A3 | Maßnahmen mit gemeinsamer Ursache bündeln | CTA und 404 werden als eine Baustelle sichtbar; weniger Reportrauschen | **erledigt in 0.8.0** |
 | A4 | GSC-Query-/Seitenverlauf über mehrere Läufe | Messbar machen, ob eine Änderung Klicks und Anfragen verbessert | **erledigt in 0.9.0** |
-| B1 | URL Inspection in SQLite und Audit-Diff | Indexstatus und Canonical-Abweichungen dauerhaft nachvollziehen | offen |
+| B1 | URL Inspection in SQLite und Audit-Diff | Indexstatus und Canonical-Abweichungen dauerhaft nachvollziehen | **erledigt in 0.10.0** |
 | B2 | TF-IDF-Content-Gaps aus dem Hauptinhalt | Inhaltliche Lücken belastbarer priorisieren als Titel/H1-Listen | offen |
 | B3 | Local SEO mit externen Profilen und lokalen Ergebnissen | Standortseiten an echten lokalen Signalen messen | offen |
 | B4 | Performance/CrUX und Lighthouse | Conversion- und Ladezeitrisiken sichtbar machen | offen |
@@ -72,13 +72,15 @@ H1, Inhalt oder CTA tatsächlich Klicks und Anfragen verändert hat.
 
 ## B – Conversion und Diagnose
 
-### B1 – URL Inspection
+### B1 – URL Inspection (erledigt)
 
-- Persistenz in SQLite statt nur JSON/Markdown
-- Automatische Auswahl wichtiger URLs je Lauf
-- Vergleich HTTP-Canonical, Google-Canonical und Indexstatus
-- Integration in den Audit-Diff
-- Property-Berechtigungen und Kontingente berücksichtigen
+- Migration 002 speichert Inspection-Ergebnisse in `url_inspections`.
+- `seoboy url-inspection --run <id>` wählt wichtige HTML-URLs automatisch aus.
+- Einzel-URL-Modus bleibt für schnelle Ad-hoc-Prüfungen erhalten.
+- `06_URL_INSPECTION.md` und `raw_data/url_inspections.csv` werden pro Lauf geschrieben.
+- Der Audit-Diff vergleicht Verdict, Coverage, Indexing, Robots, Fetch und Canonicals.
+- Fehlgeschlagene API-Aufrufe werden als Fehlerzeile gespeichert, nicht als Erfolg.
+- Property-Berechtigungen und API-Kontingente bleiben Laufzeitgrenzen.
 
 ### B2 – Content-Gaps
 
