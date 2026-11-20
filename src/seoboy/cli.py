@@ -1,5 +1,6 @@
 import argparse
 from datetime import date
+import os
 from pathlib import Path
 import sqlite3
 import sys
@@ -10,6 +11,7 @@ from seoboy.config import ConfigError, init_config, load_config
 from seoboy.crawler import ResumeError
 from seoboy.database import DatabaseError, migrate_database
 from seoboy.diff_report import DiffError
+from seoboy.env import load_env
 from seoboy.gsc import GscError
 from seoboy.lock import LockError
 from seoboy.runner import RunnerError
@@ -43,7 +45,7 @@ def _parse_columns(value: str | None) -> dict[str, str] | None:
     return mapping
 
 
-def _build_parser() -> argparse.ArgumentParser:
+def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="seoboy",
         description="Lokales SEO-Audit für eigene Websites",
@@ -53,28 +55,28 @@ def _build_parser() -> argparse.ArgumentParser:
 
     init = commands.add_parser("init", help="Projektkonfiguration anlegen")
     init.add_argument("--url", required=True, help="Start-URL der Website")
-    init.add_argument("--config", type=Path, default=Path("seoboy.yaml"))
+    init.add_argument("--config", type=Path, default=default_config)
 
     migrate = commands.add_parser("migrate", help="SQLite-Schema anlegen oder aktualisieren")
-    migrate.add_argument("--config", type=Path, default=Path("seoboy.yaml"))
+    migrate.add_argument("--config", type=Path, default=default_config)
 
     run = commands.add_parser("run", help="Audit ausführen")
-    run.add_argument("--config", type=Path, default=Path("seoboy.yaml"))
+    run.add_argument("--config", type=Path, default=default_config)
     run.add_argument("--gsc-dir", type=Path, help="Verzeichnis mit GSC-Manifest und CSV-Dateien")
     run.add_argument("--resume", metavar="LAUF-ID", help="Pausierten Lauf fortsetzen")
 
     inspect = commands.add_parser("inspect", help="Einzelne URL prüfen")
     inspect.add_argument("url", help="Zu prüfende URL")
-    inspect.add_argument("--config", type=Path, default=Path("seoboy.yaml"))
+    inspect.add_argument("--config", type=Path, default=default_config)
 
     diff = commands.add_parser("diff", help="Zwei Läufe vergleichen")
     diff.add_argument("--base", required=True, metavar="LAUF-ID", help="Basislauf")
     diff.add_argument("--target", required=True, metavar="LAUF-ID", help="Ziellauf")
-    diff.add_argument("--config", type=Path, default=Path("seoboy.yaml"))
+    diff.add_argument("--config", type=Path, default=default_config)
 
     report = commands.add_parser("report", help="Berichte eines gespeicherten Laufs erneut schreiben")
     report.add_argument("--run", required=True, metavar="LAUF-ID")
-    report.add_argument("--config", type=Path, default=Path("seoboy.yaml"))
+    report.add_argument("--config", type=Path, default=default_config)
 
     prepare = commands.add_parser(
         "gsc-prepare",
@@ -103,7 +105,9 @@ def _load(path: Path):
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = _build_parser()
+    load_env()
+    default_config = Path(os.environ.get("SEOBOY_CONFIG", "seoboy.yaml"))
+    parser = _build_parser(default_config)
     args = parser.parse_args(argv)
     try:
         if args.command == "init":
@@ -122,7 +126,11 @@ def main(argv: list[str] | None = None) -> int:
             if args.resume:
                 outcome = runner.resume_project(config, args.resume)
             else:
-                gsc_dir = args.gsc_dir.resolve() if args.gsc_dir else None
+                gsc_value = args.gsc_dir
+                if gsc_value is None:
+                    env_gsc = os.environ.get("SEOBOY_GSC_DIR")
+                    gsc_value = Path(env_gsc) if env_gsc else None
+                gsc_dir = gsc_value.resolve() if gsc_value else None
                 outcome = runner.run_project(config, gsc_dir)
             for warning in outcome.warnings:
                 print(f"Hinweis: {warning}")

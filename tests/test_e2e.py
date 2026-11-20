@@ -6,9 +6,11 @@ import tempfile
 import unittest
 
 from seoboy import runner
+from seoboy.audit_data import RunData
 from seoboy.config import load_config
 from seoboy.crawler import Crawler, ResumeError, create_run, validate_resume
 from seoboy.database import connect, migrate_database
+from seoboy.reporting import _page_counts
 
 from tests.support import FixtureSite, html, make_config
 
@@ -49,6 +51,7 @@ def full_site(site: FixtureSite) -> None:
             "<a href='/canonical/'>Canonical</a>"
             "<a href='/private/'>Private</a>"
             "<a href='/danke/'>Danke</a>"
+            "<a href='/wp-admin/'>Admin</a>"
             "<a href='https://external.example/x'>Extern</a>"
             "<a href='/formula/'>Formel</a>"
         ),
@@ -256,6 +259,17 @@ class EndToEndTests(unittest.TestCase):
                 technical = (report / "02_TECHNICAL_SEO_AUDIT.md").read_text(encoding="utf-8")
                 self.assertIn("Abdeckung je Regel", technical)
                 self.assertIn("Ungeprüfte Fälle je Grund", technical)
+                counts = _page_counts(RunData(connection, config, outcome.run_id))
+                self.assertGreaterEqual(counts["excluded"], 1)
+                self.assertGreaterEqual(counts["external_references"], 1)
+                self.assertEqual(
+                    counts["discovered"],
+                    counts["checked"]
+                    + counts["blocked"]
+                    + counts["excluded"]
+                    + counts["deferred"]
+                    + counts["open"],
+                )
             finally:
                 connection.close()
 

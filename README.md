@@ -5,7 +5,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: MVP 0.2.0 mit einer Website pro Projekt, HTTP-Crawl, optionalem
+Aktueller Stand: MVP 0.2.1 mit einer Website pro Projekt, HTTP-Crawl, optionalem
 GSC-CSV-Import, technischen Kernregeln, Markdown-/CSV-Berichten und Audit-Diff. Der
 Audit arbeitet ausschließlich lesend.
 
@@ -43,6 +43,29 @@ python -m venv .venv
 Für einen Lauf ohne Installation im Quellbaum kann `$env:PYTHONPATH = ".\src"` gesetzt
 und `python -m seoboy ...` verwendet werden. Die Tests brauchen nur die Standardbibliothek
 und PyYAML.
+
+## Lokale Umgebung (.env)
+
+SeoBoy liest optional eine `.env` aus dem Arbeitsverzeichnis oder der Projektwurzel.
+Bereits gesetzte Umgebungsvariablen werden nicht überschrieben. Die Datei ist für lokale
+Pfade und optionale Datenquellen gedacht; Secrets gehören nicht hinein.
+
+```powershell
+Copy-Item .env.example .env
+notepad .env
+```
+
+| Variable | Bedeutung |
+| --- | --- |
+| `SEOBOY_CONFIG` | Standardpfad für `--config`, z. B. `./local/projekt/seoboy.yaml` |
+| `SEOBOY_GSC_DIR` | Standard für `seoboy run --gsc-dir`; bei `--resume` ignoriert |
+| `SEOBOY_ENV_FILE` | Alternatives Env-File; muss vor dem Prozessstart gesetzt sein |
+
+Explizite CLI-Optionen haben Vorrang. `.env` ist in `.gitignore` und wird nicht
+versioniert; `.env.example` ist die dokumentierte Vorlage. Lokale Konfigurationen,
+Datenbanken und Berichte können unter `local/` liegen, das ebenfalls ignoriert wird.
+
+Hinweise für Agenten und Mitentwickler stehen in [AGENTS.md](AGENTS.md).
 
 ## Schnellstart
 
@@ -282,10 +305,14 @@ Lauf-Vergleich ab. Sie verwenden einen lokalen HTTP-Server und benötigen kein N
 
 ```text
 migrations/001_initial.sql     SQLite-Schema
+AGENTS.md                       Arbeitsanweisung für KI-Agenten
+.env.example                    dokumentierte lokale Umgebungsvariablen
+local/                          lokale Konfigurationen und Laufdaten (ignoriert)
 src/seoboy/
   cli.py                       Kommandozeile
   config.py                    Konfiguration und Kanonisierung
   crawler.py                   Warteschlange, Budgets, Wiederaufnahme
+  env.py                       optionales Laden der .env
   http_client.py               HTTP-Client ohne Redirect-Verfolgung
   robots.py                    robots.txt-Parser
   html_extract.py              HTML-Extraktion
@@ -308,6 +335,8 @@ Die Datenbank und die Berichte bleiben lokal. HTML-Volltexte werden nicht gespei
 gespeichert werden Statuswerte, Metadaten, Links, Evidenz und Auszüge. Zugangsdaten und
 API-Schlüssel gehören nicht in die Projektkonfiguration, in Berichte oder in Logs.
 Response-Header werden ohne `Set-Cookie` gespeichert. Der Audit verändert keine Website.
+Lokale `.env`-Dateien, Konfigurationen unter `local/`, Datenbanken und Berichte werden
+nicht versioniert.
 
 ## Nächste Ausbaustufen
 

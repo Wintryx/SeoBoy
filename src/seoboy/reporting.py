@@ -245,10 +245,13 @@ def _page_counts(data: RunData) -> dict[str, int]:
         "deferred": 0,
         "open": 0,
         "admitted": 0,
+        "external_references": 0,
     }
-    for url_id in data.page_url_ids:
-        info = data.urls.get(url_id)
-        if info is None:
+    for url_id, info in data.urls.items():
+        if url_id in data.aux_url_ids and url_id not in data.page_url_ids:
+            continue
+        if info.state == "excluded" and info.reason_code == "host_not_allowed":
+            counts["external_references"] += 1
             continue
         counts["discovered"] += 1
         if info.admitted_at:
@@ -440,6 +443,7 @@ def render_run_report(
         "checked_pages": counts["checked"],
         "blocked_pages": counts["blocked"],
         "excluded_pages": counts["excluded"],
+        "external_references": counts["external_references"],
         "deferred_pages": counts["deferred"],
         "open_pages": counts["open"],
         "auxiliary_urls": aux_urls,
@@ -518,11 +522,12 @@ def _executive_summary(
         "",
         "| Kennzahl | Wert |",
         "| --- | --- |",
-        f"| entdeckte Seiten | {counts['discovered']} |",
+        f"| entdeckte interne Seiten | {counts['discovered']} |",
         f"| zum Seitenbudget zugelassen | {counts['admitted']} von {run['max_urls']} |",
         f"| abgerufen (geprüft) | {counts['checked']} |",
         f"| gesperrt | {counts['blocked']} |",
         f"| ausgeschlossen | {counts['excluded']} |",
+        f"| externe Referenzen | {counts['external_references']} |",
         f"| zurückgestellt | {counts['deferred']} |",
         f"| offen | {counts['open']} |",
         f"| HTTP-Anfragen | {requests} von {run['max_requests']} |",
@@ -682,18 +687,40 @@ def _action_plan(
                         affected.append(url)
         first = findings[0]
         basis = _basis_for_scope(coverage, first.rule_id, first.scope_key)
-        examples = [_display(data, url) for url in affected[:10]]
-        example_text = ", ".join(examples) if examples else "–"
-        if len(affected) > 10:
-            example_text += f" … ({len(affected)} betroffene URLs, 10 von {len(affected)} gezeigt)"
+        if first.rule_id == "LINK_BROKEN":
+            sources: list[str] = []
+            targets: list[str] = []
+            for finding in findings:
+                for url_id, relation in finding.urls:
+                    bucket = sources if relation == "source" else targets if relation == "target" else None
+                    if bucket is None:
+                        continue
+                    value = data.url_string(url_id)
+                    if value not in bucket:
+                        bucket.append(value)
+            source_text = ", ".join(_display(data, url) for url in sources[:5]) or "–"
+            target_text = ", ".join(_display(data, url) for url in targets[:5]) or "–"
+            example_text = f"Quellen: {source_text} · Ziele: {target_text}"
+            betroffen_text = (
+                f"{len(sources)} Quellseite(n), {len(targets)} Ziel(e); Bezugsgröße "
+                f"{basis or len(sources)} geprüfte Objekte im Linkgraphen"
+            )
+        else:
+            examples = [_display(data, url) for url in affected[:10]]
+            example_text = ", ".join(examples) if examples else "–"
+            if len(affected) > 10:
+                example_text += f" … ({len(affected)} betroffene URLs, 10 von {len(affected)} gezeigt)"
+            betroffen_text = (
+                f"{len(affected)} von {basis or len(affected)} geprüften Objekten im "
+                f"Geltungsbereich {first.scope_key}"
+            )
         observed = _first_observed(first)
         lines.extend(
             [
                 f"### P{action.priority} – {action.title}",
                 "",
                 f"- **Regel und ID:** {first.rule_id} · {action.action_key}",
-                f"- **Betroffen:** {example_text} · {len(affected)} von {basis or len(affected)} "
-                f"geprüften Objekten im Geltungsbereich {first.scope_key}",
+                f"- **Betroffen:** {example_text} · {betroffen_text}",
                 f"- **Evidenz:** {_evidence_summary(first)}",
                 f"- **Datenquelle und Messzeit:** {_source_label(first)}"
                 + (f", beobachtet {format_local(parse_utc(observed))}" if observed else ""),
@@ -755,7 +782,8 @@ def _technical_audit(
         f"**Lauf:** {run['run_id']} · **Status:** {STATUS_LABELS.get(run['status'], run['status'])}"
         + (f" · **Abbruchgrund:** {_reason_label(run['stop_reason'])}" if run["stop_reason"] else ""),
         f"**Abdeckung:** {counts['checked']} abgerufene Seiten, {counts['deferred']} zurückgestellt, "
-        f"{counts['blocked']} gesperrt, {counts['excluded']} ausgeschlossen, {counts['open']} offen; "
+        f"{counts['blocked']} gesperrt, {counts['excluded']} ausgeschlossen, "
+        f"{counts['external_references']} externe Referenzen, {counts['open']} offen; "
         f"{requests} HTTP-Anfragen.",
         "",
         "## Abdeckung je Regel",

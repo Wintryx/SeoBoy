@@ -19,19 +19,19 @@ from seoboy.urls import (
 )
 from seoboy.util import sha256_text, stable_json
 
-RULESET_VERSION = "1"
+RULESET_VERSION = "2"
 RULE_VERSIONS = {
     "HTTP_UNAVAILABLE": "1",
-    "HTTP_REDIRECT": "1",
+    "HTTP_REDIRECT": "2",
     "INDEX_ROBOTS_BLOCKED": "1",
     "INDEX_NOINDEX": "1",
-    "CANONICAL_TARGET": "1",
+    "CANONICAL_TARGET": "2",
     "SITEMAP_TARGET": "1",
-    "LINK_BROKEN": "1",
+    "LINK_BROKEN": "2",
     "LINK_ORPHAN_CANDIDATE": "1",
     "LINK_DEPTH": "1",
-    "META_TITLE": "1",
-    "META_DESCRIPTION": "1",
+    "META_TITLE": "2",
+    "META_DESCRIPTION": "2",
     "GSC_NEAR_TOP": "1",
     "GSC_DECLINE": "1",
     "GSC_CTR_REVIEW": "1",
@@ -1138,11 +1138,10 @@ def rule_link_broken(data: RunData) -> list[RuleResult]:
         subject = key_for_link(source.url, target.url)
         if target.state == "excluded":
             reason = target.reason_code or "excluded"
-            outcome = "not_applicable" if reason == "host_not_allowed" else "not_checked"
             results.append(
                 _rule(
-                    "LINK_BROKEN", subject, "link", "", "internal_links", outcome,
-                    reason_code="external_target" if outcome == "not_applicable" else "excluded_target",
+                    "LINK_BROKEN", subject, "link", "", "internal_links", "not_applicable",
+                    reason_code="external_target" if reason == "host_not_allowed" else "excluded_target",
                     urls=[(source_id, "source"), (target_id, "target")],
                     evidence=_clean([
                         _observation_evidence(data.observation(source_id), {"link_present": True}),

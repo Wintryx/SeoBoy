@@ -219,10 +219,20 @@ def _texts(
             "robots.txt und URL erneut prüfen; Googlebot muss für den Pfad zugelassen sein.",
         )
     if rule_id == "INDEX_NOINDEX":
+        critical = any(finding.severity == "critical" for finding in findings)
+        if critical:
+            return (
+                f"noindex-Sperre auf {primary} entfernen",
+                "Wirksames noindex im Robots-Meta-Tag oder X-Robots-Tag entfernen.",
+                "Die unbeabsichtigte Indexierungssperre entfällt.",
+                "URL abrufen und HTTP-Header sowie HTML auf noindex prüfen.",
+            )
         return (
-            f"noindex auf {primary} entfernen",
-            "Wirksames noindex im Robots-Meta-Tag oder X-Robots-Tag entfernen.",
-            "Die unbeabsichtigte Indexierungssperre entfällt.",
+            f"noindex auf {primary} prüfen",
+            "Prüfen, ob das noindex beabsichtigt ist. Falls die Seite indexiert werden soll, "
+            "wirksames noindex im Robots-Meta-Tag oder X-Robots-Tag entfernen.",
+            "Unbeabsichtigte Indexierungssperren werden vermieden; beabsichtigte Ausschlüsse "
+            "bleiben dokumentiert.",
             "URL abrufen und HTTP-Header sowie HTML auf noindex prüfen.",
         )
     if rule_id == "CANONICAL_TARGET":
