@@ -9,6 +9,7 @@ import unittest
 
 from seoboy import cli
 from seoboy.application import runner
+from seoboy.benchmark.sampler import collect_snapshot
 from seoboy.crawl.crawler import Crawler, create_run
 from seoboy.infrastructure.database import connect, migrate_database
 
@@ -211,6 +212,20 @@ class CliTests(unittest.TestCase):
             self.assertIn("HTML-Seiten ausgewertet", report)
             self.assertTrue((folder / "raw_data" / "benchmark_pages.csv").is_file())
             self.assertTrue((folder / "manifest.json").is_file())
+
+    def test_benchmark_respects_competitor_robots(self):
+        with FixtureSite() as site:
+            site.add(
+                "/robots.txt",
+                body="User-agent: *\nDisallow: /\n",
+                content_type="text/plain",
+            )
+            site.add_html("/", "Start")
+            snapshot = collect_snapshot(
+                site.base, "robots", max_pages=2, interval_seconds=0
+            )
+            self.assertEqual(snapshot.error, "robots_disallowed")
+            self.assertEqual(site.requests["/"], 0)
 
     def test_resume_with_changed_config_exits_2(self):
         with FixtureSite() as site:

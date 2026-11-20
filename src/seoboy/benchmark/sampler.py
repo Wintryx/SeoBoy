@@ -110,6 +110,13 @@ def _fetch_follow(
     return result, current
 
 
+def _load_robots(client: HttpClient, origin: str) -> RobotsFile:
+    result, _ = _fetch_follow(client, f"{origin}/robots.txt", max_redirects=1)
+    if result.status_code and 200 <= result.status_code < 300:
+        return RobotsFile.parse(decode_body(result))
+    return RobotsFile.parse("")
+
+
 def _same_site(url: str, allowed_hosts: tuple[str, ...]) -> bool:
     try:
         normalized = normalize_url(url)
@@ -144,7 +151,7 @@ def _sitemap_candidates(
             sitemap_urls.extend([f"{origin}/sitemap.xml", f"{origin}/sitemap_index.xml"])
     found: list[str] = []
     total = 0
-    base = f"{origins[0]}/"
+    base = f"{origins[-1]}/"
     for raw_sitemap_url in sitemap_urls:
         sitemap_url = _absolute_url(raw_sitemap_url, base)
         if not _same_site(sitemap_url, allowed_hosts):
@@ -235,6 +242,14 @@ def collect_snapshot(
     except InvalidUrl as error:
         raise BenchmarkError(f"Ungültige Wettbewerbs-URL {start_url}: {error}") from error
     client = HttpClient(timeout=timeout)
+    robots = _load_robots(client, normalized.origin)
+    if not robots.is_allowed(_origin_path(normalized.url), SEOBOY):
+        return SiteSnapshot(
+            label=label,
+            start_url=normalized.url,
+            final_url=normalized.url,
+            error="robots_disallowed",
+        )
     home_result, final_url = _fetch_follow(client, normalized.url)
     if (
         home_result.error_code is not None
@@ -252,15 +267,17 @@ def collect_snapshot(
         final_normalized = normalize_url(final_url)
     except InvalidUrl:
         final_normalized = normalized
+    if final_normalized.origin != normalized.origin:
+        robots = _load_robots(client, final_normalized.origin)
+        if not robots.is_allowed(_origin_path(final_normalized.url), SEOBOY):
+            return SiteSnapshot(
+                label=label,
+                start_url=normalized.url,
+                final_url=final_url,
+                error="robots_disallowed",
+            )
     allowed_hosts = tuple(dict.fromkeys([normalized.host, final_normalized.host]))
     origins = list(dict.fromkeys([normalized.origin, final_normalized.origin]))
-
-    robots = RobotsFile.parse("")
-    for origin in origins:
-        robots_result, _ = _fetch_follow(client, f"{origin}/robots.txt", max_redirects=1)
-        if robots_result.status_code and 200 <= robots_result.status_code < 300:
-            robots = RobotsFile.parse(decode_body(robots_result))
-            break
 
     sitemap_values, sitemap_count = _sitemap_candidates(
         client, origins, robots, allowed_hosts, max_pages
