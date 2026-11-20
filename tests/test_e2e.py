@@ -278,6 +278,41 @@ class EndToEndTests(unittest.TestCase):
             finally:
                 connection.close()
 
+    def test_broken_link_action_groups_three_sources(self):
+        with FixtureSite() as site:
+            site.add(
+                "/robots.txt",
+                body="User-agent: *\nAllow: /\n",
+                content_type="text/plain",
+            )
+            site.add_html(
+                "/",
+                "Start",
+                "<a href='/a/'>A</a><a href='/b/'>B</a><a href='/c/'>C</a>",
+            )
+            for name in ("a", "b", "c"):
+                site.add_html(
+                    f"/{name}/", name.upper(), "<a href='/missing/'>Fehlt</a>"
+                )
+            config = make_config(self.directory, site.base)
+            outcome = runner.run_project(config)
+            self.assertEqual(outcome.status, "completed")
+            connection = connect(config.database)
+            try:
+                action = connection.execute(
+                    "SELECT action_key, title FROM actions "
+                    "WHERE action_key LIKE 'LINK_BROKEN|%'"
+                ).fetchone()
+                self.assertIsNotNone(action)
+                count = connection.execute(
+                    "SELECT COUNT(*) FROM action_findings WHERE action_key = ?",
+                    (action["action_key"],),
+                ).fetchone()[0]
+                self.assertEqual(count, 3)
+                self.assertIn("/missing/", action["title"])
+            finally:
+                connection.close()
+
     def test_parallel_page_fetching(self):
         with FixtureSite() as site:
             site.add("/robots.txt", body="User-agent: *\nAllow: /\n", content_type="text/plain")

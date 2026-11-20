@@ -126,6 +126,10 @@ def _facts(
 ) -> dict[str, Any]:
     facts: dict[str, Any] = {
         "summary": summary,
+        "dataset_id": int(dataset["dataset_id"]),
+        "import_id": int(dataset["import_id"]),
+        "row_key": [int(dataset["dataset_id"]), metric.url_id, metric.query],
+        "source_page": metric.source_page,
         "property": dataset["property"],
         "search_type": dataset["search_type"],
         "country": dataset["country"] or None,
