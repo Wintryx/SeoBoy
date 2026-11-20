@@ -387,6 +387,7 @@ def _decline(
 ) -> list[RuleResult]:
     results: list[RuleResult] = []
     thresholds = data.config.gsc
+    missing_rows = 0
     current = {_metric_key(latest, metric): metric for metric in _metrics(data, latest)}
     before = {_metric_key(previous, metric): metric for metric in _metrics(data, previous)}
     if not before:
@@ -404,24 +405,7 @@ def _decline(
         subject = _subject(latest, previous_metric)
         relations = [(previous_metric.url_id, "affected")]
         if latest_metric is None:
-            results.append(
-                _rule(
-                    "GSC_DECLINE", subject,
-                    "url" if latest["grain"] == "page" else "query",
-                    latest["grain"], _scope(latest), "not_checked",
-                    reason_code="missing_comparison_row", urls=relations,
-                    evidence=[
-                        _evidence(data, previous, _facts(
-                            previous, previous_metric,
-                            summary="Im aktuellen Zeitraum fehlt die Vergleichszeile",
-                        )),
-                        _evidence(data, latest, {
-                            "summary": "Keine Zeile im aktuellen Zeitraum",
-                            "period": [latest["period_start"], latest["period_end"]],
-                        }),
-                    ],
-                )
-            )
+            missing_rows += 1
             continue
         decline = previous_metric.clicks - latest_metric.clicks
         ratio = decline / previous_metric.clicks if previous_metric.clicks else 0.0
@@ -481,6 +465,20 @@ def _decline(
                     evidence=[_evidence(data, latest, facts)],
                 )
             )
+    if missing_rows:
+        results.append(
+            _segment_unchecked(
+                "GSC_DECLINE",
+                latest,
+                "missing_comparison_row",
+                {
+                    "summary": (
+                        f"{missing_rows} Vergleichszeile(n) fehlen im aktuellen Zeitraum"
+                    ),
+                    "missing_rows": missing_rows,
+                },
+            )
+        )
     for key, metric in current.items():
         if key in before:
             continue
@@ -513,6 +511,7 @@ def _ctr_review(
 ) -> list[RuleResult]:
     results: list[RuleResult] = []
     thresholds = data.config.gsc
+    missing_rows = 0
     current = {_metric_key(latest, metric): metric for metric in _metrics(data, latest)}
     before = {_metric_key(previous, metric): metric for metric in _metrics(data, previous)}
     if not before:
@@ -530,18 +529,7 @@ def _ctr_review(
         subject = _subject(latest, previous_metric)
         relations = [(previous_metric.url_id, "affected")]
         if latest_metric is None:
-            results.append(
-                _rule(
-                    "GSC_CTR_REVIEW", subject, "query", latest["grain"],
-                    _scope(latest), "not_checked",
-                    reason_code="missing_comparison_row", urls=relations,
-                    evidence=[
-                        _evidence(data, latest, {
-                            "summary": "Keine Vergleichszeile im aktuellen Zeitraum",
-                        })
-                    ],
-                )
-            )
+            missing_rows += 1
             continue
         if (
             previous_metric.position is None
@@ -628,6 +616,20 @@ def _ctr_review(
                     evidence=[_evidence(data, latest, facts)],
                 )
             )
+    if missing_rows:
+        results.append(
+            _segment_unchecked(
+                "GSC_CTR_REVIEW",
+                latest,
+                "missing_comparison_row",
+                {
+                    "summary": (
+                        f"{missing_rows} Vergleichszeile(n) fehlen im aktuellen Zeitraum"
+                    ),
+                    "missing_rows": missing_rows,
+                },
+            )
+        )
     return results
 
 
