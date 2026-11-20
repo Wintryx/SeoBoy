@@ -1,1 +1,1 @@
-"""Technische Adapter: Konfiguration, SQLite, Umgebung und Sperren."""
+"""Technical adapters: configuration, SQLite, environment, and locks."""

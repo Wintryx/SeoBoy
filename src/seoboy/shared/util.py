@@ -1,4 +1,4 @@
-"""Kleine, abhängigkeitsfreie Hilfsfunktionen für SeoBoy."""
+"""Small dependency-free helper functions for SeoBoy."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from typing import Any, Iterable
 
 UTC = timezone.utc
 
-# Deutsche Zeitangaben werden ohne tzdata-Paket berechnet. Die EU-Sommerzeit
-# beginnt am letzten Sonntag im März und endet am letzten Sonntag im Oktober,
-# jeweils um 01:00 UTC.
+# German time is calculated without the tzdata package. EU summer time
+# starts on the last Sunday in March and ends on the last Sunday in October,
+# at 01:00 UTC each year.
 _CEST = timezone(timedelta(hours=2), "MESZ")
 _CET = timezone(timedelta(hours=1), "MEZ")
 
@@ -23,7 +23,7 @@ def utc_now() -> datetime:
 
 
 def iso_utc(moment: datetime | None = None) -> str:
-    """Einheitliches UTC-Format mit Sekunden, z. B. 2026-11-20T08:32:00Z."""
+    """Consistent UTC format with seconds, e.g. 2026-11-20T08:32:00Z."""
     value = moment or utc_now()
     if value.tzinfo is None:
         value = value.replace(tzinfo=UTC)
@@ -52,7 +52,7 @@ def _summer_time_bounds(year: int) -> tuple[datetime, datetime]:
 
 
 def berlin_time(moment: datetime) -> tuple[datetime, str]:
-    """Liefert Berliner Lokalzeit und die deutsche Abkürzung (MEZ/MESZ)."""
+    """Return Berlin local time and the German abbreviation (MEZ/MESZ)."""
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=UTC)
     moment = moment.astimezone(UTC)
@@ -63,7 +63,7 @@ def berlin_time(moment: datetime) -> tuple[datetime, str]:
 
 
 def format_local(moment: datetime | None) -> str:
-    """Format wie im Reporting-Beispiel: 20.11.2026 um 09:32 Uhr MEZ."""
+    """Format used in reporting, e.g. 20.11.2026 um 09:32 Uhr MEZ."""
     if moment is None:
         return "unbekannt"
     local, suffix = berlin_time(moment)
@@ -88,7 +88,7 @@ def local_date_from_utc(text: str) -> date:
 
 
 def stable_json(value: Any) -> str:
-    """Kompakte, sortierte JSON-Darstellung für Schlüssel und Hashes."""
+    """Compact, sorted JSON representation for keys and hashes."""
     return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
 
 
@@ -127,7 +127,7 @@ def normalize_whitespace(text: str | None) -> str:
 
 
 def parse_retry_after(value: str | None, now: datetime) -> int | None:
-    """Retry-After als Sekunden; unterstützt Sekunden und HTTP-Datum."""
+    """Retry-After in seconds; supports seconds and HTTP dates."""
     if not value:
         return None
     value = value.strip()
@@ -145,10 +145,10 @@ def parse_retry_after(value: str | None, now: datetime) -> int | None:
 
 
 def excel_safe(value: Any) -> Any:
-    """Schützt Textwerte vor Formelinterpretation in Tabellenprogrammen.
+    """Protect text values from formula interpretation in spreadsheet applications.
 
-    Der unveränderte Wert bleibt in SQLite gespeichert; nur der Export erhält
-    ein führendes Apostroph.
+    The unchanged value remains stored in SQLite; only the export receives
+    a leading apostrophe.
     """
     if not isinstance(value, str) or not value:
         return value
@@ -165,7 +165,7 @@ def truncate(text: str, limit: int = 300) -> str:
 
 
 def unique(items: Iterable[Any]) -> list[Any]:
-    """Reihenfolgeerhaltende Eindeutigkeit für hashbare Werte."""
+    """Order-preserving uniqueness for hashable values."""
     seen: set[Any] = set()
     result: list[Any] = []
     for item in items:

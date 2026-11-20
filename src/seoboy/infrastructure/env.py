@@ -1,4 +1,4 @@
-"""Optionales Laden einer lokalen .env-Datei ohne Zusatzabhängigkeit."""
+"""Optional loading of a local .env file without additional dependencies."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ _KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def find_env_file() -> Path | None:
-    """Bevorzugt SEOBOY_ENV_FILE, sonst .env im Arbeits- oder Projektverzeichnis."""
+    """Prefer SEOBOY_ENV_FILE; otherwise .env in the working or project directory."""
     explicit = os.environ.get("SEOBOY_ENV_FILE")
     if explicit:
         candidate = Path(explicit).expanduser()
@@ -42,7 +42,7 @@ def parse_env(text: str) -> dict[str, str]:
 
 
 def load_env(path: Path | str | None = None) -> dict[str, str]:
-    """Lädt die .env-Datei, ohne bereits gesetzte Umgebungsvariablen zu überschreiben."""
+    """Load the .env file without overriding already set environment variables."""
     env_path = Path(path) if path is not None else find_env_file()
     if env_path is None or not env_path.is_file():
         return {}

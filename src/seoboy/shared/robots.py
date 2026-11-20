@@ -1,4 +1,4 @@
-"""Parser und Auswertung für robots.txt nach RFC 9309 (Kernregeln)."""
+"""Parser and evaluator for robots.txt according to RFC 9309 (core rules)."""
 
 from __future__ import annotations
 

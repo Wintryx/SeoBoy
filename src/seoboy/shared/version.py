@@ -1,10 +1,10 @@
-"""Zentrale Versionsangaben für SeoBoy."""
+"""Central version information for SeoBoy."""
 
 __version__ = "0.3.0"
 
 TOOL_VERSION = __version__
-# Versionen, die in jedem Lauf gespeichert werden. Änderungen an der Semantik
-# erfordern eine neue Version, damit Läufe und Diff-Vergleiche belastbar bleiben.
+# Versions stored in every run. Semantic changes require a new version so
+# runs and diff comparisons remain reliable.
 CRAWLER_VERSION = "3"
 RULESET_VERSION = "2"
 NORMALIZATION_VERSION = "1"

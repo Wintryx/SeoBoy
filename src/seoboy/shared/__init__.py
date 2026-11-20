@@ -1,1 +1,1 @@
-"""Gemeinsamer Kern: URLs, Utilities, Versionen, Agenten und robots.txt."""
+"""Shared kernel: URLs, utilities, versions, agents, and robots.txt."""

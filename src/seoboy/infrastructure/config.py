@@ -1,4 +1,4 @@
-"""Projektkonfiguration: Laden, Validieren, Kanonisieren."""
+"""Project configuration: loading, validation, canonicalization."""
 
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ GSC_KEYS = {
 
 
 class ConfigError(ValueError):
-    """Die Projektkonfiguration ist fachlich ungültig."""
+    """The project configuration is semantically invalid."""
 
 
 @dataclass(frozen=True)

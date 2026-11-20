@@ -1,4 +1,4 @@
-"""URL-Normalisierung und Mustervergleich gemäß Crawl-Vertrag."""
+"""URL normalization and pattern matching according to the crawl contract."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
 class InvalidUrl(ValueError):
-    """Die Zeichenkette ist keine crawl- oder prüfbare HTTP(S)-URL."""
+    """The string is not a crawlable or checkable HTTP(S) URL."""
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ class NormalizedUrl:
 
 
 def _ascii_host(host: str) -> str:
-    if ":" in host:  # IPv6-Literal
+    if ":" in host:  # IPv6 literal
         return host
     try:
         return host.encode("idna").decode("ascii")
@@ -64,11 +64,11 @@ def _filter_query(query: str, patterns: tuple[str, ...]) -> str:
 
 
 def normalize_url(value: str, remove_query_params: tuple[str, ...] = ()) -> NormalizedUrl:
-    """Normalisiert eine HTTP(S)-URL für die Identität im Projekt.
+    """Normalize an HTTP(S) URL for identity within the project.
 
-    Schema und Host werden kleingeschrieben. Standardports, Fragmente und
-    konfigurierte Tracking-Parameter entfallen. Pfadschreibweise, Slash am Ende
-    und übrige Query-Parameter bleiben erhalten.
+    Scheme and host are lowercased. Default ports, fragments, and configured
+    tracking parameters are removed. Path spelling, trailing slash, and other
+    query parameters are preserved.
     """
     if not isinstance(value, str):
         raise InvalidUrl("Die URL muss Text sein.")
@@ -119,10 +119,10 @@ def normalize_url(value: str, remove_query_params: tuple[str, ...] = ()) -> Norm
 
 
 def resolve_url(base: str, href: str) -> str | None:
-    """Löst einen HTML-Verweis gegen die Dokumentbasis auf.
+    """Resolve an HTML reference against the document base.
 
-    Leere Verweise und reine Fragmente erzeugen keine neue URL. Nicht-HTTP-
-    Schemata werden verworfen.
+    Empty references and pure fragments do not create a new URL. Non-HTTP
+    schemes are discarded.
     """
     if href is None:
         return None
@@ -156,7 +156,7 @@ def path_of(url: str) -> str:
 
 
 def path_glob_to_regex(pattern: str) -> re.Pattern[str]:
-    """Wandelt ein Pfadmuster um: * bleibt im Segment, ** erfasst Segmente."""
+    """Convert a path pattern: * stays within a segment, ** spans segments."""
     if not pattern.startswith("/"):
         raise ValueError(f"Pfadmuster muss mit '/' beginnen: {pattern}")
     pieces: list[str] = ["^"]
@@ -212,7 +212,7 @@ def key_for_gsc(
 
 
 def relative_url(url: str, allowed_hosts: tuple[str, ...]) -> str:
-    """Verkürzt interne URLs für Berichte auf Pfad und Query."""
+    """Shorten internal URLs to path and query for reports."""
     try:
         parsed = normalize_url(url)
     except InvalidUrl:

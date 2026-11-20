@@ -1,4 +1,4 @@
-"""Crawler-Agenten, die in der robots.txt-Auswertung verwendet werden."""
+"""Crawler agents used for robots.txt evaluation."""
 
 GOOGLEBOT = "googlebot"
 SEOBOY = "seoboy"

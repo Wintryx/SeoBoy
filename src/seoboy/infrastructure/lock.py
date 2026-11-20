@@ -1,4 +1,4 @@
-"""Exklusive Betriebssystem-Sperre je Projektdatenbank."""
+"""Exclusive operating-system lock per project database."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Iterator
 
 
 class LockError(RuntimeError):
-    """Ein anderer Prozess hält bereits die Sperre für diese Datenbank."""
+    """Another process already holds the lock for this database."""
 
 
 @contextmanager

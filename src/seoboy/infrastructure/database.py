@@ -1,4 +1,4 @@
-"""SQLite-Verbindung, Migrationen und kleine Datenbankhelfer."""
+"""SQLite connection, migrations, and small database helpers."""
 
 from __future__ import annotations
 
@@ -14,11 +14,11 @@ SCHEMA_TABLES = {"projects", "sites", "runs", "urls", "run_urls"}
 
 
 class DatabaseError(ValueError):
-    """Die Datenbank ist nicht kompatibel oder nicht verfügbar."""
+    """The database is incompatible or unavailable."""
 
 
 def _migration_dir() -> Path:
-    """Findet die SQL-Migrationen sowohl im Quellbaum als auch installiert."""
+    """Locate SQL migrations both in the source tree and when installed."""
     try:
         candidate = resource_files("seoboy.migrations")
         path = Path(str(candidate))
@@ -26,7 +26,7 @@ def _migration_dir() -> Path:
             return path
     except (ModuleNotFoundError, TypeError):
         pass
-    # Quellbaum: vom Modul nach oben bis zur Projektwurzel suchen.
+    # Search upward from the module to the project root for the source tree.
     for parent in Path(__file__).resolve().parents:
         fallback = parent / "migrations"
         if fallback.is_dir():
@@ -42,7 +42,7 @@ def connect(path: Path | str) -> sqlite3.Connection:
     connection.execute("PRAGMA busy_timeout = 10000")
     connection.execute("PRAGMA journal_mode = WAL")
     connection.execute("PRAGMA synchronous = NORMAL")
-    # Lokale Analyse: größerer Cache und In-Memory-Temporaries.
+    # Local analysis: larger cache and in-memory temporaries.
     connection.execute("PRAGMA cache_size = -32000")
     connection.execute("PRAGMA temp_store = MEMORY")
     try:
@@ -119,7 +119,7 @@ def schema_version(connection: sqlite3.Connection) -> int:
 
 @contextmanager
 def transaction(connection: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
-    """Kurze, exklusive Schreibtransaktion (BEGIN IMMEDIATE)."""
+    """Short, exclusive write transaction (BEGIN IMMEDIATE)."""
     connection.execute("BEGIN IMMEDIATE")
     try:
         yield connection
