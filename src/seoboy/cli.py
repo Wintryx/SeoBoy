@@ -14,6 +14,7 @@ from seoboy.reporting.diff_report import DiffError
 from seoboy.infrastructure.env import load_env
 from seoboy.gsc.importer import GscError
 from seoboy.infrastructure.lock import LockError
+from seoboy.infrastructure.update import UpdateError, apply_update, check_for_update
 from seoboy.application.runner import RunnerError
 from seoboy.shared.version import __version__
 
@@ -91,6 +92,23 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
         "--max-pages", type=int, default=20, help="Seiten je Wettbewerber (Standard: 20)"
     )
     benchmark.add_argument("--out", type=Path, help="Zielverzeichnis des Vergleichs")
+
+    update = commands.add_parser(
+        "update", help="SeoBoy-CLI aus dem Git-Checkout aktualisieren"
+    )
+    update_mode = update.add_mutually_exclusive_group()
+    update_mode.add_argument(
+        "--check", action="store_true", help="nur prüfen (Standard)"
+    )
+    update_mode.add_argument(
+        "--apply", action="store_true", help="Update anwenden"
+    )
+    update.add_argument(
+        "--no-install", action="store_true", help="kein pip install ausführen"
+    )
+    update.add_argument(
+        "--repo", type=Path, help="Pfad zum SeoBoy-Git-Checkout"
+    )
 
     inspect = commands.add_parser("inspect", help="Einzelne URL prüfen")
     inspect.add_argument("url", help="Zu prüfende URL")
@@ -189,6 +207,62 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"[{label}] Berichte: {outcome.report_dir}")
                 exit_code = max(exit_code, outcome.exit_code)
             return exit_code
+        if args.command == "update":
+            if args.no_install and not args.apply:
+                parser.error("--no-install ist nur mit --apply zulässig.")
+            try:
+                status = check_for_update(args.repo)
+                print(f"Repository: {status.repo}")
+                print(f"Branch: {status.branch} -> {status.upstream}")
+                print(
+                    f"Version: {status.current_version or '?'} -> "
+                    f"{status.target_version or '?'}"
+                )
+                print(
+                    f"Commit: {status.current_commit[:10]} -> "
+                    f"{status.target_commit[:10]}"
+                )
+                if status.dirty:
+                    print("Lokale Änderungen blockieren ein Update:", file=sys.stderr)
+                    for line in status.dirty[:10]:
+                        print(f"  {line}", file=sys.stderr)
+                    return 2
+                if status.ahead > 0 and status.behind > 0:
+                    print(
+                        "Lokaler Branch und Upstream sind divergiert. "
+                        "Bitte manuell zusammenführen.",
+                        file=sys.stderr,
+                    )
+                    return 2
+                if args.apply:
+                    result = apply_update(args.repo, install=not args.no_install)
+                    if not result.updated:
+                        print("SeoBoy ist bereits aktuell.")
+                    else:
+                        print(
+                            f"Update angewendet: {result.old_commit[:10]} -> "
+                            f"{result.new_commit[:10]} (Version "
+                            f"{result.version or 'unbekannt'})"
+                        )
+                        print(f"Installation: {'ja' if result.installed else 'nein'}")
+                        print(f"Smoke-Test: {'ja' if result.verified else 'nein'}")
+                    return 0
+                if status.behind == 0:
+                    print("SeoBoy ist bereits aktuell.")
+                elif status.ahead > 0:
+                    print(
+                        f"Lokaler Branch ist {status.ahead} Commit(s) vor dem Upstream; "
+                        "kein Update nötig."
+                    )
+                else:
+                    print(
+                        f"{status.behind} Commit(s) hinter dem Upstream. "
+                        "Update verfügbar; anwenden mit: seoboy update --apply"
+                    )
+                return 0
+            except UpdateError as error:
+                print(f"SeoBoy: {error}", file=sys.stderr)
+                return 2
         if args.command == "benchmark":
             config = _load(args.config)
             folder = runner.run_benchmark(
