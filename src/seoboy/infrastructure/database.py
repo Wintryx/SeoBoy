@@ -26,10 +26,11 @@ def _migration_dir() -> Path:
             return path
     except (ModuleNotFoundError, TypeError):
         pass
-    # Quellbaum: src/seoboy/database.py -> Projektwurzel/migrations
-    fallback = Path(__file__).resolve().parents[2] / "migrations"
-    if fallback.is_dir():
-        return fallback
+    # Quellbaum: vom Modul nach oben bis zur Projektwurzel suchen.
+    for parent in Path(__file__).resolve().parents:
+        fallback = parent / "migrations"
+        if fallback.is_dir():
+            return fallback
     raise DatabaseError("Die SQL-Migrationen wurden nicht gefunden.")
 
 

@@ -6,11 +6,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import sqlite3
 
-from seoboy import gsc
-from seoboy.actions import ActionDraft, build_actions, persist_actions
-from seoboy.audit_data import RunData
-from seoboy.config import ProjectConfig
-from seoboy.crawler import (
+from seoboy.gsc import importer as gsc
+from seoboy.analysis.actions import ActionDraft, build_actions, persist_actions
+from seoboy.analysis.audit_data import RunData
+from seoboy.infrastructure.config import ProjectConfig
+from seoboy.crawl.crawler import (
     Crawler,
     CrawlOutcome,
     ResumeError,
@@ -18,14 +18,14 @@ from seoboy.crawler import (
     prepare_resume,
     validate_resume,
 )
-from seoboy.database import connect, migrate_database, transaction
-from seoboy.diff_report import DiffError, render_diff_report
-from seoboy.lock import database_lock
-from seoboy.registry import UrlRegistry
-from seoboy.reporting import render_run_report
-from seoboy.rules import RuleResult, evaluate, persist_results
-from seoboy.urls import InvalidUrl, is_internal, normalize_url
-from seoboy.util import iso_utc
+from seoboy.infrastructure.database import connect, migrate_database, transaction
+from seoboy.reporting.diff_report import DiffError, render_diff_report
+from seoboy.infrastructure.lock import database_lock
+from seoboy.crawl.registry import UrlRegistry
+from seoboy.reporting.run_report import render_run_report
+from seoboy.analysis.rules import RuleResult, evaluate, persist_results
+from seoboy.shared.urls import InvalidUrl, is_internal, normalize_url
+from seoboy.shared.util import iso_utc
 
 
 class RunnerError(RuntimeError):

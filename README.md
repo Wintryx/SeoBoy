@@ -303,6 +303,13 @@ Lauf-Vergleich ab. Sie verwenden einen lokalen HTTP-Server und benötigen kein N
 
 ## Projektstruktur
 
+Die Struktur ist ein domain-orientierter modularer Monolith. Fachliche Capabilities
+(Crawl, Analyse, GSC, Reporting) sind getrennt; technische Adapter liegen unter
+`infrastructure`, gemeinsam genutzte Primitiven unter `shared`. Die Abhängigkeitsrichtung
+läuft von `application`/CLI über die Capabilities zu `shared`; Reporting und Analyse
+kennen keine HTTP- oder CLI-Details. Vollständiges DDD mit Aggregaten, Repositories und
+Domain Events wäre für diesen lokalen Batch-Audit unnötiger Aufwand.
+
 ```text
 migrations/001_initial.sql     SQLite-Schema
 AGENTS.md                       Arbeitsanweisung für KI-Agenten
@@ -310,22 +317,33 @@ AGENTS.md                       Arbeitsanweisung für KI-Agenten
 local/                          lokale Konfigurationen und Laufdaten (ignoriert)
 src/seoboy/
   cli.py                       Kommandozeile
-  config.py                    Konfiguration und Kanonisierung
-  crawler.py                   Warteschlange, Budgets, Wiederaufnahme
-  env.py                       optionales Laden der .env
-  http_client.py               HTTP-Client ohne Redirect-Verfolgung
-  robots.py                    robots.txt-Parser
-  html_extract.py              HTML-Extraktion
-  gsc.py                       GSC-Import und UI-Aufbereiter
-  registry.py                  URL- und Jobregistrierung
-  audit_data.py                geladene Laufdaten
-  rules.py                     technische Regeln und Prüfengine
-  rules_gsc.py                 Search-Console-Regeln
-  actions.py                   Maßnahmenbildung und Priorisierung
-  reporting.py                 Markdown-/CSV-Berichte
-  diff_report.py               Lauf-Vergleich
-  runner.py                    Ablaufsteuerung
-  lock.py                      exklusive Datenbanksperre
+  __main__.py                  python -m seoboy
+  application/runner.py        Anwendungsfälle run/resume/inspect/report/diff
+  analysis/
+    audit_data.py              geladenes Read-Model je Lauf
+    rules.py                   technische Regeln und Prüfengine
+    rules_gsc.py               Search-Console-Regeln
+    actions.py                 Maßnahmenbildung und Priorisierung
+  crawl/
+    crawler.py                 Warteschlange, Budgets, Wiederaufnahme
+    http_client.py             HTTP ohne Redirect-Verfolgung
+    html_extract.py            HTML-Extraktion
+    registry.py                URL-, Discovery- und Jobregistrierung
+  gsc/importer.py              GSC-Import und UI-Aufbereiter
+  infrastructure/
+    config.py                  Konfiguration und Kanonisierung
+    database.py                SQLite und Migrationen
+    env.py                     optionales Laden der .env
+    lock.py                    exklusive Datenbanksperre
+  reporting/
+    run_report.py              Markdown-/CSV-Berichte
+    diff_report.py             Lauf-Vergleich
+  shared/
+    agents.py                  Googlebot-/SeoBoy-Agenten
+    robots.py                  robots.txt-Parser
+    urls.py                    URL-Normalisierung und Pfadmuster
+    util.py                    Zeit-, Hash- und CSV-Hilfen
+    version.py                 Tool-, Crawler- und Regelsatzversionen
 tests/                          Unit- und End-to-End-Tests
 ```
 

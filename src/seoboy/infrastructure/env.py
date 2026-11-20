@@ -15,10 +15,8 @@ def find_env_file() -> Path | None:
     if explicit:
         candidate = Path(explicit).expanduser()
         return candidate if candidate.is_file() else None
-    for candidate in (
-        Path.cwd() / ".env",
-        Path(__file__).resolve().parents[2] / ".env",
-    ):
+    for parent in (Path.cwd(), *Path(__file__).resolve().parents):
+        candidate = parent / ".env"
         if candidate.is_file():
             return candidate
     return None

@@ -11,17 +11,17 @@ import re
 import sqlite3
 from typing import Any, Iterable
 
-from seoboy.audit_data import RunData
-from seoboy.config import ProjectConfig
-from seoboy.rules import RULE_VERSIONS
-from seoboy.urls import relative_url
-from seoboy.util import (
+from seoboy.analysis.audit_data import RunData
+from seoboy.infrastructure.config import ProjectConfig
+from seoboy.analysis.rules import RULE_VERSIONS
+from seoboy.shared.urls import relative_url
+from seoboy.shared.util import (
     excel_safe,
     format_local,
     local_date_from_utc,
     parse_utc,
 )
-from seoboy.version import TOOL_VERSION
+from seoboy.shared.version import TOOL_VERSION
 
 STATUS_LABELS = {
     "running": "Läuft",

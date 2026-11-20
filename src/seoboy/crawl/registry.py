@@ -7,9 +7,9 @@ from typing import Literal
 
 import sqlite3
 
-from seoboy import database
-from seoboy.config import ProjectConfig
-from seoboy.urls import InvalidUrl, NormalizedUrl, normalize_url
+from seoboy.infrastructure import database
+from seoboy.infrastructure.config import ProjectConfig
+from seoboy.shared.urls import InvalidUrl, NormalizedUrl, normalize_url
 
 
 class UrlRegistry:
@@ -189,7 +189,7 @@ def classify_url(
     config: ProjectConfig, normalized: NormalizedUrl
 ) -> str | None:
     """None = zulässig; sonst Ausschlussgrund."""
-    from seoboy.urls import is_internal, matches_any_path
+    from seoboy.shared.urls import is_internal, matches_any_path
 
     if not is_internal(normalized, config.allowed_hosts):
         return "host_not_allowed"

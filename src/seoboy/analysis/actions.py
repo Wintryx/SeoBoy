@@ -6,10 +6,10 @@ from dataclasses import dataclass
 import sqlite3
 from typing import Any
 
-from seoboy.audit_data import RunData, UrlInfo
-from seoboy.rules import CONFIDENCE_RANK, RuleResult
-from seoboy.urls import relative_url
-from seoboy.util import truncate
+from seoboy.analysis.audit_data import RunData, UrlInfo
+from seoboy.analysis.rules import CONFIDENCE_RANK, RuleResult
+from seoboy.shared.urls import relative_url
+from seoboy.shared.util import truncate
 
 BUSINESS_RANK = {"high": 0, "normal": 1, "low": 2}
 EFFORT_RANK = {"small": 0, "medium": 1, "large": 2, "unknown": 3}

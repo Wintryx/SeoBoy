@@ -29,25 +29,31 @@ GSC-CSV-Import, Maßnahmenpriorisierung, Markdown-/CSV-Berichte und Audit-Diff.
 
 ## Architektur
 
+Die Struktur ist ein domain-orientierter modularer Monolith. Fachliche Capabilities
+(Crawl, Analyse, GSC, Reporting) sind getrennt; technische Adapter liegen unter
+`infrastructure`, gemeinsam genutzte Primitiven unter `shared`. Vollständiges DDD mit
+Aggregaten, Repositories und Domain Events wäre für diesen lokalen Batch-Audit
+unnötiger Aufwand.
+
 | Modul | Verantwortung |
 | --- | --- |
 | `src/seoboy/cli.py` | Kommandozeile, Exitcodes, lokale `.env`-Defaults |
-| `src/seoboy/config.py` | Konfiguration, Profile, Ausnahmen, Kanonisierung |
-| `src/seoboy/crawler.py` | Warteschlange, Budgets, Retries, Sitemaps, Resume |
-| `src/seoboy/registry.py` | URL-, Discovery- und Jobregistrierung |
-| `src/seoboy/http_client.py` | HTTP ohne Redirect-Verfolgung, begrenzte Reads |
-| `src/seoboy/robots.py` | robots.txt-Parser und Googlebot-Auswertung |
-| `src/seoboy/html_extract.py` | Titel, Beschreibung, Robots-Signale, Canonicals, Links |
-| `src/seoboy/urls.py` | URL-Normalisierung und Pfadmuster |
-| `src/seoboy/gsc.py` | GSC-Manifest, CSV-Import, UI-Aufbereiter |
-| `src/seoboy/audit_data.py` | Geladene Laufdaten für Regeln und Berichte |
-| `src/seoboy/rules.py` | Technische Regeln und Prüfengine |
-| `src/seoboy/rules_gsc.py` | Search-Console-Regeln |
-| `src/seoboy/actions.py` | Maßnahmenbildung und Priorisierung |
-| `src/seoboy/reporting.py` | Markdown-/CSV-Berichte und Manifest |
-| `src/seoboy/diff_report.py` | Vergleich zweier Läufe |
-| `src/seoboy/runner.py` | Ablaufsteuerung run/resume/inspect/report/diff |
-| `src/seoboy/env.py` | Optionales Laden von `.env` |
+| `src/seoboy/infrastructure/config.py` | Konfiguration, Profile, Ausnahmen, Kanonisierung |
+| `src/seoboy/crawl/crawler.py` | Warteschlange, Budgets, Retries, Sitemaps, Resume |
+| `src/seoboy/crawl/registry.py` | URL-, Discovery- und Jobregistrierung |
+| `src/seoboy/crawl/http_client.py` | HTTP ohne Redirect-Verfolgung, begrenzte Reads |
+| `src/seoboy/shared/robots.py` | robots.txt-Parser und Googlebot-Auswertung |
+| `src/seoboy/crawl/html_extract.py` | Titel, Beschreibung, Robots-Signale, Canonicals, Links |
+| `src/seoboy/shared/urls.py` | URL-Normalisierung und Pfadmuster |
+| `src/seoboy/gsc/importer.py` | GSC-Manifest, CSV-Import, UI-Aufbereiter |
+| `src/seoboy/analysis/audit_data.py` | Geladene Laufdaten für Regeln und Berichte |
+| `src/seoboy/analysis/rules.py` | Technische Regeln und Prüfengine |
+| `src/seoboy/analysis/rules_gsc.py` | Search-Console-Regeln |
+| `src/seoboy/analysis/actions.py` | Maßnahmenbildung und Priorisierung |
+| `src/seoboy/reporting/run_report.py` | Markdown-/CSV-Berichte und Manifest |
+| `src/seoboy/reporting/diff_report.py` | Vergleich zweier Läufe |
+| `src/seoboy/application/runner.py` | Ablaufsteuerung run/resume/inspect/report/diff |
+| `src/seoboy/infrastructure/env.py` | Optionales Laden von `.env` |
 | `migrations/001_initial.sql` | SQLite-Schema |
 
 Die verbindlichen Anforderungen stehen in:

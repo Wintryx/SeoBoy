@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from seoboy.audit_data import RunData
-from seoboy.gsc import select_comparison_periods
-from seoboy.rules import Evidence, RuleResult, _rule
-from seoboy.urls import key_for_gsc
-from seoboy.util import stable_json
+from seoboy.analysis.audit_data import RunData
+from seoboy.gsc.importer import select_comparison_periods
+from seoboy.analysis.rules import Evidence, RuleResult, _rule
+from seoboy.shared.urls import key_for_gsc
+from seoboy.shared.util import stable_json
 
 GSC_RULES = (
     "GSC_NEAR_TOP",

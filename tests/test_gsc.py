@@ -6,13 +6,13 @@ import json
 import tempfile
 import unittest
 
-from seoboy import gsc as gsc_module
-from seoboy.audit_data import RunData
-from seoboy.config import load_config
-from seoboy.crawler import create_run
-from seoboy.database import connect, migrate_database
-from seoboy.registry import UrlRegistry
-from seoboy.rules_gsc import evaluate_gsc
+from seoboy.gsc import importer as gsc_module
+from seoboy.analysis.audit_data import RunData
+from seoboy.infrastructure.config import load_config
+from seoboy.crawl.crawler import create_run
+from seoboy.infrastructure.database import connect, migrate_database
+from seoboy.crawl.registry import UrlRegistry
+from seoboy.analysis.rules_gsc import evaluate_gsc
 
 from tests.support import make_config
 

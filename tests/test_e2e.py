@@ -5,12 +5,11 @@ import json
 import tempfile
 import unittest
 
-from seoboy import runner
-from seoboy.audit_data import RunData
-from seoboy.config import load_config
-from seoboy.crawler import Crawler, ResumeError, create_run, validate_resume
-from seoboy.database import connect, migrate_database
-from seoboy.reporting import _page_counts
+from seoboy.application import runner
+from seoboy.analysis.audit_data import RunData
+from seoboy.crawl.crawler import Crawler, ResumeError, create_run, validate_resume
+from seoboy.infrastructure.database import connect, migrate_database
+from seoboy.reporting.run_report import _page_counts
 
 from tests.support import FixtureSite, html, make_config
 

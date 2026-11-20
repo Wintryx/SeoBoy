@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 import yaml
 
-from seoboy.config import ProjectConfig, load_config
+from seoboy.infrastructure.config import ProjectConfig, load_config
 
 
 @dataclass

@@ -11,8 +11,8 @@ from urllib.parse import urljoin
 
 import yaml
 
-from seoboy.urls import InvalidUrl, normalize_url, path_matches
-from seoboy.util import local_now_date, sha256_json, stable_json
+from seoboy.shared.urls import InvalidUrl, normalize_url, path_matches
+from seoboy.shared.util import local_now_date, sha256_json, stable_json
 
 BUSINESS_VALUES = ("high", "normal", "low")
 TOP_LEVEL_KEYS = {

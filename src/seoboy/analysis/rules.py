@@ -8,18 +8,16 @@ import sqlite3
 import unicodedata
 from typing import Any, Callable, Iterable
 
-from seoboy.audit_data import AttemptInfo, ObservationInfo, RunData, UrlInfo
-from seoboy.config import ProjectConfig
-from seoboy.robots import GOOGLEBOT
-from seoboy.urls import (
+from seoboy.analysis.audit_data import AttemptInfo, ObservationInfo, RunData, UrlInfo
+from seoboy.shared.agents import GOOGLEBOT
+from seoboy.shared.urls import (
     InvalidUrl,
     key_for_link,
     key_for_url,
     normalize_url,
 )
-from seoboy.util import sha256_text, stable_json
+from seoboy.shared.util import sha256_text, stable_json
 
-RULESET_VERSION = "2"
 RULE_VERSIONS = {
     "HTTP_UNAVAILABLE": "1",
     "HTTP_REDIRECT": "2",
@@ -1600,7 +1598,7 @@ def evaluate(data: RunData) -> list[RuleResult]:
     results: list[RuleResult] = []
     for rule in TECHNICAL_RULES:
         results.extend(rule(data))
-    from seoboy.rules_gsc import evaluate_gsc
+    from seoboy.analysis.rules_gsc import evaluate_gsc
 
     results.extend(evaluate_gsc(data))
     if data.run.get("mode") == "inspect":

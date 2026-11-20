@@ -4,8 +4,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from seoboy import runner
-from seoboy.database import connect
+from seoboy.application import runner
+from seoboy.infrastructure.database import connect
 
 from tests.support import FixtureSite, make_config
 

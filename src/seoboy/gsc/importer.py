@@ -12,12 +12,12 @@ import re
 import sqlite3
 from typing import Any
 
-from seoboy import database
-from seoboy.config import ProjectConfig
-from seoboy.database import transaction
-from seoboy.registry import UrlRegistry, classify_url
-from seoboy.urls import InvalidUrl, is_internal, normalize_url
-from seoboy.util import iso_utc, sha256_bytes, sha256_text
+from seoboy.infrastructure import database
+from seoboy.infrastructure.config import ProjectConfig
+from seoboy.infrastructure.database import transaction
+from seoboy.crawl.registry import UrlRegistry, classify_url
+from seoboy.shared.urls import InvalidUrl, is_internal, normalize_url
+from seoboy.shared.util import iso_utc, sha256_bytes, sha256_text
 
 PAGE_GRAIN = "page"
 PAGE_QUERY_GRAIN = "page_query"

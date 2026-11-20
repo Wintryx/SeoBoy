@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 import re
 from urllib.parse import urljoin
 
-from seoboy.util import normalize_whitespace
+from seoboy.shared.util import normalize_whitespace
 
 DIRECTIVE_SPLIT = re.compile(r"[,\s]+")
 _LINK_CANONICAL = re.compile(

@@ -5,17 +5,17 @@ from pathlib import Path
 import sqlite3
 import sys
 
-from seoboy import gsc as gsc_module
-from seoboy import runner
-from seoboy.config import ConfigError, init_config, load_config
-from seoboy.crawler import ResumeError
-from seoboy.database import DatabaseError, migrate_database
-from seoboy.diff_report import DiffError
-from seoboy.env import load_env
-from seoboy.gsc import GscError
-from seoboy.lock import LockError
-from seoboy.runner import RunnerError
-from seoboy.version import __version__
+from seoboy.gsc import importer as gsc_module
+from seoboy.application import runner
+from seoboy.infrastructure.config import ConfigError, init_config, load_config
+from seoboy.crawl.crawler import ResumeError
+from seoboy.infrastructure.database import DatabaseError, migrate_database
+from seoboy.reporting.diff_report import DiffError
+from seoboy.infrastructure.env import load_env
+from seoboy.gsc.importer import GscError
+from seoboy.infrastructure.lock import LockError
+from seoboy.application.runner import RunnerError
+from seoboy.shared.version import __version__
 
 
 def _parse_date(value: str) -> date:

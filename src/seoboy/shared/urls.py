@@ -7,7 +7,7 @@ import fnmatch
 import re
 from urllib.parse import quote, unquote, urljoin, urlsplit
 
-from seoboy.util import stable_json
+from seoboy.shared.util import stable_json
 
 DEFAULT_PORTS = {"http": 80, "https": 443}
 

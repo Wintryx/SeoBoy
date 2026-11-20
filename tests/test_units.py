@@ -6,18 +6,19 @@ import sqlite3
 import tempfile
 import unittest
 
-from seoboy.config import ConfigError, init_config, load_config
-from seoboy.html_extract import link_header_canonicals
-from seoboy.database import DatabaseError, connect, migrate_database
-from seoboy.robots import GOOGLEBOT, SEOBOY, RobotsFile
-from seoboy.urls import (
+from seoboy.infrastructure.config import ConfigError, init_config, load_config
+from seoboy.crawl.html_extract import link_header_canonicals
+from seoboy.infrastructure.database import DatabaseError, connect, migrate_database
+from seoboy.shared.robots import RobotsFile
+from seoboy.shared.agents import GOOGLEBOT, SEOBOY
+from seoboy.shared.urls import (
     InvalidUrl,
     matches_any_path,
     normalize_url,
     relative_url,
     resolve_url,
 )
-from seoboy.util import excel_safe, format_local, parse_retry_after, parse_utc, stable_json
+from seoboy.shared.util import excel_safe, format_local, parse_retry_after, parse_utc, stable_json
 
 from tests.support import make_config
 

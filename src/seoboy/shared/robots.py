@@ -5,8 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import re
 
-GOOGLEBOT = "googlebot"
-SEOBOY = "seoboy"
+from seoboy.shared.agents import GOOGLEBOT, SEOBOY
 
 
 @dataclass(frozen=True)

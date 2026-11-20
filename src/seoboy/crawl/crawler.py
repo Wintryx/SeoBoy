@@ -12,14 +12,15 @@ import time
 from typing import Any, Literal
 from xml.etree import ElementTree
 
-from seoboy import database
-from seoboy.config import ProjectConfig
-from seoboy.database import transaction
-from seoboy.html_extract import extract_page, link_header_canonicals
-from seoboy.http_client import FetchResult, HttpClient, decode_body
-from seoboy.registry import UrlRegistry, classify_url
-from seoboy.robots import RobotsFile, SEOBOY
-from seoboy.urls import (
+from seoboy.infrastructure import database
+from seoboy.infrastructure.config import ProjectConfig
+from seoboy.infrastructure.database import transaction
+from seoboy.crawl.html_extract import extract_page, link_header_canonicals
+from seoboy.crawl.http_client import FetchResult, HttpClient, decode_body
+from seoboy.crawl.registry import UrlRegistry, classify_url
+from seoboy.shared.robots import RobotsFile
+from seoboy.shared.agents import SEOBOY
+from seoboy.shared.urls import (
     InvalidUrl,
     NormalizedUrl,
     is_internal,
@@ -27,8 +28,8 @@ from seoboy.urls import (
     origin_of,
     resolve_url,
 )
-from seoboy.util import iso_utc, parse_retry_after, utc_now
-from seoboy.version import CRAWLER_VERSION, NORMALIZATION_VERSION, RULESET_VERSION, TOOL_VERSION
+from seoboy.shared.util import iso_utc, parse_retry_after, utc_now
+from seoboy.shared.version import CRAWLER_VERSION, NORMALIZATION_VERSION, RULESET_VERSION, TOOL_VERSION
 
 PAGE = "page"
 ROBOTS = "robots"

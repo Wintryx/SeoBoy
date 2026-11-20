@@ -9,9 +9,9 @@ from pathlib import Path
 import re
 import sqlite3
 
-from seoboy.audit_data import RunData
-from seoboy.config import ProjectConfig
-from seoboy.reporting import (
+from seoboy.analysis.audit_data import RunData
+from seoboy.infrastructure.config import ProjectConfig
+from seoboy.reporting.run_report import (
     ReportData,
     STATUS_LABELS,
     StoredAction,
@@ -24,7 +24,7 @@ from seoboy.reporting import (
     _severity,
     load_report_data,
 )
-from seoboy.util import excel_safe, format_local, local_date_from_utc, parse_utc
+from seoboy.shared.util import excel_safe, format_local, local_date_from_utc, parse_utc
 
 DIFF_STATES = {
     "new": "Neu",

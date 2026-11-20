@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 import urllib.request
 import zlib
 
-from seoboy.version import TOOL_VERSION
+from seoboy.shared.version import TOOL_VERSION
 
 USER_AGENT = f"SeoBoy/{TOOL_VERSION} (lokales SEO-Audit)"
 _CHARSET_RE = re.compile(r"charset\s*=\s*[\"']?([A-Za-z0-9._:-]+)", re.IGNORECASE)

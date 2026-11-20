@@ -14,8 +14,18 @@ dependencies = ["PyYAML>=6,<7"]
 seoboy = "seoboy.cli:main"
 
 [tool.setuptools]
-packages = ["seoboy", "seoboy.migrations"]
-package-dir = { seoboy = "src/seoboy", "seoboy.migrations" = "migrations" }
+packages = [
+  "seoboy",
+  "seoboy.application",
+  "seoboy.analysis",
+  "seoboy.crawl",
+  "seoboy.gsc",
+  "seoboy.infrastructure",
+  "seoboy.reporting",
+  "seoboy.shared",
+  "seoboy.migrations",
+]
+package-dir = { "" = "src", "seoboy.migrations" = "migrations" }
 
 [tool.setuptools.package-data]
 "seoboy.migrations" = ["*.sql"]

@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 from seoboy import cli
-from seoboy.env import load_env, parse_env
+from seoboy.infrastructure.env import load_env, parse_env
 
 from tests.support import make_config
 

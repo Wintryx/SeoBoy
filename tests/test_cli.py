@@ -7,9 +7,10 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from seoboy import cli, runner
-from seoboy.crawler import Crawler, create_run
-from seoboy.database import connect, migrate_database
+from seoboy import cli
+from seoboy.application import runner
+from seoboy.crawl.crawler import Crawler, create_run
+from seoboy.infrastructure.database import connect, migrate_database
 
 from tests.support import FixtureSite, html, make_config
 

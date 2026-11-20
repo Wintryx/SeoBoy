@@ -7,8 +7,8 @@ import json
 import sqlite3
 from typing import Any
 
-from seoboy.config import ProjectConfig
-from seoboy.robots import RobotsFile
+from seoboy.infrastructure.config import ProjectConfig
+from seoboy.shared.robots import RobotsFile
 
 
 @dataclass
@@ -359,7 +359,7 @@ class RunData:
         return None
 
     def robots_for(self, url: str) -> RobotsInfo | None:
-        from seoboy.urls import origin_of
+        from seoboy.shared.urls import origin_of
 
         try:
             origin = origin_of(url)
