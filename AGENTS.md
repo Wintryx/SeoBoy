@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.8.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.9.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -58,6 +58,7 @@ unnötiger Aufwand.
 | `src/seoboy/reporting/run_report.py` | Markdown-/CSV-Berichte und Manifest |
 | `src/seoboy/reporting/page_analysis.py` | Unterseiten- und Inhaltsanalyse |
 | `src/seoboy/reporting/gsc_report.py` | GSC-Auswertung Suchanfrage × Zielseite |
+| `src/seoboy/reporting/gsc_history.py` | GSC-Verlauf über mehrere Läufe |
 | `src/seoboy/reporting/diff_report.py` | Vergleich zweier Läufe |
 | `src/seoboy/benchmark/sampler.py` | robots-konforme Wettbewerbsstichprobe |
 | `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich und Begriffskandidaten |
@@ -97,7 +98,7 @@ Die Tests benötigen nur die Standardbibliothek und PyYAML. Im Quellbaum kann
 Die Suite deckt URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter/-Import, Crawl, Limits, Retries, Redirect-Schleifen, Resume,
 Parallelität, Batch-Läufe, Unterseitenanalyse, Wettbewerbsbenchmark, GSC-Query-/
-Zielseitenbericht, GSC-API/URL Inspection, Playwright-Vergleich mit injiziertem Browser,
+Zielseitenbericht, GSC-Verlauf, GSC-API/URL Inspection, Playwright-Vergleich mit injiziertem Browser,
 Local SEO, GEO, Einzel-URL-Prüfung,
 Ausnahmen, Berichte, Diff, den Systemcheck und den Git-Updater ab. Sie nutzt lokale
 HTTP-Server, lokale Git-Repositories und benötigt kein Internet.

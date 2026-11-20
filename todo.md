@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.8.0
+Stand: 20.11.2026, Version 0.9.0
 
 ## Priorisierung
 
@@ -12,7 +12,7 @@ Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand �
 | A2 | GSC standardmäßig in jeden Lauf (Service-Account) | Macht A1 zur Routine statt zum manuellen Export | **erledigt in 0.8.0** |
 | A2b | Interaktiver OAuth-Flow und persistente Token-Ablage | Komfort für Nutzer ohne Service-Account | offen |
 | A3 | Maßnahmen mit gemeinsamer Ursache bündeln | CTA und 404 werden als eine Baustelle sichtbar; weniger Reportrauschen | **erledigt in 0.8.0** |
-| A4 | GSC-Query-/Seitenverlauf über mehrere Läufe | Messbar machen, ob eine Änderung Klicks und Anfragen verbessert | offen |
+| A4 | GSC-Query-/Seitenverlauf über mehrere Läufe | Messbar machen, ob eine Änderung Klicks und Anfragen verbessert | **erledigt in 0.9.0** |
 | B1 | URL Inspection in SQLite und Audit-Diff | Indexstatus und Canonical-Abweichungen dauerhaft nachvollziehen | offen |
 | B2 | TF-IDF-Content-Gaps aus dem Hauptinhalt | Inhaltliche Lücken belastbarer priorisieren als Titel/H1-Listen | offen |
 | B3 | Local SEO mit externen Profilen und lokalen Ergebnissen | Standortseiten an echten lokalen Signalen messen | offen |
@@ -57,11 +57,18 @@ Nutzen: Der wichtigste Bericht wird zur Routine, ohne manuellen Export.
 
 Nutzen: Ein defekter Button ist eine Baustelle, nicht drei.
 
-### A4 – Verlauf und Wirkung
+### A4 – Verlauf und Wirkung (erledigt)
 
-- GSC-Query-/Seitenkennzahlen über mehrere Läufe vergleichen
-- Änderungen an Titel, H1 und CTA mit dem nächsten 28-Tage-Fenster abgleichen
-- Klicks, Impressionen, CTR und Position getrennt bewerten
+- Jeder GSC-Lauf schreibt `05_GSC_HISTORY.md` und `raw_data/gsc_history.csv`.
+- Verglichen wird mit dem jüngsten früheren Lauf desselben Projekts, derselben
+  Property und derselben Filterkombination.
+- Voraussetzung sind gleich lange, nicht überlappende Zeiträume.
+- Der Bericht zeigt Gesamt-, Seiten-, Suchanfrage- und Paarveränderungen sowie neue
+  und verlorene Paare.
+- Klicks, Impressionen, CTR und Position werden getrennt ausgewiesen.
+
+Nutzen: Nach dem nächsten 28-Tage-Fenster ist sichtbar, ob eine Änderung an Titel,
+H1, Inhalt oder CTA tatsächlich Klicks und Anfragen verändert hat.
 
 ## B – Conversion und Diagnose
 
