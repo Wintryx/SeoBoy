@@ -205,11 +205,12 @@ class CliTests(unittest.TestCase):
             folder = runner.run_benchmark(
                 config, [competitor.base], max_pages=5, out=self.directory / "benchmark"
             )
-            report = (folder / "00_COMPETITOR_BENCHMARK.md").read_text(encoding="utf-8")
+            report = (folder / "04_COMPETITOR_BENCHMARK.md").read_text(encoding="utf-8")
             self.assertIn("Wettbewerbsvergleich", report)
             self.assertIn("127.0.0.1", report)
             self.assertIn("HTML-Seiten ausgewertet", report)
             self.assertTrue((folder / "raw_data" / "benchmark_pages.csv").is_file())
+            self.assertTrue((folder / "manifest.json").is_file())
 
     def test_resume_with_changed_config_exits_2(self):
         with FixtureSite() as site:

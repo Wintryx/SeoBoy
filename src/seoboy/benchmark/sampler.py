@@ -17,7 +17,6 @@ from seoboy.shared.urls import (
     InvalidUrl,
     is_internal,
     normalize_url,
-    origin_of,
     resolve_url,
 )
 

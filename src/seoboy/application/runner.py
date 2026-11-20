@@ -5,6 +5,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
+import json
 import os
 from pathlib import Path
 import re
@@ -38,6 +39,7 @@ from seoboy.benchmark.sampler import (
 from seoboy.analysis.rules import RuleResult, evaluate, persist_results
 from seoboy.shared.urls import InvalidUrl, is_internal, normalize_url
 from seoboy.shared.util import iso_utc
+from seoboy.shared.version import TOOL_VERSION
 
 
 class RunnerError(RuntimeError):
@@ -432,10 +434,38 @@ def run_benchmark(
     raw = folder / "raw_data"
     raw.mkdir(parents=True, exist_ok=True)
     report = render_benchmark(own, snapshots, run_id=run_id, max_pages=max_pages)
-    (folder / "00_COMPETITOR_BENCHMARK.md").write_text(
+    (folder / "04_COMPETITOR_BENCHMARK.md").write_text(
         report.rstrip() + "\n", encoding="utf-8", newline="\n"
     )
     write_benchmark_csv(raw / "benchmark_pages.csv", [own, *snapshots])
+    manifest = {
+        "kind": "competitor_benchmark",
+        "project_id": config.project_id,
+        "own_run_id": run_id,
+        "generated_at": iso_utc(),
+        "tool_version": TOOL_VERSION,
+        "max_pages_per_site": max_pages,
+        "files": [
+            "04_COMPETITOR_BENCHMARK.md",
+            "raw_data/benchmark_pages.csv",
+        ],
+        "sites": [
+            {
+                "label": snapshot.label,
+                "start_url": snapshot.start_url,
+                "final_url": snapshot.final_url,
+                "error": snapshot.error,
+                "pages": len(snapshot.pages),
+                "sitemap_urls": snapshot.sitemap_urls,
+            }
+            for snapshot in [own, *snapshots]
+        ],
+    }
+    (folder / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     return folder
 
 

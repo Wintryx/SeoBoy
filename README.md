@@ -240,8 +240,8 @@ seoboy benchmark `
 - Je Wettbewerber werden höchstens `--max-pages` Seiten aus robots.txt-Sitemaps oder
   Startseitenlinks geladen; robots.txt wird respektiert.
 - Der Vergleich ist eine Stichprobe, kein vollständiges Wettbewerbs-Audit.
-- Ausgegeben werden `00_COMPETITOR_BENCHMARK.md` und
-  `raw_data/benchmark_pages.csv` in einem eigenen Berichtsordner.
+- Ausgegeben werden `04_COMPETITOR_BENCHMARK.md`, `raw_data/benchmark_pages.csv`
+  und `manifest.json` in einem eigenen Berichtsordner.
 - Verglichen werden unter anderem Indexierbarkeit, Titel-/Beschreibungslängen, H1,
   Wortzahl, strukturierte Daten, Bild-Alt-Texte und interne Links.
 - Wettbewerbs-HTML wird nicht gespeichert; gespeichert werden nur Metriken und URLs.
@@ -383,14 +383,14 @@ local/                          lokale Konfigurationen und Laufdaten (ignoriert)
 src/seoboy/
   cli.py                       Kommandozeile
   __main__.py                  python -m seoboy
-  application/runner.py        Anwendungsfälle run/resume/inspect/report/diff
+  application/runner.py        run/resume/inspect/report/diff, Batch und Benchmark
   analysis/
     audit_data.py              geladenes Read-Model je Lauf
     rules.py                   technische Regeln und Prüfengine
     rules_gsc.py               Search-Console-Regeln
     actions.py                 Maßnahmenbildung und Priorisierung
   crawl/
-    crawler.py                 Warteschlange, Budgets, Wiederaufnahme
+    crawler.py                 Worker-Pool, Budgets, Wiederaufnahme
     http_client.py             HTTP ohne Redirect-Verfolgung
     html_extract.py            HTML-Extraktion
     registry.py                URL-, Discovery- und Jobregistrierung
