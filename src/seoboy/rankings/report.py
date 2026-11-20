@@ -138,9 +138,11 @@ def _latest_rows(
             else None
         )
         if latest is None:
-            state = "nicht gemessen"
-        elif latest["status"] in {"failed", "blocked"}:
-            state = "nicht gemessen"
+            state = "nie gemessen"
+        elif latest["status"] == "failed":
+            state = "Messung fehlgeschlagen"
+        elif latest["status"] == "blocked":
+            state = "Messung blockiert"
         elif not profile.target_active:
             state = "geplant"
         elif position is None:
@@ -212,7 +214,7 @@ def write_rankings_report(
             f"{measured_at} |"
         )
 
-    mismatches = [row for row in rows if row["mismatch"]]
+    mismatches = [row for row in rows if row["mismatch"] and row["target_active"]]
     outside = [
         row
         for row in rows
