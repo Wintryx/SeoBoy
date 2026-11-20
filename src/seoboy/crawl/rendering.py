@@ -163,10 +163,20 @@ def render_page(
                 headers = response.headers if response is not None else {}
                 status = response.status if response is not None else None
                 browser.close()
-        except RenderingError:
-            raise
         except Exception as error:
-            raise RenderingError(f"Rendering von {url} fehlgeschlagen: {error}") from error
+            if engine == "playwright":
+                if isinstance(error, RenderingError):
+                    raise
+                raise RenderingError(
+                    f"Rendering von {url} fehlgeschlagen: {error}"
+                ) from error
+            try:
+                return _render_with_chrome(url, timeout_ms)
+            except RenderingError as chrome_error:
+                raise RenderingError(
+                    f"Playwright-Rendering fehlgeschlagen ({error}); "
+                    f"Chrome-Fallback fehlgeschlagen ({chrome_error})"
+                ) from error
         extracted = extract_page(html, final_url, tuple(headers.items()))
         return RenderedPage(
             url=url,

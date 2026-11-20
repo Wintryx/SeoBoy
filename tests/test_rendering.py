@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import tempfile
+import types
 import unittest
 from unittest.mock import patch
 
@@ -59,6 +60,39 @@ class RenderingTests(unittest.TestCase):
         self.assertEqual(page.engine, "chrome")
         self.assertEqual(page.title, "Chrome")
         self.assertEqual(page.h1, "Gerendert")
+
+    def test_auto_falls_back_when_playwright_browser_fails(self):
+        chrome_page = RenderedPage(
+            url="https://example.de/",
+            final_url="https://example.de/",
+            status=None,
+            title="Chrome",
+            meta_description=None,
+            h1="Chrome",
+            h1_count=1,
+            word_count=10,
+            image_count=0,
+            images_missing_alt=0,
+            schema_types=(),
+            links=1,
+            content_type=None,
+            engine="chrome",
+        )
+        module = types.ModuleType("playwright.sync_api")
+        def broken_playwright():
+            raise RuntimeError("browser executable missing")
+        module.sync_playwright = broken_playwright
+        package = types.ModuleType("playwright")
+        package.sync_api = module
+        with patch.dict(
+            "sys.modules", {"playwright": package, "playwright.sync_api": module}
+        ), patch(
+            "seoboy.crawl.rendering._render_with_chrome",
+            return_value=chrome_page,
+        ) as fallback:
+            page = render_page("https://example.de/", engine="auto")
+        self.assertEqual(page.engine, "chrome")
+        fallback.assert_called_once()
 
     def test_missing_playwright_is_explained(self):
         with patch.dict("sys.modules", {"playwright": None, "playwright.sync_api": None}):
