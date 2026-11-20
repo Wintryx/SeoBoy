@@ -82,10 +82,10 @@ unnötiger Aufwand.
 | `migrations/003_action_statuses.sql` | Maßnahmenstatus und Verlauf |
 
 Die verbindlichen Anforderungen stehen in:
-- `01_architektur_und_techstack_md.md`
-- `02_seo_geo_und_konkurrenz_engine_md.md`
-- `03_reporting_und_priorisierung_md.md`
-- `04_datenmodell_sqlite_md.md`
+- `docs/01_architektur_und_techstack_md.md`
+- `docs/02_seo_geo_und_konkurrenz_engine_md.md`
+- `docs/03_reporting_und_priorisierung_md.md`
+- `docs/04_datenmodell_sqlite_md.md`
 - `docs/ki_review_spezifikation.md`
 - `docs/keyword_kannibalisierung.md`
 - `README.md`

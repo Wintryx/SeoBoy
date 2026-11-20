@@ -94,7 +94,7 @@ Beim späteren Rendering vergleicht SeoBoy das HTTP-Dokument mit dem Browser-DOM
 
 ## 5. Datenmodell
 
-Das [SQLite-Datenmodell](04_datenmodell_sqlite_md.md) definiert Schlüssel, Status, Transaktionsgrenzen und die Erweiterungspunkte. Die [erste Migration](migrations/001_initial.sql) legt das Schema an. Dauerhafte URL-Identitäten stehen getrennt von Daten eines einzelnen Laufs. `diff` verwendet stabile Befundschlüssel und vergleichbare Prüfergebnisse gemäß [Teil 3](03_reporting_und_priorisierung_md.md).
+Das [SQLite-Datenmodell](04_datenmodell_sqlite_md.md) definiert Schlüssel, Status, Transaktionsgrenzen und die Erweiterungspunkte. Die [erste Migration](../migrations/001_initial.sql) legt das Schema an. Dauerhafte URL-Identitäten stehen getrennt von Daten eines einzelnen Laufs. `diff` verwendet stabile Befundschlüssel und vergleichbare Prüfergebnisse gemäß [Teil 3](03_reporting_und_priorisierung_md.md).
 
 ## 6. GSC-Import und API-Adapter
 

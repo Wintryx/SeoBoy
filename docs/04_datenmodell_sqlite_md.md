@@ -1,6 +1,6 @@
 # SeoBoy – SQLite-Datenmodell und Migrationen
 
-Das ausführbare Schema für v0.1 liegt in [`migrations/001_initial.sql`](migrations/001_initial.sql). Die [Architektur](01_architektur_und_techstack_md.md) beschreibt den Ausbau, das [Regelwerk](02_seo_geo_und_konkurrenz_engine_md.md) die Prüfungen und das [Reporting](03_reporting_und_priorisierung_md.md) die Auswertung.
+Das ausführbare Schema für v0.1 liegt in [`migrations/001_initial.sql`](../migrations/001_initial.sql). Die [Architektur](01_architektur_und_techstack_md.md) beschreibt den Ausbau, das [Regelwerk](02_seo_geo_und_konkurrenz_engine_md.md) die Prüfungen und das [Reporting](03_reporting_und_priorisierung_md.md) die Auswertung.
 
 ## 1. Identitäten und Beziehungen
 

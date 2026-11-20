@@ -985,7 +985,7 @@ Die detaillierte Erweiterungsspezifikation mit API-Verträgen, Grenzen und
 Abnahmekriterien steht in [docs/erweiterungen_spezifikation.md](docs/erweiterungen_spezifikation.md).
 
 Die verbindlichen Anforderungen stehen in den Spezifikationen
-[Architektur](01_architektur_und_techstack_md.md),
-[Regeln](02_seo_geo_und_konkurrenz_engine_md.md),
-[Reporting](03_reporting_und_priorisierung_md.md) und
-[Datenmodell](04_datenmodell_sqlite_md.md).
+[Architektur](docs/01_architektur_und_techstack_md.md),
+[Regeln](docs/02_seo_geo_und_konkurrenz_engine_md.md),
+[Reporting](docs/03_reporting_und_priorisierung_md.md) und
+[Datenmodell](docs/04_datenmodell_sqlite_md.md).
