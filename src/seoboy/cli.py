@@ -49,6 +49,8 @@ from seoboy.ai.review import (
     run_ai_review,
     write_ai_review,
 )
+from seoboy.backlinks.importer import BacklinkImportError, import_backlinks
+from seoboy.backlinks.report import write_backlink_report
 from seoboy.monitoring.monitor import run_monitor_check
 from seoboy.rankings.competitors import write_competitor_report
 from seoboy.rankings.config import KeywordConfigError, load_keywords
@@ -475,6 +477,24 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     update.add_argument(
         "--repo", type=Path, help="Pfad zum SeoBoy-Git-Checkout"
     )
+
+    backlinks = commands.add_parser(
+        "backlinks", help="Backlink-Exporte importieren und Linkchancen auswerten"
+    )
+    backlink_commands = backlinks.add_subparsers(
+        dest="backlinks_command", required=True
+    )
+    backlink_import = backlink_commands.add_parser(
+        "import", help="Backlink-CSV importieren"
+    )
+    backlink_import.add_argument("--config", type=Path, default=default_config)
+    backlink_import.add_argument("--csv", type=Path, required=True)
+    backlink_import.add_argument("--out", type=Path)
+    backlink_report = backlink_commands.add_parser(
+        "report", help="Backlink-Bericht neu schreiben"
+    )
+    backlink_report.add_argument("--config", type=Path, default=default_config)
+    backlink_report.add_argument("--out", type=Path)
 
     rankings = commands.add_parser(
         "rankings", help="Lokale Keyword-Positionen importieren und auswerten"
@@ -1257,6 +1277,25 @@ def main(argv: list[str] | None = None) -> int:
                 force=True,
             )
             print(f"Wettbewerbsvergleich geschrieben: {folder}")
+            return 0
+        if args.command == "backlinks":
+            config = _load(args.config)
+            migrate_database(config.database)
+            connection = connect(config.database)
+            try:
+                if args.backlinks_command == "import":
+                    summary = import_backlinks(connection, config, args.csv)
+                    print(
+                        f"Backlinks importiert: {summary.observations} neu, "
+                        f"{summary.skipped} Duplikate."
+                    )
+                folder = write_backlink_report(connection, config, args.out)
+            except BacklinkImportError as error:
+                print(f"SeoBoy: {error}", file=sys.stderr)
+                return 2
+            finally:
+                connection.close()
+            print(f"Bericht: {folder / 'BACKLINK_OPPORTUNITIES.md'}")
             return 0
         if args.command == "rankings":
             config = _load(args.config)

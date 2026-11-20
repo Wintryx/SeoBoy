@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.23.0
+Stand: 20.11.2026, Version 0.24.0
 
 ## Priorisierung
 
@@ -33,6 +33,7 @@ Die nächsten Umsetzungsschritte mit Datenverträgen und Abnahmekriterien stehen
 | E3 | Projektübersicht und URL-Monitor | Offline-HTML, leichte Checks, Bestätigung und Recovery | **erledigt in 0.21.0** |
 | E4 | Lokales Keyword-Monitoring | Keywordprofile, CSV-Import, Soll-/Ist-URL, Verlauf | **erledigt in 0.22.0** |
 | E5 | Wettbewerber nach Suchanfrage | Gespeicherte SERP-Treffer gruppieren und Entscheidung ableiten | **erledigt in 0.23.0** |
+| E6 | Backlink-Import und Linkchancen | CSV-Import, Dublettenschutz, regionale Quellen | **erledigt in 0.24.0** |
 
 ## A – Direkter Buchungsnutzen
 
@@ -271,6 +272,17 @@ Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 - Grenze: Rollen sind `unbekannt`; kein Live-Abruf, kein Inhaltsvergleich, keine
   automatische Provider-Anbindung.
 - Offen: manuelle Rollen-/Statusüberschreibung und Content-Lückenanalyse.
+
+### E6 – Backlink-Import und Linkchancen (erledigt)
+
+- **Umgesetzt:** Schema 6 für Backlink-Beobachtungen und Review-Status.
+- **Umgesetzt:** `seoboy backlinks import` mit stabilem Ereignisschlüssel und Dublettenschutz.
+- **Umgesetzt:** Ursprungs-URLs bleiben erhalten; Normalisierung nur für den Abgleich.
+- **Umgesetzt:** `BACKLINK_OPPORTUNITIES.md` mit eigenen Zielproblemen,
+  regionalen Quellen und „nicht erneut beobachtet“.
+- **Umgesetzt:** `raw_data/backlink_observations.csv` mit Formelschutz.
+- Grenze: keine Live-Prüfung von Quellseiten, keine bestätigte Entfernung, kein Outreach,
+  keine Anbieter-API.
 
 ## Erledigt
 

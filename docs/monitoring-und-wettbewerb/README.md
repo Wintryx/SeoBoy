@@ -1,6 +1,6 @@
 # SeoBoy – Spezifikationen für Monitoring und Wettbewerbsanalyse
 
-Stand 20.11.2026 · Grundlage ist der Repository-Stand 0.21.0. Stufen 1 und 2 sind umgesetzt; Stufe 3 ist als Gruppierung umgesetzt, der Inhaltsvergleich fehlt noch. Die übrigen Schnittstellen sind Entwürfe.
+Stand 20.11.2026 · Grundlage ist der Repository-Stand 0.21.0. Stufen 1 und 2 sind umgesetzt; Stufe 3 ist als Gruppierung umgesetzt, der Inhaltsvergleich fehlt noch. Stufe 4a ist als Import umgesetzt, Live-Prüfung und Outreach fehlen. Stufe 4b ist noch ein Entwurf.
 
 ## Reihenfolge und Umfang
 
@@ -9,7 +9,7 @@ Stand 20.11.2026 · Grundlage ist der Repository-Stand 0.21.0. Stufen 1 und 2 si
 | 1 | [Projektübersicht, GSC-Vergleich und Monitoring](01-projektmonitoring-und-gsc.md) | Lokaler HTML-Bericht, zwei vergleichbare GSC-Zeiträume, bestätigte Änderungen an wichtigen URLs – **umgesetzt in 0.21.0** | Bestehender GSC-Zugang optional |
 | 2 | [Lokales Keyword-Monitoring](02-lokales-keyword-monitoring.md) | Feste Keywordliste, CSV-Import, Soll-/Ist-URL und Verlauf – **umgesetzt in 0.22.0** | Eigene Messungen oder berechtigte Exporte |
 | 3 | [Wettbewerbsanalyse nach Suchanfrage](03-wettbewerbsanalyse.md) | Wettbewerber aus den importierten Suchergebnissen ableiten – **Gruppierung umgesetzt in 0.23.0**, Inhaltsvergleich offen | SERP-Import aus Stufe 2 |
-| 4a | [Backlink-Import und Linkchancen](04-backlinks-und-linkchancen.md) | Eigene Exportdateien zusammenführen und relevante Quellen manuell nachprüfen | Eigene oder berechtigt exportierte Backlinkdaten |
+| 4a | [Backlink-Import und Linkchancen](04-backlinks-und-linkchancen.md) | Eigene Exportdateien zusammenführen und relevante Quellen manuell nachprüfen – **Import umgesetzt in 0.24.0**, Live-Prüfung offen | Eigene oder berechtigt exportierte Backlinkdaten |
 | 4b | [KI-Antworten im Zeitverlauf](05-ki-sichtbarkeit.md) | Bestehende Stichproben vergleichen, Erwähnungen, Empfehlungen und Zitate getrennt auswerten | DeepSeek-Zugang optional für neue Messungen |
 
 Stufe 1 hat den größten unmittelbaren Nutzen. Stufen 2 und 3 bilden zusammen eine Grundlage für Entscheidungen über bestehende Buchungsseiten und neue Inhalte. Stufen 4a und 4b können unabhängig voneinander folgen. Startwerte in den Fachspezifikationen dienen der Erprobung und sind je Projekt konfigurierbar, wenn sich der Bedarf bestätigt.

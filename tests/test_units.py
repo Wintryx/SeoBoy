@@ -410,11 +410,11 @@ class DatabaseTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_migration_and_idempotence(self):
-        self.assertEqual(migrate_database(self.path), 5)
-        self.assertEqual(migrate_database(self.path), 5)
+        self.assertEqual(migrate_database(self.path), 6)
+        self.assertEqual(migrate_database(self.path), 6)
         connection = connect(self.path)
         try:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 5)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 6)
             self.assertEqual(connection.execute("PRAGMA foreign_keys").fetchone()[0], 1)
             tables = {
                 row[0]
@@ -431,6 +431,7 @@ class DatabaseTests(unittest.TestCase):
         migrate_database(self.path)
         connection = connect(self.path)
         try:
+            connection.execute("DROP TABLE backlink_observations")
             connection.execute("DROP TABLE ranking_results")
             connection.execute("DROP TABLE ranking_snapshots")
             connection.execute("DROP TABLE ranking_keywords")
@@ -442,7 +443,7 @@ class DatabaseTests(unittest.TestCase):
             connection.execute("PRAGMA user_version = 1")
         finally:
             connection.close()
-        self.assertEqual(migrate_database(self.path), 5)
+        self.assertEqual(migrate_database(self.path), 6)
         connection = connect(self.path)
         try:
             table = connection.execute(

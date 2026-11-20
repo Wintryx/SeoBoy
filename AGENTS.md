@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.23.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.24.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -72,6 +72,8 @@ unnötiger Aufwand.
 | `src/seoboy/rankings/importer.py` | idempotenter CSV-Import von Ranking-Snapshots |
 | `src/seoboy/rankings/report.py` | Soll-/Ist-Auswertung, GSC-Ergänzung und Positionsverlauf |
 | `src/seoboy/rankings/competitors.py` | Gruppierung gespeicherter SERP-Treffer je Suchanfrage |
+| `src/seoboy/backlinks/importer.py` | idempotenter Import von Backlink-Beobachtungen |
+| `src/seoboy/backlinks/report.py` | Linkchancen und Beobachtungsverlauf |
 | `src/seoboy/benchmark/sampler.py` | robots-konforme Stichprobe und sitemapweiter Modus |
 | `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich, TF-IDF und Begriffskandidaten |
 | `src/seoboy/local_seo/audit.py` | Standort-, NAP-, Profil- und Local-Result-Prüfung |
@@ -88,6 +90,7 @@ unnötiger Aufwand.
 | `migrations/003_action_statuses.sql` | Maßnahmenstatus und Verlauf |
 | `migrations/004_monitor.sql` | URL-Monitor-Beobachtungen und Ereignisse |
 | `migrations/005_rankings.sql` | Keyword-Profile, Snapshots und Treffer |
+| `migrations/006_backlinks.sql` | Backlink-Beobachtungen und Review-Status |
 
 Die verbindlichen Anforderungen stehen in:
 - `docs/01_architektur_und_techstack_md.md`
@@ -281,6 +284,8 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   Ziel-URL ergänzt; ein kanonischer Alias zählt als Zieltreffer.
 - Die Wettbewerber-Auswertung gruppiert nur gespeicherte SERP-Treffer. Sie ruft keine
   Konkurrenzseiten live ab, vergleicht noch keine Inhalte und veröffentlicht nichts.
+- Backlink-Importe deduplizieren über einen Ereignisschlüssel. "Nicht erneut beobachtet"
+  ist keine bestätigte Entfernung; Live-Prüfung und Outreach fehlen bewusst.
 - Lange Läufe senden Fortschritt auf stderr; `--progress json` liefert JSONL
   mit Phase, Zähler, Prozent und ETA für externe Agenten.
 - Report-Ordner verwenden lokale Zeit und keinen Run-ID-Hash; Kollisionen werden
