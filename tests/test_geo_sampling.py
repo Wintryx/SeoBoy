@@ -91,6 +91,19 @@ class GeoSamplingTests(unittest.TestCase):
         self.assertEqual(body["thinking"], {"type": "disabled"})
         self.assertFalse(body["stream"])
 
+    def test_json_mode_request(self):
+        payload = {
+            "model": "deepseek-flash",
+            "choices": [{"message": {"content": "{\"ok\": true}"}}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+        }
+        with patch.object(sampling, "_post_json", return_value=payload) as post:
+            sampling.chat_completion(
+                "key", "Frage?", thinking="disabled", json_mode=True
+            )
+        body = post.call_args.args[1]
+        self.assertEqual(body["response_format"], {"type": "json_object"})
+
     def test_max_reasoning_request(self):
         payload = {
             "model": "deepseek-flash",

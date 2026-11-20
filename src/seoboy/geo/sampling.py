@@ -306,6 +306,7 @@ def chat_completion(
     thinking: str = "enabled",
     reasoning_effort: str = "max",
     web_search: bool = False,
+    json_mode: bool = False,
     base_url: str = DEFAULT_BASE_URL,
     timeout: float = 90.0,
 ) -> dict[str, Any]:
@@ -331,6 +332,8 @@ def chat_completion(
         body["reasoning_effort"] = reasoning_effort
     if web_search:
         body["tools"] = [{"type": "deepseek_web_search"}]
+    if json_mode:
+        body["response_format"] = {"type": "json_object"}
     payload = _post_json(
         api_key,
         body,

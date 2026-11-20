@@ -459,6 +459,7 @@ def render_run_report(
             wins,
             history_written,
             inspection_written,
+            (folder / "07_AI_REVIEW.md").is_file(),
         ),
     )
     _write_text(folder / "01_ACTION_PLAN_PRIORITIZED.md", _action_plan(report, coverage, wins))
@@ -547,6 +548,7 @@ def _executive_summary(
     wins: list[StoredAction],
     history_written: bool = False,
     inspection_written: bool = False,
+    ai_review_written: bool = False,
 ) -> str:
     data = report.data
     run = data.run
@@ -678,6 +680,11 @@ def _executive_summary(
             *(
                 ["- [URL Inspection](06_URL_INSPECTION.md)"]
                 if inspection_written
+                else []
+            ),
+            *(
+                ["- [KI-Review (advisory)](07_AI_REVIEW.md)"]
+                if ai_review_written
                 else []
             ),
             "- [Maschinenlesbare Daten](raw_data/) und [Manifest](manifest.json)",

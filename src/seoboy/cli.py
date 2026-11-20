@@ -42,7 +42,14 @@ from seoboy.infrastructure.database import (
     migrate_database,
 )
 from seoboy.reporting.diff_report import DiffError
-from seoboy.reporting.run_report import load_report_data
+from seoboy.ai.review import (
+    AIReviewError,
+    ReviewConfig,
+    build_review_packet,
+    run_ai_review,
+    write_ai_review,
+)
+from seoboy.reporting.run_report import load_report_data, render_run_report
 from seoboy.infrastructure.env import load_env
 from seoboy.gsc.importer import GscError
 from seoboy.gsc.api import GscApiError
@@ -142,6 +149,16 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
         help="Zeitraum in Tagen, wenn kein Startdatum gesetzt ist (Standard: 28)",
     )
     run.add_argument("--resume", metavar="LAUF-ID", help="Pausierten Lauf fortsetzen")
+    run.add_argument(
+        "--ai-review",
+        action="store_true",
+        help="nach dem Lauf eine beratende KI-Review erzeugen",
+    )
+    run.add_argument(
+        "--ai-review-model",
+        choices=["deepseek-flash", "deepseek-v4-pro"],
+        default="deepseek-flash",
+    )
 
     batch = commands.add_parser("batch", help="Mehrere Projekte parallel prüfen")
     batch.add_argument(
@@ -247,6 +264,25 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     performance.add_argument("--api-key")
     performance.add_argument("--no-lighthouse", action="store_true")
     performance.add_argument("--no-crux", action="store_true")
+
+    ai_review = commands.add_parser(
+        "ai-review", help="Gesamtergebnis eines Laufs durch KI prüfen lassen"
+    )
+    ai_review.add_argument("--config", type=Path, default=default_config)
+    ai_review.add_argument("--run", required=True, metavar="LAUF-ID")
+    ai_review.add_argument(
+        "--model",
+        choices=["deepseek-flash", "deepseek-v4-pro"],
+        default="deepseek-flash",
+    )
+    ai_review.add_argument("--max-findings", type=int, default=40)
+    ai_review.add_argument("--max-actions", type=int, default=25)
+    ai_review.add_argument("--max-tokens", type=int, default=4096)
+    ai_review.add_argument("--budget-usd", type=float, default=0.25)
+    ai_review.add_argument("--timeout", type=float, default=90.0)
+    ai_review.add_argument("--no-cache", action="store_true")
+    ai_review.add_argument("--refresh", action="store_true")
+    ai_review.add_argument("--dry-run", action="store_true")
 
     geo_sample = commands.add_parser(
         "geo-sample", help="Budgetierte KI-Antwortstichproben über DeepSeek erzeugen"
@@ -472,6 +508,31 @@ def main(argv: list[str] | None = None) -> int:
                 finally:
                     if temporary_gsc is not None:
                         temporary_gsc.cleanup()
+            if args.ai_review and outcome.report_dir is not None:
+                review_key = os.environ.get("SEOBOY_GEO_API_KEY") or os.environ.get("DEEPSEEK_API_KEY") or ""
+                if not review_key:
+                    print(
+                        "Hinweis: --ai-review ohne DeepSeek-API-Key nicht möglich.",
+                        file=sys.stderr,
+                    )
+                else:
+                    review_connection = connect(config.database)
+                    try:
+                        review_outcome = run_ai_review(
+                            review_connection,
+                            config,
+                            outcome.run_id,
+                            report_dir=outcome.report_dir,
+                            api_key=review_key,
+                            review_config=ReviewConfig(model=args.ai_review_model),
+                        )
+                        review_path = write_ai_review(review_outcome)
+                        runner.rerender_report(config, outcome.run_id)
+                        print(f"KI-Review: {review_path}")
+                    except (AIReviewError, OSError) as error:
+                        print(f"Hinweis: KI-Review fehlgeschlagen: {error}", file=sys.stderr)
+                    finally:
+                        review_connection.close()
             for warning in outcome.warnings:
                 print(f"Hinweis: {warning}")
             print(outcome.message)
@@ -529,6 +590,68 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"SeoBoy: {error}", file=sys.stderr)
                 return 2
             print(f"Performance-Bericht geschrieben: {folder}")
+            return 0
+        if args.command == "ai-review":
+            config = _load(args.config)
+            migrate_database(config.database)
+            connection = connect(config.database)
+            try:
+                report = load_report_data(connection, config, args.run)
+                review_config = ReviewConfig(
+                    model=args.model,
+                    max_findings=args.max_findings,
+                    max_actions=args.max_actions,
+                    max_tokens=args.max_tokens,
+                    budget_usd=args.budget_usd,
+                    use_cache=not args.no_cache,
+                    refresh=args.refresh,
+                )
+                if args.dry_run:
+                    packet = build_review_packet(report, review_config)
+                    from seoboy.ai.review import packet_hash
+
+                    print(
+                        f"KI-Review-Packung: {len(packet['findings'])} Befunde, "
+                        f"{len(packet['actions'])} Maßnahmen, "
+                        f"{len(packet['data_quality'])} Datenqualitätshinweise, "
+                        f"Hash {packet_hash(packet)[:16]}"
+                    )
+                    return 0
+                matches = [
+                    item
+                    for item in config.reports_dir.glob(f"*_{args.run}")
+                    if item.is_dir()
+                ]
+                report_dir = max(matches, key=lambda item: item.stat().st_mtime) if matches else None
+                if report_dir is None:
+                    report_dir = render_run_report(connection, config, args.run)
+                api_key = (
+                    os.environ.get("SEOBOY_GEO_API_KEY")
+                    or os.environ.get("DEEPSEEK_API_KEY")
+                    or ""
+                )
+                outcome = run_ai_review(
+                    connection,
+                    config,
+                    args.run,
+                    report_dir=report_dir,
+                    api_key=api_key,
+                    review_config=review_config,
+                    timeout=args.timeout,
+                )
+                path = write_ai_review(outcome)
+            except (AIReviewError, ValueError) as error:
+                print(f"SeoBoy: {error}", file=sys.stderr)
+                return 2
+            finally:
+                connection.close()
+            runner.rerender_report(config, args.run)
+            print(f"KI-Review geschrieben: {path}")
+            print(
+                f"Modell: {outcome.model} ({outcome.model_version}), "
+                f"Cache: {'Treffer' if outcome.cached else 'neu'}, "
+                f"Kosten: {outcome.cost_usd:.6f} USD"
+            )
             return 0
         if args.command == "geo-sample":
             try:
