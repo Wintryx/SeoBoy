@@ -1,5 +1,5 @@
 import argparse
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -17,8 +17,10 @@ from seoboy.local_seo.audit import (
     LocalSeoError,
     audit_locations,
     load_locations,
+    load_local_rankings,
     write_local_report,
 )
+from seoboy.performance.audit import PerformanceError, run_performance
 from seoboy.application import runner
 from seoboy.analysis.audit_data import RunData
 from seoboy.gsc.inspection_store import select_targets, store_error, store_inspection
@@ -30,6 +32,7 @@ from seoboy.infrastructure.database import (
     migrate_database,
 )
 from seoboy.reporting.diff_report import DiffError
+from seoboy.reporting.run_report import load_report_data
 from seoboy.infrastructure.env import load_env
 from seoboy.gsc.importer import GscError
 from seoboy.gsc.api import GscApiError
@@ -215,6 +218,21 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
         help="Maximale Anzahl wichtiger URLs im Batch-Modus (Standard: 10)",
     )
 
+    performance = commands.add_parser(
+        "performance", help="PageSpeed/Lighthouse und CrUX abfragen"
+    )
+    performance.add_argument("--url", required=True)
+    performance.add_argument("--out", type=Path)
+    performance.add_argument(
+        "--strategy", choices=["mobile", "desktop"], default="mobile"
+    )
+    performance.add_argument(
+        "--form-factor", choices=["PHONE", "DESKTOP", "TABLET"], default="PHONE"
+    )
+    performance.add_argument("--api-key")
+    performance.add_argument("--no-lighthouse", action="store_true")
+    performance.add_argument("--no-crux", action="store_true")
+
     geo = commands.add_parser(
         "geo", help="GEO- und AI-Readiness beobachtbar prüfen"
     )
@@ -228,6 +246,11 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     local.add_argument("--out", type=Path)
     local.add_argument("--timeout", type=float, default=15.0)
     local.add_argument("--interval", type=float, default=0.5)
+    local.add_argument(
+        "--local-results",
+        type=Path,
+        help="CSV mit query,location,position,url,source,date",
+    )
 
     render = commands.add_parser(
         "render", help="HTTP-Dokument und Browser-DOM mit Playwright vergleichen"
@@ -241,6 +264,11 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
         "--wait-until",
         choices=["load", "domcontentloaded", "networkidle", "commit"],
         default="networkidle",
+    )
+    render.add_argument(
+        "--browser",
+        choices=["chromium", "firefox", "webkit"],
+        default="chromium",
     )
 
     update = commands.add_parser(
@@ -272,6 +300,20 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     report = commands.add_parser("report", help="Berichte eines gespeicherten Laufs erneut schreiben")
     report.add_argument("--run", required=True, metavar="LAUF-ID")
     report.add_argument("--config", type=Path, default=default_config)
+
+    status = commands.add_parser(
+        "action-status", help="Manuellen Status einer Maßnahme pflegen"
+    )
+    status.add_argument("--config", type=Path, default=default_config)
+    status.add_argument("--run", metavar="LAUF-ID")
+    status.add_argument("--action-key")
+    status.add_argument(
+        "--status",
+        choices=["open", "in_progress", "done", "ignored"],
+    )
+    status.add_argument("--note", default="")
+    status.add_argument("--list", action="store_true")
+    status.add_argument("--history", action="store_true")
 
     prepare = commands.add_parser(
         "gsc-prepare",
@@ -405,6 +447,34 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"[{label}] Berichte: {outcome.report_dir}")
                 exit_code = max(exit_code, outcome.exit_code)
             return exit_code
+        if args.command == "performance":
+            api_key = args.api_key or os.environ.get("SEOBOY_PSI_API_KEY") or ""
+            if not api_key:
+                print(
+                    "SeoBoy: Für performance wird ein API-Key benötigt "
+                    "(--api-key oder SEOBOY_PSI_API_KEY).",
+                    file=sys.stderr,
+                )
+                return 2
+            folder = args.out or (
+                Path("reports")
+                / f"performance_{datetime.now().astimezone():%Y%m%dT%H%M%S}"
+            )
+            try:
+                run_performance(
+                    args.url,
+                    api_key=api_key,
+                    out=folder,
+                    strategy=args.strategy,
+                    form_factor=args.form_factor,
+                    lighthouse_enabled=not args.no_lighthouse,
+                    crux_enabled=not args.no_crux,
+                )
+            except PerformanceError as error:
+                print(f"SeoBoy: {error}", file=sys.stderr)
+                return 2
+            print(f"Performance-Bericht geschrieben: {folder}")
+            return 0
         if args.command == "geo":
             config = _load(args.config)
             try:
@@ -422,11 +492,16 @@ def main(argv: list[str] | None = None) -> int:
                     timeout=args.timeout,
                     interval_seconds=args.interval,
                 )
+                rankings = (
+                    load_local_rankings(args.local_results)
+                    if args.local_results
+                    else []
+                )
                 folder = args.out or (
                     Path("reports")
                     / f"local_{datetime.now().astimezone():%Y%m%dT%H%M%S}"
                 )
-                write_local_report(results, folder)
+                write_local_report(results, folder, rankings)
             except LocalSeoError as error:
                 print(f"SeoBoy: {error}", file=sys.stderr)
                 return 2
@@ -447,6 +522,7 @@ def main(argv: list[str] | None = None) -> int:
                     out=folder,
                     timeout_ms=args.timeout_ms,
                     wait_until=args.wait_until,
+                    browser_name=args.browser,
                 )
             except RenderingError as error:
                 print(f"SeoBoy: {error}", file=sys.stderr)
@@ -705,6 +781,88 @@ def main(argv: list[str] | None = None) -> int:
             config = _load(args.config)
             folder = runner.rerender_report(config, args.run)
             print(f"Berichte geschrieben: {folder}")
+            return 0
+        if args.command == "action-status":
+            config = _load(args.config)
+            migrate_database(config.database)
+            connection = connect(config.database)
+            try:
+                run_id = args.run
+                if run_id is None:
+                    row = connection.execute(
+                        "SELECT run_id FROM runs WHERE project_id = ? "
+                        "AND status IN ('completed', 'partial') "
+                        "ORDER BY ended_at DESC, run_id DESC LIMIT 1",
+                        (config.project_id,),
+                    ).fetchone()
+                    if row is None:
+                        print("SeoBoy: Kein abgeschlossener Lauf gefunden.", file=sys.stderr)
+                        return 2
+                    run_id = str(row["run_id"])
+                report = load_report_data(connection, config, run_id)
+                action_map = {item.action_key: item for item in report.actions}
+                if args.list:
+                    if not report.actions:
+                        print("Keine Maßnahmen im Lauf.")
+                        return 0
+                    for item in report.actions:
+                        current = item.status or "open"
+                        print(
+                            f"P{item.priority} | {current} | {item.action_key} | {item.title}"
+                        )
+                    return 0
+                if args.history:
+                    if not args.action_key:
+                        parser.error("--history benötigt --action-key.")
+                    rows = connection.execute(
+                        "SELECT status, note, changed_at FROM action_status_history "
+                        "WHERE project_id = ? AND action_key = ? "
+                        "ORDER BY changed_at DESC LIMIT 50",
+                        (config.project_id, args.action_key),
+                    )
+                    for row in rows:
+                        note = f" – {row['note']}" if row["note"] else ""
+                        print(f"{row['changed_at']} | {row['status']}{note}")
+                    return 0
+                if not args.action_key or not args.status:
+                    parser.error("Setzen benötigt --action-key und --status.")
+                if args.action_key not in action_map:
+                    print(
+                        f"SeoBoy: Maßnahme '{args.action_key}' kommt im Lauf nicht vor.",
+                        file=sys.stderr,
+                    )
+                    return 2
+                changed_at = datetime.now(timezone.utc).isoformat(
+                    timespec="microseconds"
+                )
+                connection.execute(
+                    "INSERT INTO action_statuses(project_id, action_key, status, note, updated_at) "
+                    "VALUES (?, ?, ?, ?, ?) ON CONFLICT(project_id, action_key) DO UPDATE SET "
+                    "status = excluded.status, note = excluded.note, "
+                    "updated_at = excluded.updated_at",
+                    (
+                        config.project_id,
+                        args.action_key,
+                        args.status,
+                        args.note,
+                        changed_at,
+                    ),
+                )
+                connection.execute(
+                    "INSERT INTO action_status_history(project_id, action_key, status, note, changed_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (
+                        config.project_id,
+                        args.action_key,
+                        args.status,
+                        args.note,
+                        changed_at,
+                    ),
+                )
+            finally:
+                connection.close()
+            folder = runner.rerender_report(config, run_id)
+            print(f"Status gespeichert; Berichte geschrieben: {folder}")
             return 0
         if args.command == "gsc-prepare":
             summary = gsc_module.prepare_export(

@@ -7,6 +7,7 @@ from datetime import datetime
 import csv
 import json
 from pathlib import Path
+import re
 import time
 from typing import Any, Iterable
 from urllib.parse import urlsplit
@@ -31,11 +32,33 @@ class Location:
     url: str
     name: str
     street: str = ""
+    profiles: tuple[str, ...] = ()
     postal_code: str = ""
     city: str = ""
     region: str = ""
     country: str = ""
     phone: str = ""
+
+
+@dataclass
+class ProfileResult:
+    url: str
+    status: int | None = None
+    title: str | None = None
+    name_match: bool = False
+    city_match: bool = False
+    phone_match: bool = False
+    error: str | None = None
+
+
+@dataclass
+class LocalRanking:
+    query: str
+    location: str
+    position: float | None
+    url: str = ""
+    source: str = ""
+    date: str = ""
 
 
 @dataclass
@@ -51,6 +74,7 @@ class LocalResult:
     matches: dict[str, bool] | None = None
     missing: tuple[str, ...] = ()
     mismatches: tuple[str, ...] = ()
+    profiles: tuple[ProfileResult, ...] = ()
     error: str | None = None
 
 
@@ -73,11 +97,20 @@ def load_locations(path: Path | str) -> list[Location]:
         name = str(item.get("name") or "").strip()
         if not label or not url or not name:
             raise LocalSeoError(f"Standort {index} benötigt label, url und name.")
+        raw_profiles = item.get("profiles") or []
+        if isinstance(raw_profiles, str):
+            raw_profiles = [raw_profiles]
+        if not isinstance(raw_profiles, list):
+            raise LocalSeoError(f"Standort {index}: profiles muss eine Liste sein.")
+        profiles = tuple(
+            str(value).strip() for value in raw_profiles if str(value).strip()
+        )
         locations.append(
             Location(
                 label=label,
                 url=url,
                 name=name,
+                profiles=profiles,
                 street=str(item.get("street") or "").strip(),
                 postal_code=str(item.get("postal_code") or "").strip(),
                 city=str(item.get("city") or "").strip(),
@@ -162,16 +195,29 @@ def _normalise(field: str, value: str) -> str:
     return normalize_whitespace(value).casefold()
 
 
-def audit_location(client: HttpClient, location: Location, robots: RobotsFile | None = None) -> LocalResult:
+def _plain_text(html: str) -> str:
+    without_scripts = re.sub(
+        r"<(script|style)[^>]*>.*?</(script|style)>",
+        " ",
+        html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    return normalize_whitespace(re.sub(r"<[^>]+>", " ", without_scripts))
+
+
+def _audit_profile(client: HttpClient, location: Location, profile_url: str) -> ProfileResult:
     try:
-        normalized = normalize_url(location.url)
+        normalized = normalize_url(profile_url)
     except InvalidUrl as error:
-        return LocalResult(location=location, error=str(error))
-    origin = origin_of(normalized.url)
-    if robots is None:
-        robots = RobotsFile.parse("")
-    if not robots.is_allowed(normalized.path + (f"?{normalized.query}" if normalized.query else ""), SEOBOY):
-        return LocalResult(location=location, error="robots_disallowed")
+        return ProfileResult(url=profile_url, error=str(error))
+    robots = RobotsFile.parse("")
+    robots_result = client.fetch(origin_of(normalized.url) + "/robots.txt")
+    if robots_result.status_code and 200 <= robots_result.status_code < 300:
+        robots = RobotsFile.parse(decode_body(robots_result))
+    if not robots.is_allowed(
+        normalized.path + (f"?{normalized.query}" if normalized.query else ""), SEOBOY
+    ):
+        return ProfileResult(url=profile_url, error="robots_disallowed")
     result = client.fetch(normalized.url)
     for _ in range(3):
         if result.status_code not in {301, 302, 303, 307, 308} or not result.redirect_location:
@@ -181,9 +227,106 @@ def audit_location(client: HttpClient, location: Location, robots: RobotsFile | 
             break
         result = client.fetch(target)
     if result.error_code is not None or result.status_code is None:
-        return LocalResult(location=location, error=result.error_code or "fetch_failed")
+        return ProfileResult(
+            url=profile_url, error=result.error_code or "fetch_failed"
+        )
     if not result.is_html:
-        return LocalResult(location=location, status=result.status_code, error="not_html")
+        return ProfileResult(
+            url=profile_url, status=result.status_code, error="not_html"
+        )
+    body = decode_body(result)
+    page = extract_page(body, result.url, result.header_items)
+    text = _plain_text(body).casefold()
+    phone = _phone(location.phone)
+    return ProfileResult(
+        url=profile_url,
+        status=result.status_code,
+        title=page.title,
+        name_match=bool(location.name and location.name.casefold() in text),
+        city_match=bool(location.city and location.city.casefold() in text),
+        phone_match=bool(phone and phone in _phone(text)),
+    )
+
+
+def _audit_profiles(client: HttpClient, location: Location) -> tuple[ProfileResult, ...]:
+    return tuple(_audit_profile(client, location, value) for value in location.profiles)
+
+
+def load_local_rankings(path: Path | str) -> list[LocalRanking]:
+    target = Path(path)
+    try:
+        stream = target.open(encoding="utf-8-sig", newline="")
+    except OSError as error:
+        raise LocalSeoError(f"Local-Result-Datei nicht lesbar: {error}") from error
+    with stream:
+        reader = csv.DictReader(stream)
+        if reader.fieldnames is None:
+            raise LocalSeoError("Local-Result-Datei enthält keinen Header.")
+        required = {"query", "location", "position"}
+        if not required.issubset({name.strip() for name in reader.fieldnames}):
+            raise LocalSeoError(
+                "Local-Result-Datei benötigt query, location und position."
+            )
+        rows: list[LocalRanking] = []
+        for index, row in enumerate(reader, start=2):
+            query = (row.get("query") or "").strip()
+            label = (row.get("location") or "").strip()
+            raw_position = (row.get("position") or "").strip()
+            if not query or not label or not raw_position:
+                raise LocalSeoError(f"Local-Result-Zeile {index} ist unvollständig.")
+            try:
+                position = float(raw_position.replace(",", "."))
+            except ValueError as error:
+                raise LocalSeoError(
+                    f"Local-Result-Zeile {index}: Position ist keine Zahl."
+                ) from error
+            rows.append(
+                LocalRanking(
+                    query=query,
+                    location=label,
+                    position=position,
+                    url=(row.get("url") or "").strip(),
+                    source=(row.get("source") or "").strip(),
+                    date=(row.get("date") or "").strip(),
+                )
+            )
+    return rows
+
+
+def audit_location(client: HttpClient, location: Location, robots: RobotsFile | None = None) -> LocalResult:
+    try:
+        normalized = normalize_url(location.url)
+    except InvalidUrl as error:
+        return LocalResult(location=location, error=str(error))
+    profiles = _audit_profiles(client, location)
+    origin = origin_of(normalized.url)
+    if robots is None:
+        robots = RobotsFile.parse("")
+    if not robots.is_allowed(normalized.path + (f"?{normalized.query}" if normalized.query else ""), SEOBOY):
+        return LocalResult(
+            location=location, profiles=profiles, error="robots_disallowed"
+        )
+    result = client.fetch(normalized.url)
+    for _ in range(3):
+        if result.status_code not in {301, 302, 303, 307, 308} or not result.redirect_location:
+            break
+        target = resolve_url(result.url, result.redirect_location)
+        if target is None:
+            break
+        result = client.fetch(target)
+    if result.error_code is not None or result.status_code is None:
+        return LocalResult(
+            location=location,
+            profiles=profiles,
+            error=result.error_code or "fetch_failed",
+        )
+    if not result.is_html:
+        return LocalResult(
+            location=location,
+            profiles=profiles,
+            status=result.status_code,
+            error="not_html",
+        )
     page: ExtractedPage = extract_page(decode_body(result), result.url, result.header_items)
     nodes = _schema_nodes(page.jsonld)
     expected = _expected(location)
@@ -215,6 +358,7 @@ def audit_location(client: HttpClient, location: Location, robots: RobotsFile | 
         matches=matches,
         missing=tuple(missing),
         mismatches=tuple(mismatches),
+        profiles=profiles,
     )
 
 
@@ -270,7 +414,11 @@ def _write_csv(path: Path, rows: list[list[object]]) -> None:
             writer.writerow([excel_safe(value) for value in row])
 
 
-def write_local_report(results: list[LocalResult], out: Path) -> Path:
+def write_local_report(
+    results: list[LocalResult],
+    out: Path,
+    rankings: list[LocalRanking] | None = None,
+) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     raw = out / "raw_data"
     raw.mkdir(parents=True, exist_ok=True)
@@ -320,6 +468,98 @@ def write_local_report(results: list[LocalResult], out: Path) -> Path:
             )
             + " |"
         )
+    profile_rows = [
+        (item.location.label, profile)
+        for item in results
+        for profile in item.profiles
+    ]
+    if profile_rows:
+        _write_csv(
+            raw / "local_profiles.csv",
+            [
+                [
+                    label,
+                    profile.url,
+                    profile.status if profile.status is not None else "",
+                    "1" if profile.name_match else "0",
+                    "1" if profile.city_match else "0",
+                    "1" if profile.phone_match else "0",
+                    profile.title or "",
+                    profile.error or "",
+                ]
+                for label, profile in profile_rows
+            ],
+        )
+        lines.extend(
+            [
+                "## Externe Profile",
+                "",
+                "| Standort | Profil | HTTP | Name | Ort | Telefon | Titel | Fehler |",
+                "| --- | --- | ---: | :---: | :---: | :---: | --- | --- |",
+            ]
+        )
+        for label, profile in profile_rows:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        label,
+                        profile.url,
+                        str(profile.status if profile.status is not None else "–"),
+                        "ja" if profile.name_match else "nein",
+                        "ja" if profile.city_match else "nein",
+                        "ja" if profile.phone_match else "nein",
+                        profile.title or "–",
+                        profile.error or "–",
+                    ]
+                )
+                + " |"
+            )
+        lines.extend(
+            [
+                "",
+                "Die Profilprüfung ist ein Textabgleich auf Name, Ort und Telefon. "
+                "Sie ersetzt keine offizielle Google-Business- oder Verzeichnis-API.",
+                "",
+            ]
+        )
+    if rankings:
+        _write_csv(
+            raw / "local_rankings.csv",
+            [
+                [
+                    row.query,
+                    row.location,
+                    row.position if row.position is not None else "",
+                    row.url,
+                    row.source,
+                    row.date,
+                ]
+                for row in rankings
+            ],
+        )
+        lines.extend(
+            [
+                "## Lokale Suchergebnisse",
+                "",
+                "| Suchanfrage | Standort | Position | URL | Quelle | Datum |",
+                "| --- | --- | ---: | --- | --- | --- |",
+            ]
+        )
+        for row in rankings:
+            lines.append(
+                f"| {row.query} | {row.location} | "
+                f"{row.position if row.position is not None else '–'} | "
+                f"{row.url or '–'} | {row.source or '–'} | {row.date or '–'} |"
+            )
+        lines.extend(
+            [
+                "",
+                "Die lokalen Ergebnisse stammen aus einer beigestellten Messdatei. "
+                "SeoBoy fragt keine Suchmaschine und kein Unternehmensprofil live ab.",
+                "",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -330,6 +570,16 @@ def write_local_report(results: list[LocalResult], out: Path) -> Path:
             "Fehlende Felder sind keine automatische Aussage über falsche externe Profile.",
             "",
             "- [Rohdaten](raw_data/local_locations.csv)",
+            *(
+                ["- [Profile](raw_data/local_profiles.csv)"]
+                if profile_rows
+                else []
+            ),
+            *(
+                ["- [Lokale Ergebnisse](raw_data/local_rankings.csv)"]
+                if rankings
+                else []
+            ),
             "",
         ]
     )

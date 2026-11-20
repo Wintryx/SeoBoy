@@ -51,7 +51,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("existiert bereits", error)
         code, output, error = run_cli(["migrate", "--config", str(config_path)])
         self.assertEqual(code, 0, error)
-        self.assertIn("SQLite-Schema 2", output)
+        self.assertIn("SQLite-Schema 3", output)
         self.assertTrue((self.directory / "data" / "seoboy.db").is_file())
 
     def test_gsc_auth_cli(self):
@@ -139,6 +139,65 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0, error)
         self.assertIn("GSC-API: 1 Seitenzeilen, 1 Suchanfrage-Zeilen", output)
         self.assertIn("Berichte:", output)
+
+    def test_action_status_roundtrip(self):
+        with FixtureSite() as site:
+            site.add("/robots.txt", body="User-agent: *\nAllow: /\n", content_type="text/plain")
+            site.add_html("/", "Start", "<a href='/missing/'>Fehlt</a>")
+            config = make_config(self.directory, site.base)
+            code, _output, error = run_cli(["run", "--config", str(config.config_path)])
+            self.assertEqual(code, 0, error)
+            connection = connect(config.database)
+            try:
+                run_id = connection.execute("SELECT run_id FROM runs").fetchone()[0]
+                action_key = connection.execute(
+                    "SELECT action_key FROM actions LIMIT 1"
+                ).fetchone()[0]
+            finally:
+                connection.close()
+            code, output, error = run_cli(
+                [
+                    "action-status",
+                    "--config",
+                    str(config.config_path),
+                    "--run",
+                    run_id,
+                    "--action-key",
+                    action_key,
+                    "--status",
+                    "in_progress",
+                    "--note",
+                    "Test",
+                ]
+            )
+            self.assertEqual(code, 0, error)
+            self.assertIn("Status gespeichert", output)
+            code, output, error = run_cli(
+                [
+                    "action-status",
+                    "--config",
+                    str(config.config_path),
+                    "--run",
+                    run_id,
+                    "--list",
+                ]
+            )
+            self.assertEqual(code, 0, error)
+            self.assertIn("in_progress", output)
+            code, output, error = run_cli(
+                [
+                    "action-status",
+                    "--config",
+                    str(config.config_path),
+                    "--run",
+                    run_id,
+                    "--action-key",
+                    action_key,
+                    "--history",
+                ]
+            )
+            self.assertEqual(code, 0, error)
+            self.assertIn("in_progress", output)
 
     def test_run_inspect_report_and_diff(self):
         with FixtureSite() as site:

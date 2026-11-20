@@ -131,6 +131,8 @@ class StoredAction:
     expected_effect: str
     verification: str
     finding_keys: list[tuple[str, str]] = field(default_factory=list)
+    status: str | None = None
+    status_note: str | None = None
 
     @property
     def rule_id(self) -> str:
@@ -237,6 +239,14 @@ def load_report_data(connection: sqlite3.Connection, config: ProjectConfig, run_
         action = action_map.get(row["action_key"])
         if action is not None:
             action.finding_keys.append((row["rule_id"], row["subject_key"]))
+    for row in connection.execute(
+        "SELECT action_key, status, note FROM action_statuses WHERE project_id = ?",
+        (config.project_id,),
+    ):
+        action = action_map.get(row["action_key"])
+        if action is not None:
+            action.status = str(row["status"])
+            action.status_note = str(row["note"] or "") or None
     return ReportData(data=data, results=list(results.values()), actions=actions)
 
 
@@ -802,6 +812,17 @@ def _action_plan(
                 f"- **Befunde:** {len(findings)}",
             ]
         )
+        if action.status:
+            status_label = {
+                "open": "offen",
+                "in_progress": "in Arbeit",
+                "done": "erledigt",
+                "ignored": "ignoriert",
+            }.get(action.status, action.status)
+            lines.append(
+                f"- **Status:** {status_label}"
+                + (f" – {action.status_note}" if action.status_note else "")
+            )
         causal = _causal_findings(report, action, findings)
         if causal:
             targets = sorted(

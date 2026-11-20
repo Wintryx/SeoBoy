@@ -57,6 +57,7 @@ def render_page(
     timeout_ms: int = 15_000,
     wait_until: str = "networkidle",
     user_agent: str | None = None,
+    browser_name: str = "chromium",
 ) -> RenderedPage:
     try:
         from playwright.sync_api import sync_playwright
@@ -67,7 +68,10 @@ def render_page(
         ) from error
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
+            engine = getattr(playwright, browser_name, None)
+            if engine is None:
+                raise RenderingError(f"Unbekannte Browser-Engine: {browser_name}")
+            browser = engine.launch(headless=True)
             context = browser.new_context(user_agent=user_agent) if user_agent else browser.new_context()
             page = context.new_page()
             response = page.goto(url, wait_until=wait_until, timeout=timeout_ms)
@@ -165,6 +169,7 @@ def render_report(
     out: Path,
     timeout_ms: int = 15_000,
     wait_until: str = "networkidle",
+    browser_name: str = "chromium",
 ) -> Path:
     client = HttpClient()
     comparisons: list[RenderingComparison] = []
@@ -178,7 +183,10 @@ def render_report(
                 decode_body(http_result), http_result.url, http_result.header_items
             )
         browser = render_page(
-            url, timeout_ms=timeout_ms, wait_until=wait_until
+            url,
+            timeout_ms=timeout_ms,
+            wait_until=wait_until,
+            browser_name=browser_name,
         )
         rendered.append(browser)
         comparisons.append(compare_pages(url, http_page, status, browser))
@@ -187,6 +195,7 @@ def render_report(
     raw.mkdir(parents=True, exist_ok=True)
     payload = {
         "generated_at": iso_utc(),
+        "browser": browser_name,
         "urls": urls,
         "rendered": [
             {
