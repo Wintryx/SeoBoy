@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.21.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.22.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -45,6 +45,7 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - Keyword-Kannibalisierung aus GSC- und On-Page-Evidenz
 - Offline-Projektübersicht als `PROJECT_OVERVIEW.html`
 - Leichter URL-Monitor mit Bestätigung und Wiederherstellungserkennung
+- Lokales Keyword-Monitoring mit CSV-Import, Soll-/Ist-URL und Positionsverlauf
 - Priorisierte Maßnahmen (P1 bis P4), Quick Wins und Evidenz je Befund
 - Markdown-Berichte, CSV-Rohdaten und Manifest je Lauf
 - Vergleich zweier Läufe mit den Zuständen neu, erstmals beobachtet, fortbestehend,
@@ -826,6 +827,50 @@ Beispiel:
 Die ETA ist eine grobe Schätzung aus bisherigen Fortschritten. Sie ist bei
 unbekanntem URL-Bestand, langsameren Hosts oder Pausen entsprechend unsicher.
 Fortschritt wird gedrosselt, damit weder Terminal noch Agent unnötig geflutet werden.
+
+## Lokales Keyword-Monitoring
+
+Die Keywordliste liegt getrennt vom Audit in einer lokalen Datei, standardmäßig
+`keywords.yaml` neben der Projektkonfiguration:
+
+```yaml
+keywords:
+  - id: wedding-koeln
+    query: Hochzeits-DJ Köln
+    intent: booking
+    market: DE
+    language: de
+    location_key: koeln
+    device: desktop
+    result_type: organic
+    expected_target: /hochzeit-dj/
+    target_active: true
+    business_value: high
+```
+
+Ein Import besteht aus einer Kopfdatei und optional einer Trefferdatei:
+
+```powershell
+seoboy rankings import `
+  --config local/aw-audio/seoboy.yaml `
+  --keywords local/aw-audio/keywords.yaml `
+  --csv snapshots.csv `
+  --results results.csv
+
+seoboy rankings report --config local/aw-audio/seoboy.yaml
+```
+
+Kopfdatei: `snapshot_id,keyword_id,observed_at,source,engine,market,language,
+location_key,device,result_type,depth,status`. Trefferdatei:
+`snapshot_id,position,url,profile_id,domain,title`. Der Import ist idempotent:
+identische Snapshots werden übersprungen, abweichende Daten unter derselben ID
+abgewiesen. Die Auswertung schreibt `rankings/rankings_overview.md` und
+`rankings/raw_data/rankings_snapshots.csv`.
+
+Fehlende eigene Treffer werden als **außerhalb der gemessenen Tiefe** angezeigt,
+nicht als Position 11. Soll- und Ist-URL werden getrennt ausgewiesen; Geräte, Orte
+und Ergebnistypen bleiben getrennte Messprofile. GSC-Werte werden in dieser Stufe
+noch nicht automatisch verknüpft.
 
 ## Projektübersicht und URL-Monitor
 

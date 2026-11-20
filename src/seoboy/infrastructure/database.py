@@ -13,6 +13,7 @@ MIGRATIONS = (
     "002_url_inspections.sql",
     "003_action_statuses.sql",
     "004_monitor.sql",
+    "005_rankings.sql",
 )
 MIN_SQLITE_VERSION = (3, 38, 0)
 SCHEMA_TABLES = {"projects", "sites", "runs", "urls", "run_urls"}

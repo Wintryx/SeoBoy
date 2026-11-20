@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "seoboy"
-version = "0.21.0"
+version = "0.22.0"
 description = "Lokales SEO-Audit mit Crawl, GSC-Import und Reporting"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -30,6 +30,7 @@ packages = [
   "seoboy.local_seo",
   "seoboy.monitoring",
   "seoboy.performance",
+  "seoboy.rankings",
   "seoboy.reporting",
   "seoboy.shared",
   "seoboy.ai",

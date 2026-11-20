@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.21.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.22.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -68,6 +68,9 @@ unnötiger Aufwand.
 | `src/seoboy/reporting/cannibalization.py` | Keyword-Kannibalisierung aus GSC und On-Page |
 | `src/seoboy/reporting/overview.py` | Offline-Projektübersicht `PROJECT_OVERVIEW.html` |
 | `src/seoboy/monitoring/monitor.py` | Leichter URL-Monitor mit Bestätigung und Recovery |
+| `src/seoboy/rankings/config.py` | Keyword-/Messprofil-Konfiguration |
+| `src/seoboy/rankings/importer.py` | idempotenter CSV-Import von Ranking-Snapshots |
+| `src/seoboy/rankings/report.py` | Soll-/Ist-Auswertung und Positionsverlauf |
 | `src/seoboy/benchmark/sampler.py` | robots-konforme Stichprobe und sitemapweiter Modus |
 | `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich, TF-IDF und Begriffskandidaten |
 | `src/seoboy/local_seo/audit.py` | Standort-, NAP-, Profil- und Local-Result-Prüfung |
@@ -83,6 +86,7 @@ unnötiger Aufwand.
 | `migrations/002_url_inspections.sql` | persistente URL-Inspection-Ergebnisse |
 | `migrations/003_action_statuses.sql` | Maßnahmenstatus und Verlauf |
 | `migrations/004_monitor.sql` | URL-Monitor-Beobachtungen und Ereignisse |
+| `migrations/005_rankings.sql` | Keyword-Profile, Snapshots und Treffer |
 
 Die verbindlichen Anforderungen stehen in:
 - `docs/01_architektur_und_techstack_md.md`
@@ -271,6 +275,9 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   und maskiert Website-/CSV-Texte.
 - Der URL-Monitor prüft nur lesend, bestätigt Ereignisse nach zwei vergleichbaren
   Fehlmessungen und markiert Recovery. Netzwerkfehler und 429 bestätigen nichts.
+- Ranking-Importe sind idempotent und transaktional. Fehlende eigene Treffer sind
+  außerhalb der gemessenen Tiefe, keine Position N+1. GSC wird in Stufe 2 noch nicht
+  automatisch mit den Ranking-Profilen verknüpft.
 - Lange Läufe senden Fortschritt auf stderr; `--progress json` liefert JSONL
   mit Phase, Zähler, Prozent und ETA für externe Agenten.
 - Report-Ordner verwenden lokale Zeit und keinen Run-ID-Hash; Kollisionen werden

@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.21.0
+Stand: 20.11.2026, Version 0.22.0
 
 ## Priorisierung
 
@@ -31,6 +31,7 @@ Die nächsten Umsetzungsschritte mit Datenverträgen und Abnahmekriterien stehen
 | E1 | Fortschritt und lokale Report-Zeit | CLI/Agenten live informieren, Ordner lesbar machen | **erledigt in 0.19.0** |
 | E2 | GSC-Zahlen und Buchungsabsicht | Seitenwerte, Abdeckung, zwei Perioden, gebündelte Maßnahmen | **erledigt in 0.20.0** |
 | E3 | Projektübersicht und URL-Monitor | Offline-HTML, leichte Checks, Bestätigung und Recovery | **erledigt in 0.21.0** |
+| E4 | Lokales Keyword-Monitoring | Keywordprofile, CSV-Import, Soll-/Ist-URL, Verlauf | **erledigt in 0.22.0** |
 
 ## A – Direkter Buchungsnutzen
 
@@ -247,6 +248,17 @@ Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 - **Umgesetzt:** Zwei Fehlmessungen bestätigen, erfolgreicher Check markiert Recovery.
 - **Umgesetzt:** Netzwerkfehler/429 bleiben `not_checked` und bestätigen kein Ereignis.
 - Grenze: Monitor läuft nur bei manueller/externer Planung, nicht als 24/7-Dienst.
+
+### E4 – Lokales Keyword-Monitoring (erledigt)
+
+- **Umgesetzt:** `keywords.yaml` mit stabilen Profil-IDs und Soll-Zielseiten.
+- **Umgesetzt:** Schema 5 für Keywords, Snapshots und Treffer.
+- **Umgesetzt:** `seoboy rankings import` mit getrennter Kopf-/Trefferdatei.
+- **Umgesetzt:** idempotenter, transaktionaler Import mit Konfliktprüfung.
+- **Umgesetzt:** `seoboy rankings report` und `rankings/rankings_overview.md`.
+- **Umgesetzt:** Soll-/Ist-Abweichung, Top-3/Top-10-Quote und Positionsdelta.
+- **Umgesetzt:** fehlender Treffer = außerhalb der Tiefe, nicht Position N+1.
+- Grenze: GSC-Verknüpfung und automatische SERP-Anbindung folgen in Stufe 3.
 
 ## Erledigt
 

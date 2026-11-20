@@ -50,6 +50,9 @@ from seoboy.ai.review import (
     write_ai_review,
 )
 from seoboy.monitoring.monitor import run_monitor_check
+from seoboy.rankings.config import KeywordConfigError, load_keywords
+from seoboy.rankings.importer import RankingImportError, import_rankings
+from seoboy.rankings.report import write_rankings_report
 from seoboy.reporting.run_report import (
     find_report_dir,
     load_report_data,
@@ -471,6 +474,24 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     update.add_argument(
         "--repo", type=Path, help="Pfad zum SeoBoy-Git-Checkout"
     )
+
+    rankings = commands.add_parser(
+        "rankings", help="Lokale Keyword-Positionen importieren und auswerten"
+    )
+    ranking_commands = rankings.add_subparsers(dest="rankings_command", required=True)
+    ranking_import = ranking_commands.add_parser(
+        "import", help="Keyword-Snapshots aus CSV importieren"
+    )
+    ranking_import.add_argument("--config", type=Path, default=default_config)
+    ranking_import.add_argument("--keywords", type=Path)
+    ranking_import.add_argument("--csv", type=Path, required=True)
+    ranking_import.add_argument("--results", type=Path)
+    ranking_import.add_argument("--out", type=Path)
+    ranking_report = ranking_commands.add_parser(
+        "report", help="Ranking-Bericht aus der Datenbank neu schreiben"
+    )
+    ranking_report.add_argument("--config", type=Path, default=default_config)
+    ranking_report.add_argument("--out", type=Path)
 
     monitor = commands.add_parser(
         "monitor", help="Wichtige URLs leichtgewichtig überwachen"
@@ -1230,6 +1251,41 @@ def main(argv: list[str] | None = None) -> int:
                 force=True,
             )
             print(f"Wettbewerbsvergleich geschrieben: {folder}")
+            return 0
+        if args.command == "rankings":
+            config = _load(args.config)
+            migrate_database(config.database)
+            connection = connect(config.database)
+            try:
+                if args.rankings_command == "import":
+                    keyword_path = args.keywords or (
+                        (config.config_path.parent / "keywords.yaml")
+                        if config.config_path is not None
+                        else Path("keywords.yaml")
+                    )
+                    profiles = load_keywords(keyword_path)
+                    summary = import_rankings(
+                        connection,
+                        config,
+                        profiles,
+                        args.csv,
+                        args.results,
+                    )
+                    folder = write_rankings_report(connection, config, args.out)
+                    print(
+                        f"Rankings importiert: {summary.snapshots} neu, "
+                        f"{summary.snapshots_skipped} identisch, "
+                        f"{summary.results} Treffer."
+                    )
+                else:
+                    folder = write_rankings_report(connection, config, args.out)
+                    print("Ranking-Bericht geschrieben.")
+            except (KeywordConfigError, RankingImportError) as error:
+                print(f"SeoBoy: {error}", file=sys.stderr)
+                return 2
+            finally:
+                connection.close()
+            print(f"Bericht: {folder / 'rankings_overview.md'}")
             return 0
         if args.command == "monitor":
             config = _load(args.config)

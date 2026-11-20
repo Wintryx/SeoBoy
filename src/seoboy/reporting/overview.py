@@ -164,6 +164,7 @@ def write_project_overview(folder: Path, report: ReportData) -> Path:
     pages = _page_rows(data)
     changes = _changes(data.config)
     monitor_rows = _monitor_rows(data)
+    rankings_link = data.config.reports_dir / "rankings" / "rankings_overview.md"
     checked = sum(1 for info in data.urls.values() if info.state == "finished")
     findings = sum(1 for result in report.results if result.outcome == "finding")
     open_p2 = sum(1 for action in actions if action.priority == 2)
@@ -286,6 +287,9 @@ footer {{ margin-top:28px; color:var(--muted); font-size:.85rem; }}
 <thead><tr><th>Zielseite</th><th>Status</th><th>Typ</th><th>Titel</th><th>Noindex</th><th>Canonical</th><th>Klicks</th><th>Impressionen</th><th>Ø Pos.</th><th>Abdeckung</th></tr></thead>
 <tbody>{''.join(page_html)}</tbody>
 </table>
+
+<h2>Keyword-Monitoring</h2>
+<p>{'<a href="../rankings/rankings_overview.md">Lokalen Ranking-Bericht öffnen</a>' if rankings_link.is_file() else 'Noch kein Ranking-Import. Mit <code>seoboy rankings import</code> starten.'}</p>
 
 <h2>URL-Monitor</h2>
 <p class="muted">Leichte Checks aus der Monitor-Tabelle. Bestätigte Ereignisse benötigen zwei vergleichbare Fehlmessungen; eine erfolgreiche Messung markiert die Wiederherstellung.</p>
