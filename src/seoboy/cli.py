@@ -143,6 +143,29 @@ def _gsc_period(args: argparse.Namespace, parser: argparse.ArgumentParser) -> tu
     return start, end
 
 
+def _gsc_previous_period(
+    args: argparse.Namespace,
+    start: date,
+    end: date,
+    parser: argparse.ArgumentParser,
+) -> tuple[date, date] | None:
+    previous_start = args.gsc_previous_start
+    previous_end = args.gsc_previous_end
+    if previous_start is None and previous_end is None:
+        return None
+    if previous_start is None or previous_end is None:
+        parser.error("--gsc-previous-start und --gsc-previous-end gemeinsam angeben.")
+    if not args.gsc_compare:
+        parser.error("Ein expliziter Vorzeitraum benötigt --gsc-compare.")
+    if previous_start > previous_end:
+        parser.error("GSC-Vorzeitraum: Startdatum liegt nach dem Enddatum.")
+    if previous_end >= start:
+        parser.error("GSC-Vorzeitraum muss vor dem aktuellen Zeitraum enden.")
+    if (previous_end - previous_start).days != (end - start).days:
+        parser.error("GSC-Vorzeitraum muss genauso lang wie der aktuelle Zeitraum sein.")
+    return previous_start, previous_end
+
+
 def _gsc_property(config, value: str | None) -> str:
     selected = (value or os.environ.get("SEOBOY_GSC_PROPERTY") or "").strip()
     if selected:
@@ -194,6 +217,16 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="beim automatischen Abruf zusätzlich den gleich langen Vorzeitraum holen",
+    )
+    run.add_argument(
+        "--gsc-previous-start",
+        type=_parse_date,
+        help="expliziter Beginn des GSC-Vorzeitraums JJJJ-MM-TT",
+    )
+    run.add_argument(
+        "--gsc-previous-end",
+        type=_parse_date,
+        help="explizites Ende des GSC-Vorzeitraums JJJJ-MM-TT",
     )
     run.add_argument("--resume", metavar="LAUF-ID", help="Pausierten Lauf fortsetzen")
     _add_progress_options(run)
@@ -655,6 +688,14 @@ def main(argv: list[str] | None = None) -> int:
                         "wird übersprungen."
                     )
                 gsc_dir = gsc_value.resolve() if gsc_value else None
+                if gsc_dir is not None and (
+                    args.gsc_previous_start is not None
+                    or args.gsc_previous_end is not None
+                ):
+                    parser.error(
+                        "Ein expliziter GSC-Vorzeitraum gilt nur für den "
+                        "automatischen Abruf, nicht für --gsc-dir."
+                    )
                 temporary_gsc: tempfile.TemporaryDirectory | None = None
                 if gsc_dir is None:
                     credential_value = (
@@ -670,6 +711,9 @@ def main(argv: list[str] | None = None) -> int:
                         try:
                             credentials = gsc_api.load_credentials(credential_value)
                             start, end = _gsc_period(args, parser)
+                            previous_period = _gsc_previous_period(
+                                args, start, end, parser
+                            )
                             property_name = _gsc_property(config, args.gsc_property)
                             temporary_gsc = tempfile.TemporaryDirectory(
                                 prefix="seoboy-gsc-"
@@ -683,11 +727,15 @@ def main(argv: list[str] | None = None) -> int:
                             )
                             gsc_dir = Path(temporary_gsc.name)
                             compared = False
+                            compared_start = compared_end = None
                             if args.gsc_compare:
-                                previous_end = start - timedelta(days=1)
-                                previous_start = previous_end - timedelta(
-                                    days=(end - start).days
-                                )
+                                if previous_period is not None:
+                                    previous_start, previous_end = previous_period
+                                else:
+                                    previous_end = start - timedelta(days=1)
+                                    previous_start = previous_end - timedelta(
+                                        days=(end - start).days
+                                    )
                                 try:
                                     gsc_api.fetch_to_directory(
                                         credentials,
@@ -698,6 +746,10 @@ def main(argv: list[str] | None = None) -> int:
                                         append=True,
                                     )
                                     compared = True
+                                    compared_start, compared_end = (
+                                        previous_start,
+                                        previous_end,
+                                    )
                                 except GscApiError as error:
                                     print(
                                         "Hinweis: GSC-Vorzeitraum nicht geladen: "
@@ -709,7 +761,8 @@ def main(argv: list[str] | None = None) -> int:
                                 f"{summary.queries} Suchanfrage-Zeilen "
                                 f"({summary.period_start} bis {summary.period_end})"
                                 + (
-                                    " inkl. gleich langem Vorzeitraum."
+                                    f" inkl. Vorzeitraum {compared_start} bis "
+                                    f"{compared_end}."
                                     if compared
                                     else "."
                                 )

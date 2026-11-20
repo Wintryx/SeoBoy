@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.26.3
+Stand: 20.11.2026, Version 0.27.0
 
 ## Priorisierung
 
@@ -36,6 +36,7 @@ Die nächsten Umsetzungsschritte mit Datenverträgen und Abnahmekriterien stehen
 | E6 | Backlink-Import und Linkchancen | CSV-Import, Dublettenschutz, regionale Quellen | **erledigt in 0.24.0** |
 | E7 | KI-Sichtbarkeit im Zeitverlauf | Bestehende GEO-Samples vergleichen, Methodenwechsel markieren | **erledigt in 0.25.0** |
 | E8 | Serper-Adapter | Kontrollierter SERP-Abruf, CSV-Erzeugung und Import | **erledigt in 0.26.0** |
+| E9 | Konfigurierbarer GSC-Vorzeitraum | Explizite Vorperioden im CLI-Aufruf | **erledigt in 0.27.0** |
 
 ## A – Direkter Buchungsnutzen
 

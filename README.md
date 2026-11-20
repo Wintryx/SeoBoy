@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.26.3 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.27.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -583,7 +583,22 @@ Ein Lauf kann die GSC-Daten direkt holen und danach crawlen:
 Ohne Start-/Enddatum werden die letzten 28 Tage bis gestern verwendet; --gsc-days ändert
 den Zeitraum. Beim automatischen Abruf wird standardmäßig zusätzlich der **gleich lange,
 abgeschlossene Vorzeitraum** geholt, damit der Bericht sofort vergleichen kann.
-`--no-gsc-compare` deaktiviert das. SEOBOY_GSC_CREDENTIALS und SEOBOY_GSC_PROPERTY
+Mit `--gsc-previous-start` und `--gsc-previous-end` lässt sich dieser Vorzeitraum
+explizit setzen:
+
+```powershell
+seoboy run `
+  --gsc-credentials C:\secrets\google-service-account.json `
+  --gsc-property https://example.de/ `
+  --gsc-start 2026-10-23 --gsc-end 2026-11-19 `
+  --gsc-previous-start 2026-09-25 --gsc-previous-end 2026-10-22
+```
+
+Beide Daten sind gemeinsam anzugeben. Der Vorzeitraum muss vor dem aktuellen Zeitraum
+liegen und genauso lang sein, sonst wird er nicht als Vergleichszeitraum erkannt.
+Die Optionen gelten nur für den automatischen Abruf, nicht für `--gsc-dir`.
+`--no-gsc-compare` deaktiviert den Vergleich; ein expliziter Vorzeitraum benötigt
+`--gsc-compare`. SEOBOY_GSC_CREDENTIALS und SEOBOY_GSC_PROPERTY
 können die Optionen ersetzen. --gsc-dir hat Vorrang vor dem automatischen Abruf.
 Bei --resume wird kein GSC-Abruf ausgeführt.
 
