@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from datetime import datetime
 import os
 from pathlib import Path
+import re
 import sqlite3
 from urllib.parse import urlsplit
 
@@ -26,6 +28,13 @@ from seoboy.reporting.diff_report import DiffError, render_diff_report
 from seoboy.infrastructure.lock import database_lock
 from seoboy.crawl.registry import UrlRegistry
 from seoboy.reporting.run_report import render_run_report
+from seoboy.benchmark.report import render_benchmark, write_benchmark_csv
+from seoboy.benchmark.sampler import (
+    BenchmarkError,
+    SiteSnapshot,
+    collect_snapshot,
+    snapshot_from_run,
+)
 from seoboy.analysis.rules import RuleResult, evaluate, persist_results
 from seoboy.shared.urls import InvalidUrl, is_internal, normalize_url
 from seoboy.shared.util import iso_utc
@@ -353,6 +362,81 @@ def run_projects(
                     error=f"{type(error).__name__}: {error}",
                 )
     return [result for result in results if result is not None]
+
+
+def _latest_completed_run(connection: sqlite3.Connection) -> str | None:
+    row = connection.execute(
+        "SELECT run_id FROM runs WHERE status = 'completed' "
+        "ORDER BY ended_at DESC, run_id DESC LIMIT 1"
+    ).fetchone()
+    return str(row["run_id"]) if row is not None else None
+
+
+def _safe_label(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._") or "project"
+
+
+def run_benchmark(
+    config: ProjectConfig,
+    competitors: list[str],
+    *,
+    max_pages: int = 20,
+    out: Path | None = None,
+) -> Path:
+    """Compare the latest own run with read-only competitor samples."""
+    if not competitors:
+        raise RunnerError("Für den Wettbewerbsvergleich wird mindestens eine URL benötigt.")
+    if not 1 <= max_pages <= 100:
+        raise RunnerError("--max-pages muss zwischen 1 und 100 liegen.")
+    connection = _open(config)
+    try:
+        run_id = _latest_completed_run(connection)
+        if run_id is None:
+            raise RunnerError("Es gibt noch keinen abgeschlossenen Lauf für den Vergleich.")
+        try:
+            own = snapshot_from_run(RunData(connection, config, run_id))
+        except BenchmarkError as error:
+            raise RunnerError(str(error)) from error
+    finally:
+        connection.close()
+
+    snapshots: list[SiteSnapshot] = []
+    for index, competitor in enumerate(competitors, start=1):
+        label = urlsplit(competitor).hostname or f"Wettbewerb {index}"
+        if any(snapshot.label == label for snapshot in snapshots):
+            label = f"{label} #{index}"
+        try:
+            snapshots.append(
+                collect_snapshot(
+                    competitor,
+                    label,
+                    max_pages=max_pages,
+                )
+            )
+        except BenchmarkError as error:
+            snapshots.append(
+                SiteSnapshot(
+                    label=label,
+                    start_url=competitor,
+                    final_url=competitor,
+                    error=str(error),
+                )
+            )
+    now = datetime.now().astimezone()
+    folder = out or (
+        Path(config.reports_dir)
+        / f"{now:%Y-%m-%d}_{_safe_label(config.project_id)}_benchmark_{now:%Y%m%dT%H%M%S}"
+    )
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    raw = folder / "raw_data"
+    raw.mkdir(parents=True, exist_ok=True)
+    report = render_benchmark(own, snapshots, run_id=run_id, max_pages=max_pages)
+    (folder / "00_COMPETITOR_BENCHMARK.md").write_text(
+        report.rstrip() + "\n", encoding="utf-8", newline="\n"
+    )
+    write_benchmark_csv(raw / "benchmark_pages.csv", [own, *snapshots])
+    return folder
 
 
 def compare_runs(config: ProjectConfig, base_run_id: str, target_run_id: str) -> Path:

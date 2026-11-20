@@ -76,6 +76,22 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     )
     batch.add_argument("--workers", type=int, default=4, help="Parallele Projekte (Standard: 4)")
 
+    benchmark = commands.add_parser(
+        "benchmark", help="Eigene Seite mit Wettbewerbern vergleichen"
+    )
+    benchmark.add_argument("--config", type=Path, default=default_config)
+    benchmark.add_argument(
+        "--competitor",
+        action="append",
+        required=True,
+        dest="competitors",
+        help="Wettbewerbs-URL; mehrfach angebbar",
+    )
+    benchmark.add_argument(
+        "--max-pages", type=int, default=20, help="Seiten je Wettbewerber (Standard: 20)"
+    )
+    benchmark.add_argument("--out", type=Path, help="Zielverzeichnis des Vergleichs")
+
     inspect = commands.add_parser("inspect", help="Einzelne URL prüfen")
     inspect.add_argument("url", help="Zu prüfende URL")
     inspect.add_argument("--config", type=Path, default=default_config)
@@ -173,6 +189,16 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"[{label}] Berichte: {outcome.report_dir}")
                 exit_code = max(exit_code, outcome.exit_code)
             return exit_code
+        if args.command == "benchmark":
+            config = _load(args.config)
+            folder = runner.run_benchmark(
+                config,
+                args.competitors,
+                max_pages=args.max_pages,
+                out=args.out,
+            )
+            print(f"Wettbewerbsvergleich geschrieben: {folder}")
+            return 0
         if args.command == "inspect":
             config = _load(args.config)
             outcome = runner.inspect_url(config, args.url)

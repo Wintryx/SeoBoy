@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 from seoboy.infrastructure.config import ConfigError, init_config, load_config
-from seoboy.crawl.html_extract import link_header_canonicals
+from seoboy.crawl.html_extract import extract_page, link_header_canonicals
 from seoboy.infrastructure.database import DatabaseError, connect, migrate_database
 from seoboy.shared.robots import RobotsFile
 from seoboy.shared.agents import GOOGLEBOT, SEOBOY
@@ -140,6 +140,33 @@ class LinkHeaderTests(unittest.TestCase):
             link_header_canonicals([("Link", '<https://example.de/a/>; rel="next"')]),
             (),
         )
+
+
+class PageExtractionTests(unittest.TestCase):
+    def test_content_metrics(self):
+        source = (
+            "<html lang='de'><head><title>Startseite</title>"
+            "<meta name='description' content='Kurzbeschreibung'>"
+            "<script type='application/ld+json'>"
+            '{"@context":"https://schema.org","@type":"LocalBusiness","name":"SeoBoy"}'
+            "</script></head><body>"
+            "<h1>Hallo <span>Welt</span></h1>"
+            "<p>Ein kleiner Text mit fünf Wörtern.</p>"
+            "<img src='a.jpg' alt=''>"
+            "<img src='data:image/svg+xml,%3Csvg%3E' alt='' data-lazy-src='c.jpg'>"
+            "<img src='b.jpg' alt='Bild'>"
+            "<script>ignored words here</script>"
+            "<style>.x{color:red}</style>"
+            "</body></html>"
+        )
+        page = extract_page(source, "https://example.de/")
+        self.assertEqual(page.lang, "de")
+        self.assertEqual(page.h1, "Hallo Welt")
+        self.assertEqual(page.h1_count, 1)
+        self.assertEqual(page.word_count, 6)
+        self.assertEqual(page.image_count, 2)
+        self.assertEqual(page.images_missing_alt, 1)
+        self.assertEqual(page.schema_types, ("LocalBusiness",))
 
 
 class ConfigTests(unittest.TestCase):

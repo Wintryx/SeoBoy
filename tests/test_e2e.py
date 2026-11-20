@@ -192,14 +192,20 @@ class EndToEndTests(unittest.TestCase):
                 "00_EXECUTIVE_SUMMARY.md",
                 "01_ACTION_PLAN_PRIORITIZED.md",
                 "02_TECHNICAL_SEO_AUDIT.md",
+                "03_PAGE_ANALYSIS.md",
                 "manifest.json",
                 "raw_data/all_urls.csv",
+                "raw_data/pages.csv",
                 "raw_data/rule_results.csv",
                 "raw_data/broken_links.csv",
                 "raw_data/gsc_metrics.csv",
             ):
                 self.assertTrue((report / name).is_file(), name)
             self.assertTrue((report / "raw_data" / "all_urls.csv").read_bytes().startswith(b"\xef\xbb\xbf"))
+            self.assertIn(
+                "Unterseiten- und Inhaltsanalyse",
+                (report / "03_PAGE_ANALYSIS.md").read_text(encoding="utf-8"),
+            )
             connection = connect(config.database)
             try:
                 run = dict(connection.execute("SELECT * FROM runs").fetchone())

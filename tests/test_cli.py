@@ -165,6 +165,52 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(runner.RunnerError):
             runner.run_projects([config_a, config_b])
 
+    def test_benchmark_compares_latest_run_with_competitor(self):
+        with FixtureSite() as own, FixtureSite() as competitor:
+            own.add(
+                "/robots.txt",
+                body="User-agent: *\nAllow: /\n",
+                content_type="text/plain",
+            )
+            own.add_html("/", "Start", "<a href='/a/'>A</a>")
+            own.add_html(
+                "/a/", "Seite A", "<h1>Seite A</h1><p>" + ("Inhalt " * 60) + "</p>"
+            )
+            config = make_config(self.directory, own.base)
+            runner.run_project(config)
+
+            competitor.add(
+                "/robots.txt",
+                body=(
+                    "User-agent: *\nAllow: /\n"
+                    f"Sitemap: {competitor.base}/sitemap.xml\n"
+                ),
+                content_type="text/plain",
+            )
+            sitemap = (
+                "<?xml version='1.0' encoding='UTF-8'?>"
+                "<urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'>"
+                f"<url><loc>{competitor.base}/</loc></url>"
+                f"<url><loc>{competitor.base}/b/</loc></url>"
+                "</urlset>"
+            )
+            competitor.add("/sitemap.xml", body=sitemap, content_type="application/xml")
+            competitor.add_html(
+                "/", "Wettbewerb", "<h1>Wettbewerb</h1><p>" + ("Text " * 40) + "</p>"
+            )
+            competitor.add_html(
+                "/b/", "Seite B", "<h1>Seite B</h1><p>" + ("Mehr " * 20) + "</p>"
+            )
+
+            folder = runner.run_benchmark(
+                config, [competitor.base], max_pages=5, out=self.directory / "benchmark"
+            )
+            report = (folder / "00_COMPETITOR_BENCHMARK.md").read_text(encoding="utf-8")
+            self.assertIn("Wettbewerbsvergleich", report)
+            self.assertIn("127.0.0.1", report)
+            self.assertIn("HTML-Seiten ausgewertet", report)
+            self.assertTrue((folder / "raw_data" / "benchmark_pages.csv").is_file())
+
     def test_resume_with_changed_config_exits_2(self):
         with FixtureSite() as site:
             site.add("/robots.txt", body="User-agent: *\nAllow: /\n", content_type="text/plain")

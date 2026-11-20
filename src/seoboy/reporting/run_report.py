@@ -14,6 +14,7 @@ from typing import Any, Iterable
 from seoboy.analysis.audit_data import RunData
 from seoboy.infrastructure.config import ProjectConfig
 from seoboy.analysis.rules import RULE_VERSIONS
+from seoboy.reporting.page_analysis import render_page_analysis, write_page_analysis_csv
 from seoboy.shared.urls import relative_url
 from seoboy.shared.util import (
     excel_safe,
@@ -431,7 +432,9 @@ def render_run_report(
     _write_text(folder / "00_EXECUTIVE_SUMMARY.md", _executive_summary(report, counts, requests, aux_urls, wins))
     _write_text(folder / "01_ACTION_PLAN_PRIORITIZED.md", _action_plan(report, coverage, wins))
     _write_text(folder / "02_TECHNICAL_SEO_AUDIT.md", _technical_audit(report, coverage, counts, requests))
+    _write_text(folder / "03_PAGE_ANALYSIS.md", render_page_analysis(data))
     _write_all_urls_csv(raw / "all_urls.csv", report)
+    write_page_analysis_csv(raw / "pages.csv", data)
     _write_rule_results_csv(raw / "rule_results.csv", report)
     _write_broken_links_csv(raw / "broken_links.csv", report)
     if data.datasets:
@@ -482,8 +485,10 @@ def render_run_report(
             "00_EXECUTIVE_SUMMARY.md",
             "01_ACTION_PLAN_PRIORITIZED.md",
             "02_TECHNICAL_SEO_AUDIT.md",
+            "03_PAGE_ANALYSIS.md",
             "manifest.json",
             "raw_data/all_urls.csv",
+            "raw_data/pages.csv",
             "raw_data/rule_results.csv",
             "raw_data/broken_links.csv",
             *(["raw_data/gsc_metrics.csv"] if data.datasets else []),
@@ -610,6 +615,7 @@ def _executive_summary(
             "",
             "- [Maßnahmenplan](01_ACTION_PLAN_PRIORITIZED.md)",
             "- [Technischer Audit](02_TECHNICAL_SEO_AUDIT.md)",
+            "- [Unterseiten- und Inhaltsanalyse](03_PAGE_ANALYSIS.md)",
             "- [Maschinenlesbare Daten](raw_data/) und [Manifest](manifest.json)",
             "",
         ]
