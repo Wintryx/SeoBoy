@@ -8,6 +8,7 @@ import unittest
 
 from seoboy import cli
 from seoboy.infrastructure.doctor import run_doctor
+from seoboy.infrastructure.database import migrate_database
 
 from tests.support import make_config
 
@@ -19,6 +20,21 @@ class DoctorTests(unittest.TestCase):
             report = run_doctor(config.config_path)
         self.assertEqual(report.errors, [])
         self.assertTrue(any(check.name == "Projektkonfiguration" and check.status == "ok" for check in report.checks))
+
+    def test_database_path_with_spaces(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp) / "project space"
+            directory.mkdir()
+            config = make_config(directory, "https://example.de/")
+            migrate_database(config.database)
+            report = run_doctor(config.config_path)
+        self.assertEqual(report.errors, [])
+        self.assertTrue(
+            any(
+                check.name == "Datenbankschema" and check.status == "ok"
+                for check in report.checks
+            )
+        )
 
     def test_missing_config_is_a_warning(self):
         with tempfile.TemporaryDirectory() as tmp:

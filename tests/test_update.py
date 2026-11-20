@@ -113,6 +113,17 @@ class UpdateTests(unittest.TestCase):
         self.assertIn("0.1.0 -> 0.2.0", output)
         self.assertIn("Update verfügbar", output)
 
+    def test_local_ahead_is_not_updated(self):
+        _write_version(self.work, "0.1.1")
+        _git(self.work, "add", "pyproject.toml")
+        _git(self.work, "commit", "-m", "Local change")
+        status = check_for_update(self.work)
+        self.assertEqual(status.ahead, 1)
+        self.assertEqual(status.behind, 0)
+        result = apply_update(self.work, install=False, verify=False)
+        self.assertFalse(result.updated)
+        self.assertIn('0.1.1', (self.work / "pyproject.toml").read_text(encoding="utf-8"))
+
     def test_dirty_tree_blocks_update(self):
         self._publish_next_version()
         (self.work / "notes.txt").write_text("local", encoding="utf-8")

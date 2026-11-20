@@ -74,6 +74,10 @@ def _config_checks(config_path: Path) -> list[Check]:
                 f"{directory} fehlt; wird bei 'seoboy migrate' angelegt.",
             )
         )
+    elif not directory.is_dir():
+        checks.append(
+            _check("Datenbankverzeichnis", "error", f"{directory} ist kein Verzeichnis.")
+        )
     elif not os.access(directory, os.W_OK):
         checks.append(
             _check("Datenbankverzeichnis", "error", f"{directory} ist nicht beschreibbar.")
@@ -82,7 +86,7 @@ def _config_checks(config_path: Path) -> list[Check]:
         checks.append(_check("Datenbankverzeichnis", "ok", str(directory)))
     if database.is_file():
         try:
-            connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
+            connection = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)
             try:
                 version = schema_version(connection)
             finally:
@@ -109,6 +113,10 @@ def _config_checks(config_path: Path) -> list[Check]:
     if not reports.exists():
         checks.append(
             _check("Berichtsverzeichnis", "warning", f"{reports} fehlt; wird angelegt.")
+        )
+    elif not reports.is_dir():
+        checks.append(
+            _check("Berichtsverzeichnis", "error", f"{reports} ist kein Verzeichnis.")
         )
     elif not os.access(reports, os.W_OK):
         checks.append(

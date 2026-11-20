@@ -424,7 +424,13 @@ def main(argv: list[str] | None = None) -> int:
                 if args.apply:
                     result = apply_update(args.repo, install=not args.no_install)
                     if not result.updated:
-                        print("SeoBoy ist bereits aktuell.")
+                        if result.status.ahead > 0:
+                            print(
+                                f"Lokaler Branch ist {result.status.ahead} Commit(s) "
+                                "vor dem Upstream; kein Update nötig."
+                            )
+                        else:
+                            print("SeoBoy ist bereits aktuell.")
                     else:
                         print(
                             f"Update angewendet: {result.old_commit[:10]} -> "

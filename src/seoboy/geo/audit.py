@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import csv
 from pathlib import Path
+import sqlite3
 from typing import Any
 
 from seoboy.analysis.audit_data import RunData
@@ -106,28 +107,33 @@ def audit_geo(config: ProjectConfig, out: Path | None = None) -> Path:
     bots = {bot: robots.is_allowed(path, bot) for bot, _ in AI_BOTS}
     llms = _llms(client, normalized.origin)
 
-    connection = connect(config.database)
-    try:
-        run_id = _latest_run(connection, config)
-        schema_pages = 0
-        html_pages = 0
-        h1_missing = 0
-        thin_pages = 0
-        if run_id is not None:
-            data = RunData(connection, config, run_id)
-            for url_id in data.page_url_ids:
-                observation = data.observation(url_id)
-                if observation is None or "h1_count" not in observation.signals:
-                    continue
-                html_pages += 1
-                if observation.signals.get("schema_types"):
-                    schema_pages += 1
-                if int(observation.signals.get("h1_count", 0) or 0) == 0:
-                    h1_missing += 1
-                if int(observation.signals.get("word_count", 0) or 0) < 300:
-                    thin_pages += 1
-    finally:
-        connection.close()
+    run_id: str | None = None
+    schema_pages = 0
+    html_pages = 0
+    h1_missing = 0
+    thin_pages = 0
+    if config.database.is_file():
+        connection = connect(config.database)
+        try:
+            try:
+                run_id = _latest_run(connection, config)
+                if run_id is not None:
+                    data = RunData(connection, config, run_id)
+                    for url_id in data.page_url_ids:
+                        observation = data.observation(url_id)
+                        if observation is None or "h1_count" not in observation.signals:
+                            continue
+                        html_pages += 1
+                        if observation.signals.get("schema_types"):
+                            schema_pages += 1
+                        if int(observation.signals.get("h1_count", 0) or 0) == 0:
+                            h1_missing += 1
+                        if int(observation.signals.get("word_count", 0) or 0) < 300:
+                            thin_pages += 1
+            except sqlite3.Error:
+                run_id = None
+        finally:
+            connection.close()
 
     now = datetime.now().astimezone()
     folder = out or (
