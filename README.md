@@ -5,7 +5,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.6.3 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.7.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -26,6 +26,7 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - PDFs, HTTP-Fehler und Weiterleitungen werden als „nicht bewertet“ statt als Inhaltsfehler geführt
 - Wettbewerbsbenchmark mit begrenzter, robots-konformer Seitenstichprobe
 - GSC-Import mit Manifest, Seiten- und URL-Suchanfrage-Granularität
+- GSC-Auswertung Suchanfrage × Zielseite mit Chancen und Mehr-URL-Erkennung
 - GSC-API-Abruf über Refresh-Token und URL Inspection API
 - Aufbereiter für den deutschen GSC-UI-Seitenexport (Semikolon, Dezimalkomma)
 - Optionales Playwright-Rendering mit HTTP-/Browser-DOM-Vergleich
@@ -345,6 +346,22 @@ läuft mit Status `partial` oder `unavailable` weiter und weist Fehler mit Zeile
 aus. Nicht zuordenbare oder mehrdeutige Seiten werden je Zeile ausgewiesen. Position `0`
 aus einer `gsc_ui_csv`-Quelle wird als unbekannt übernommen.
 
+### Suchanfrage × Zielseite
+
+Enthält der Import einen Seiten-Suchanfragenbericht (`page_queries`), schreibt jeder Lauf
+zusätzlich `04_GSC_QUERY_PAGES.md` und `raw_data/gsc_query_pages.csv`. Der Bericht zeigt:
+
+- stärkste Zielseiten und Suchanfragen nach Impressionen und Klicks,
+- die konkreten Paare aus Suchanfrage und Zielseite,
+- Chancen auf Position 5–20 mit mindestens der konfigurierten Impressionen-Schwelle
+  und einer CTR unter 5 Prozent,
+- Suchanfragen, für die mehrere Zielseiten Impressionen erhalten,
+- Klickveränderungen gegenüber dem gleich langen Vorzeitraum.
+
+Ausgewertet werden nur eindeutig zugeordnete Zeilen. Nicht zuordenbare oder mehrdeutige
+Zeilen bleiben im technischen Audit sichtbar. Der Bericht ist eine Nachfrage- und
+Priorisierungshilfe, keine Rankinggarantie.
+
 ### Aufbereiter für den GSC-UI-Export
 
 `gsc-prepare` überführt einen Seitenexport aus der Search Console in das normalisierte
@@ -488,11 +505,13 @@ Ein Lauf schreibt in `reports/<datum>_<projekt-id>_<lauf-id>/`:
 | `01_ACTION_PLAN_PRIORITIZED.md` | priorisierte Maßnahmen mit Evidenz, Beispielen, Aufwand und Prüfschritt |
 | `02_TECHNICAL_SEO_AUDIT.md` | Abdeckung je Regel, Grundcodes, Befunde, GSC-Zusammenfassung |
 | `03_PAGE_ANALYSIS.md` | Unterseitenanalyse mit Titel-/Beschreibungslänge, H1, Wörtern, Alt-Texten und Schema |
+| `04_GSC_QUERY_PAGES.md` | Suchanfragen, Zielseiten, Chancen und Mehr-URL-Fälle bei GSC-Daten |
 | `raw_data/all_urls.csv` | URL-Inventar mit Herkunft, Status, Profil, HTTP-Status |
 | `raw_data/pages.csv` | Seitenmetriken je Unterseite |
 | `raw_data/rule_results.csv` | vollständige Prüfergebnisse inklusive Evidenzverweisen |
 | `raw_data/broken_links.csv` | defekte Linkziele mit Quellseiten |
 | `raw_data/gsc_metrics.csv` | alle gespeicherten GSC-Zeilen mit Granularität und Zuordnung |
+| `raw_data/gsc_query_pages.csv` | Query-/Zielseitenzeilen inklusive Vorzeitraum und CTR |
 | `manifest.json` | Lauf-, Tool- und Regelversionen, Status, Abdeckung, Datenquellen |
 
 CSV-Dateien sind UTF-8 mit BOM. Textwerte, die wie eine Tabellenformel beginnen, werden
@@ -513,9 +532,9 @@ dann als behoben, wenn die Quellseite im Ziellauf vollständig ausgewertet wurde
 Die Tests decken URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter und -Import, den vollständigen Crawl, Limits, Wiederholungen,
 Redirect-Schleifen, Wiederaufnahme, Parallelität, Batch-Läufe, Unterseitenanalyse,
-Wettbewerbsbenchmark, GSC-API/URL Inspection, Playwright-Vergleich (mit injiziertem
-Browser), Local SEO, GEO, Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich und
-den Systemcheck und den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
+Wettbewerbsbenchmark, GSC-API/URL Inspection, GSC-Query-/Zielseitenbericht,
+Playwright-Vergleich (mit injiziertem Browser), Local SEO, GEO, Einzel-URL-Prüfung,
+Ausnahmen, Berichte, den Lauf-Vergleich, den Systemcheck und den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
 kein Netzwerk; die Updater-Tests nutzen lokale Git-Repositories.
 
 ## Projektstruktur
@@ -560,6 +579,7 @@ src/seoboy/
   reporting/
     run_report.py              Markdown-/CSV-Berichte
     page_analysis.py           Unterseiten- und Inhaltsanalyse
+    gsc_report.py              GSC-Auswertung Suchanfrage × Zielseite
     diff_report.py             Lauf-Vergleich
   benchmark/
     sampler.py                 robots-konforme Wettbewerbsstichprobe
