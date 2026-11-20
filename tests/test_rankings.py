@@ -4,9 +4,11 @@ from pathlib import Path
 import tempfile
 import unittest
 
+from seoboy.application import runner
 from seoboy.infrastructure.database import connect, migrate_database
 from seoboy.rankings.config import KeywordConfigError, load_keywords
 from seoboy.rankings.importer import RankingImportError, import_rankings
+from seoboy.rankings.competitors import write_competitor_report
 from seoboy.rankings.report import write_rankings_report
 
 from tests.support import FixtureSite, make_config
@@ -49,7 +51,8 @@ class RankingTests(unittest.TestCase):
             headers.write_text(snapshot("s1"), encoding="utf-8")
             results.write_text(
                 "snapshot_id,position,url,profile_id,domain,title\n"
-                f"s1,4,{site.url('/blog/')},,example.de,Blog\n",
+                f"s1,4,{site.url('/blog/')},,example.de,Blog\n"
+                "s1,1,https://competitor.example/hochzeit,,competitor.example,Konkurrent\n",
                 encoding="utf-8",
             )
             migrate_database(config.database)
@@ -70,6 +73,48 @@ class RankingTests(unittest.TestCase):
                 self.assertIn("/blog/", text)
                 self.assertIn("Position 4", text)
                 self.assertIn("Soll-/Ist-Abweichungen", text)
+                competitors = write_competitor_report(connection, config)
+                competitor_text = (
+                    competitors / "COMPETITOR_SERP_COMPARISON.md"
+                ).read_text(encoding="utf-8")
+                self.assertIn("bestehende_seite_verbessern", competitor_text)
+                self.assertIn("unbekannt", competitor_text)
+            finally:
+                connection.close()
+
+    def test_canonical_alias_counts_as_expected_target(self):
+        with tempfile.TemporaryDirectory() as tmp, FixtureSite() as site:
+            site.add_html(
+                "/",
+                "Start",
+                "<h1>Start</h1><a href='/blog/'>Blog</a>",
+            )
+            site.add_html("/kontakt/", "Kontakt", "<h1>Kontakt</h1>")
+            site.add_html(
+                "/blog/", "Blog", "<h1>Blog</h1>", canonical="/kontakt/"
+            )
+            config = make_config(Path(tmp), site.base)
+            runner.run_project(config)
+            keywords = Path(tmp) / "keywords.yaml"
+            keywords.write_text(KEYWORDS, encoding="utf-8")
+            profiles = load_keywords(keywords)
+            headers = Path(tmp) / "headers.csv"
+            results = Path(tmp) / "results.csv"
+            headers.write_text(snapshot("s1"), encoding="utf-8")
+            results.write_text(
+                "snapshot_id,position,url,profile_id,domain,title\n"
+                f"s1,4,{site.url('/blog/')},,example.de,Blog\n"
+                "s1,1,https://competitor.example/hochzeit,,competitor.example,Konkurrent\n",
+                encoding="utf-8",
+            )
+            migrate_database(config.database)
+            connection = connect(config.database)
+            try:
+                import_rankings(connection, config, profiles, headers, results)
+                folder = write_rankings_report(connection, config)
+                text = (folder / "rankings_overview.md").read_text(encoding="utf-8")
+                self.assertIn("Position 4", text)
+                self.assertIn("Keine abweichende eigene Ziel-URL", text)
             finally:
                 connection.close()
 

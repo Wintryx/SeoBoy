@@ -50,6 +50,7 @@ from seoboy.ai.review import (
     write_ai_review,
 )
 from seoboy.monitoring.monitor import run_monitor_check
+from seoboy.rankings.competitors import write_competitor_report
 from seoboy.rankings.config import KeywordConfigError, load_keywords
 from seoboy.rankings.importer import RankingImportError, import_rankings
 from seoboy.rankings.report import write_rankings_report
@@ -492,6 +493,11 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     )
     ranking_report.add_argument("--config", type=Path, default=default_config)
     ranking_report.add_argument("--out", type=Path)
+    ranking_competitors = ranking_commands.add_parser(
+        "competitors", help="Gespeicherte SERP-Treffer je Suchanfrage gruppieren"
+    )
+    ranking_competitors.add_argument("--config", type=Path, default=default_config)
+    ranking_competitors.add_argument("--out", type=Path)
 
     monitor = commands.add_parser(
         "monitor", help="Wichtige URLs leichtgewichtig überwachen"
@@ -1277,6 +1283,9 @@ def main(argv: list[str] | None = None) -> int:
                         f"{summary.snapshots_skipped} identisch, "
                         f"{summary.results} Treffer."
                     )
+                elif args.rankings_command == "competitors":
+                    folder = write_competitor_report(connection, config, args.out)
+                    print("Wettbewerber-Bericht geschrieben.")
                 else:
                     folder = write_rankings_report(connection, config, args.out)
                     print("Ranking-Bericht geschrieben.")
@@ -1285,7 +1294,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 2
             finally:
                 connection.close()
-            print(f"Bericht: {folder / 'rankings_overview.md'}")
+            print(f"Bericht: {folder}")
             return 0
         if args.command == "monitor":
             config = _load(args.config)

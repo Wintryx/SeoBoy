@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.22.1 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.23.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -46,6 +46,7 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - Offline-Projektübersicht als `PROJECT_OVERVIEW.html`
 - Leichter URL-Monitor mit Bestätigung und Wiederherstellungserkennung
 - Lokales Keyword-Monitoring mit CSV-Import, Soll-/Ist-URL und Positionsverlauf
+- Wettbewerber-Gruppierung aus gespeicherten SERP-Treffern
 - Priorisierte Maßnahmen (P1 bis P4), Quick Wins und Evidenz je Befund
 - Markdown-Berichte, CSV-Rohdaten und Manifest je Lauf
 - Vergleich zweier Läufe mit den Zuständen neu, erstmals beobachtet, fortbestehend,
@@ -869,8 +870,27 @@ abgewiesen. Die Auswertung schreibt `rankings/rankings_overview.md` und
 
 Fehlende eigene Treffer werden als **außerhalb der gemessenen Tiefe** angezeigt,
 nicht als Position 11. Soll- und Ist-URL werden getrennt ausgewiesen; Geräte, Orte
-und Ergebnistypen bleiben getrennte Messprofile. GSC-Werte werden in dieser Stufe
-noch nicht automatisch verknüpft.
+und Ergebnistypen bleiben getrennte Messprofile. Der Bericht ergänzt GSC-Klicks,
+-Impressionen und -Position aus dem jüngsten abgeschlossenen Audit, sofern Query und
+eigene URL übereinstimmen. Ein belegter kanonischer Alias zählt als passende Ziel-URL.
+
+### Wettbewerber aus SERP-Treffern
+
+Aus den gespeicherten Ranking-Snapshots erzeugt
+
+```powershell
+seoboy rankings competitors --config local/aw-audio/seoboy.yaml
+```
+
+den Bericht `competitors/COMPETITOR_SERP_COMPARISON.md` sowie
+`raw_data/serp_competitors.csv` und `raw_data/content_opportunities.csv`.
+Pro Suchanfrage werden die eigene Position, bis zu drei Vergleichsseiten,
+Messdatum, Tiefe und Ergebnistyp gezeigt. Entscheidungen sind
+`bestehende_seite_verbessern`, `beobachten` oder `evidenz_fehlt`.
+
+Diese Stufe ruft keine Konkurrenzseiten live ab und vergleicht noch keine Inhalte.
+Rollen sind ohne manuelle Zuordnung `unbekannt`; ohne Nachfragebeleg wird keine
+neue Inhaltsseite empfohlen.
 
 ## Projektübersicht und URL-Monitor
 

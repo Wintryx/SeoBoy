@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.22.1
+Stand: 20.11.2026, Version 0.23.0
 
 ## Priorisierung
 
@@ -32,6 +32,7 @@ Die nächsten Umsetzungsschritte mit Datenverträgen und Abnahmekriterien stehen
 | E2 | GSC-Zahlen und Buchungsabsicht | Seitenwerte, Abdeckung, zwei Perioden, gebündelte Maßnahmen | **erledigt in 0.20.0** |
 | E3 | Projektübersicht und URL-Monitor | Offline-HTML, leichte Checks, Bestätigung und Recovery | **erledigt in 0.21.0** |
 | E4 | Lokales Keyword-Monitoring | Keywordprofile, CSV-Import, Soll-/Ist-URL, Verlauf | **erledigt in 0.22.0** |
+| E5 | Wettbewerber nach Suchanfrage | Gespeicherte SERP-Treffer gruppieren und Entscheidung ableiten | **erledigt in 0.23.0** |
 
 ## A – Direkter Buchungsnutzen
 
@@ -259,6 +260,17 @@ Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 - **Umgesetzt:** Soll-/Ist-Abweichung, Top-3/Top-10-Quote und Positionsdelta.
 - **Umgesetzt:** fehlender Treffer = außerhalb der Tiefe, nicht Position N+1.
 - Grenze: GSC-Verknüpfung und automatische SERP-Anbindung folgen in Stufe 3.
+
+### E5 – Wettbewerber nach Suchanfrage (erledigt)
+
+- **Umgesetzt:** Gruppierung der gespeicherten SERP-Treffer je Keyword-Profil.
+- **Umgesetzt:** eigene Position, bis zu drei Vergleichsseiten, Tiefe, Quelle und Datum.
+- **Umgesetzt:** Entscheidungen `bestehende_seite_verbessern`, `beobachten`, `evidenz_fehlt`.
+- **Umgesetzt:** `COMPETITOR_SERP_COMPARISON.md`, `serp_competitors.csv` und
+  `content_opportunities.csv`.
+- Grenze: Rollen sind `unbekannt`; kein Live-Abruf, kein Inhaltsvergleich, keine
+  automatische Provider-Anbindung.
+- Offen: manuelle Rollen-/Statusüberschreibung und Content-Lückenanalyse.
 
 ## Erledigt
 

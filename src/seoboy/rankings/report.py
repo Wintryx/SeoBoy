@@ -8,8 +8,10 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from typing import Any
 
+from seoboy.analysis.audit_data import RunData
 from seoboy.infrastructure.config import ProjectConfig
 from seoboy.rankings.config import KeywordProfile
+from seoboy.reporting.gsc_report import segments
 from seoboy.shared.urls import normalize_url
 from seoboy.shared.util import excel_safe
 
@@ -38,6 +40,84 @@ def _profiles(connection: sqlite3.Connection, config: ProjectConfig) -> list[Key
             )
         )
     return result
+
+
+def _latest_run_data(
+    connection: sqlite3.Connection, config: ProjectConfig
+) -> RunData | None:
+    for row in connection.execute(
+        "SELECT run_id FROM runs WHERE project_id = ? AND mode = 'crawl' "
+        "AND status = 'completed' ORDER BY ended_at DESC LIMIT 20",
+        (config.project_id,),
+    ):
+        try:
+            return RunData(connection, config, row["run_id"])
+        except (ValueError, sqlite3.Error):
+            continue
+    return None
+
+
+def _gsc_map(data: RunData | None) -> dict[tuple[str, str], dict[str, Any]]:
+    result: dict[tuple[str, str], dict[str, Any]] = {}
+    if data is None:
+        return result
+    for segment in segments(data):
+        for pair in segment.pairs:
+            try:
+                url = normalize_url(pair.url).url
+            except ValueError:
+                continue
+            key = (pair.query.casefold(), url)
+            item = result.setdefault(
+                key,
+                {
+                    "clicks": 0,
+                    "impressions": 0,
+                    "position_weight": 0.0,
+                    "position_impressions": 0,
+                },
+            )
+            item["clicks"] += pair.clicks
+            item["impressions"] += pair.impressions
+            if pair.position is not None and pair.impressions:
+                item["position_weight"] += pair.position * pair.impressions
+                item["position_impressions"] += pair.impressions
+    for item in result.values():
+        item["position"] = (
+            item["position_weight"] / item["position_impressions"]
+            if item["position_impressions"]
+            else None
+        )
+    return result
+
+
+def _alias_map(data: RunData | None) -> dict[str, str]:
+    result: dict[str, str] = {}
+    if data is None:
+        return result
+    for url_id, observations in data.observations.items():
+        info = data.urls.get(url_id)
+        if info is None or not observations:
+            continue
+        canonical = observations[-1].signals.get("canonical") or []
+        if not isinstance(canonical, list) or not canonical:
+            continue
+        try:
+            source = normalize_url(info.url).url
+            target = normalize_url(str(canonical[0])).url
+        except ValueError:
+            continue
+        if source != target:
+            result[source] = target
+    return result
+
+
+def _is_target(
+    observed: str | None, expected: str | None, aliases: dict[str, str]
+) -> bool:
+    if observed is None or expected is None:
+        return False
+    return observed == expected or aliases.get(observed) == expected
 
 
 def _expected_url(profile: KeywordProfile, config: ProjectConfig) -> str | None:
@@ -109,7 +189,10 @@ def _own_position(
 
 
 def _latest_rows(
-    connection: sqlite3.Connection, config: ProjectConfig
+    connection: sqlite3.Connection,
+    config: ProjectConfig,
+    gsc: dict[tuple[str, str], dict[str, Any]],
+    aliases: dict[str, str],
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for profile in _profiles(connection, config):
@@ -130,7 +213,10 @@ def _latest_rows(
             position is not None
             and expected is not None
             and actual is not None
-            and normalize_url(actual).url != expected
+            and not _is_target(normalize_url(actual).url, expected, aliases)
+        )
+        gsc_item = gsc.get((profile.query.casefold(), actual or "")) or gsc.get(
+            (profile.query.casefold(), expected or "")
         )
         delta = (
             previous_position - position
@@ -160,6 +246,9 @@ def _latest_rows(
                 "previous_position": previous_position,
                 "delta": delta,
                 "mismatch": mismatch,
+                "gsc_clicks": gsc_item.get("clicks") if gsc_item else None,
+                "gsc_impressions": gsc_item.get("impressions") if gsc_item else None,
+                "gsc_position": gsc_item.get("position") if gsc_item else None,
                 "state": state,
                 "target_active": profile.target_active,
             }
@@ -174,7 +263,10 @@ def write_rankings_report(
 ) -> Path:
     folder = out or (config.reports_dir / "rankings")
     folder.mkdir(parents=True, exist_ok=True)
-    rows = _latest_rows(connection, config)
+    run_data = _latest_run_data(connection, config)
+    gsc = _gsc_map(run_data)
+    aliases = _alias_map(run_data)
+    rows = _latest_rows(connection, config, gsc, aliases)
     measured = [
         row for row in rows if row["measured"] is not None and row["target_active"]
     ]
@@ -201,17 +293,24 @@ def write_rankings_report(
         "",
         "## Profile",
         "",
-        "| Keyword | Ort | Gerät | Typ | Zustand | Soll | Ist | Δ | Messung |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Keyword | Ort | Gerät | Typ | Zustand | Soll | Ist | Δ | GSC-Klicks | GSC-Impr. | GSC-Pos. | Messung |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in rows:
         profile = row["profile"]
         measured_at = row["measured"]["observed_at"] if row["measured"] else "–"
+        gsc_clicks = row["gsc_clicks"] if row["gsc_clicks"] is not None else "–"
+        gsc_impressions = (
+            row["gsc_impressions"] if row["gsc_impressions"] is not None else "–"
+        )
+        gsc_position = (
+            f"{row['gsc_position']:.1f}" if row["gsc_position"] is not None else "–"
+        )
         lines.append(
             f"| {profile.query} | {profile.location_key or '–'} | {profile.device} | "
             f"{profile.result_type} | {row['state']} | {profile.expected_target or '–'} | "
             f"{row['actual'] or '–'} | {row['delta'] if row['delta'] is not None else '–'} | "
-            f"{measured_at} |"
+            f"{gsc_clicks} | {gsc_impressions} | {gsc_position} | {measured_at} |"
         )
 
     mismatches = [row for row in rows if row["mismatch"] and row["target_active"]]
@@ -253,6 +352,8 @@ def write_rankings_report(
             "- Ein fehlender eigener Treffer ist keine Position 11, sondern außerhalb der Tiefe.",
             "- Δ ist die Verbesserung der Position gegenüber der vorherigen erfolgreichen Messung.",
             "- Anbieter-, Geräte-, Orts- und Tiefenwechsel sind nur innerhalb eines Profils vergleichbar.",
+            "- GSC-Werte stammen aus dem jüngsten abgeschlossenen Audit mit passender Suchanfrage "
+            "und eigener Ziel-URL. Fehlende Zeilen bleiben leer.",
             "",
         ]
     )
@@ -282,6 +383,9 @@ def write_rankings_report(
                 "observed_at",
                 "status",
                 "depth",
+                "gsc_clicks",
+                "gsc_impressions",
+                "gsc_position",
             ]
         )
         for row in rows:
@@ -304,6 +408,9 @@ def write_rankings_report(
                     measured["observed_at"] if measured else "",
                     measured["status"] if measured else "",
                     measured["depth"] if measured else "",
+                    "" if row["gsc_clicks"] is None else row["gsc_clicks"],
+                    "" if row["gsc_impressions"] is None else row["gsc_impressions"],
+                    "" if row["gsc_position"] is None else row["gsc_position"],
                 ]
             )
     return folder
