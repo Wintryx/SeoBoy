@@ -5,7 +5,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.10.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.11.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -25,6 +25,7 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - Unterseitenanalyse mit Titel-/Beschreibungslänge, H1, Wortzahl, Bild-Alt-Texten und Schema
 - PDFs, HTTP-Fehler und Weiterleitungen werden als „nicht bewertet“ statt als Inhaltsfehler geführt
 - Wettbewerbsbenchmark mit begrenzter, robots-konformer Seitenstichprobe
+- TF-IDF-Content-Gaps aus dem Hauptinhalt, ohne Volltextspeicherung
 - GSC-Import mit Manifest, Seiten- und URL-Suchanfrage-Granularität
 - GSC-Auswertung Suchanfrage × Zielseite mit Chancen und Mehr-URL-Erkennung
 - GSC-Verlauf zwischen Läufen mit Klick-, Impressions-, CTR- und Positionsdelta
@@ -306,10 +307,16 @@ seoboy benchmark `
 - Je Wettbewerber werden höchstens `--max-pages` Seiten aus robots.txt-Sitemaps oder
   Startseitenlinks geladen; robots.txt wird respektiert.
 - Der Vergleich ist eine Stichprobe, kein vollständiges Wettbewerbs-Audit.
-- Ausgegeben werden `04_COMPETITOR_BENCHMARK.md`, `raw_data/benchmark_pages.csv`
-  und `manifest.json` in einem eigenen Berichtsordner.
+- Ausgegeben werden `04_COMPETITOR_BENCHMARK.md`, `raw_data/benchmark_pages.csv`,
+  `raw_data/benchmark_terms.csv`, `raw_data/benchmark_content_terms.csv` und
+  `manifest.json` in einem eigenen Berichtsordner.
 - Verglichen werden unter anderem Indexierbarkeit, Titel-/Beschreibungslängen, H1,
   Wortzahl, strukturierte Daten, Bild-Alt-Texte und interne Links.
+- Der TF-IDF-Abschnitt gewichtet Begriffe aus dem Hauptinhalt und zeigt Konzepte, die
+  bei mindestens der Hälfte der Wettbewerber vorkommen, in der eigenen Stichprobe aber
+  fehlen. Marken- und Navigationsbegriffe werden gefiltert.
+- Die Content-Terme sind eine großgeschriebene Substantiv-Heuristik; gespeichert werden
+  nur Termhäufigkeiten, keine Volltexte.
 - Wettbewerbs-HTML wird nicht gespeichert; gespeichert werden nur Metriken und URLs.
 
 ## Google Search Console
@@ -658,7 +665,7 @@ src/seoboy/
     diff_report.py             Lauf-Vergleich
   benchmark/
     sampler.py                 robots-konforme Wettbewerbsstichprobe
-    report.py                  Wettbewerbsvergleich und Begriffskandidaten
+    report.py                  Wettbewerbsvergleich, TF-IDF und Begriffskandidaten
   local_seo/
     audit.py                   Standort-, NAP- und Schema-Prüfung
   geo/
@@ -675,7 +682,8 @@ tests/                          Unit- und End-to-End-Tests
 ## Daten und Datenschutz
 
 Die Datenbank und die Berichte bleiben lokal. HTML-Volltexte werden nicht gespeichert;
-gespeichert werden Statuswerte, Metadaten, Links, Evidenz und Auszüge. Zugangsdaten und
+gespeichert werden Statuswerte, Metadaten, Links, Evidenz, Auszüge und aggregierte
+Termhäufigkeiten des Hauptinhalts. Zugangsdaten und
 API-Schlüssel gehören nicht in die Projektkonfiguration, in Berichte oder in Logs.
 Response-Header werden ohne `Set-Cookie` gespeichert. Der Audit verändert keine Website.
 Wettbewerbsseiten werden nur für die Benchmark-Metriken gelesen; ihr HTML wird nicht
@@ -686,7 +694,7 @@ Berichte werden nicht versioniert.
 
 - Interaktiver Desktop-OAuth-Flow und sichere Token-Ablage
 - Persistente Migrationen für Wettbewerber, Local SEO und GEO
-- Vollständige Wettbewerber-Läufe, TF-IDF-Content-Gaps, SERP- und Backlink-Adapter
+- Vollständige Wettbewerber-Läufe, SERP- und Backlink-Adapter
 - Playwright-Browser-Matrix, Screenshots und Performance-/CrUX-Messungen
 - Reproduzierbare KI-Antwortstichproben für GEO
 - Manueller Maßnahmenstatus mit Verlauf

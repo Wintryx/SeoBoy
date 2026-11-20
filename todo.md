@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.10.0
+Stand: 20.11.2026, Version 0.11.0
 
 ## Priorisierung
 
@@ -14,7 +14,8 @@ Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand �
 | A3 | Maßnahmen mit gemeinsamer Ursache bündeln | CTA und 404 werden als eine Baustelle sichtbar; weniger Reportrauschen | **erledigt in 0.8.0** |
 | A4 | GSC-Query-/Seitenverlauf über mehrere Läufe | Messbar machen, ob eine Änderung Klicks und Anfragen verbessert | **erledigt in 0.9.0** |
 | B1 | URL Inspection in SQLite und Audit-Diff | Indexstatus und Canonical-Abweichungen dauerhaft nachvollziehen | **erledigt in 0.10.0** |
-| B2 | TF-IDF-Content-Gaps aus dem Hauptinhalt | Inhaltliche Lücken belastbarer priorisieren als Titel/H1-Listen | offen |
+| B2 | TF-IDF-Content-Gaps aus dem Hauptinhalt | Inhaltliche Lücken belastbarer priorisieren als Titel/H1-Listen | **erledigt in 0.11.0** |
+| B2b | Near-Duplicate/SimHash und manuelle Wettbewerbs-URL-Auswahl | Ähnliche Seiten und bewusst gewählte Vergleichsseiten erkennen | offen |
 | B3 | Local SEO mit externen Profilen und lokalen Ergebnissen | Standortseiten an echten lokalen Signalen messen | offen |
 | B4 | Performance/CrUX und Lighthouse | Conversion- und Ladezeitrisiken sichtbar machen | offen |
 | C1 | Playwright-Browser-Matrix und CI | Rendering-Diagnose reproduzierbar machen | offen |
@@ -82,12 +83,16 @@ H1, Inhalt oder CTA tatsächlich Klicks und Anfragen verändert hat.
 - Fehlgeschlagene API-Aufrufe werden als Fehlerzeile gespeichert, nicht als Erfolg.
 - Property-Berechtigungen und API-Kontingente bleiben Laufzeitgrenzen.
 
-### B2 – Content-Gaps
+### B2 – Content-Gaps (TF-IDF erledigt)
 
-- TF-IDF oder vergleichbare Gewichtung aus dem Hauptinhalt
-- Near-Duplicate-/SimHash-Vergleich
-- Manuelle URL-Auswahl je Seitentyp und Suchintention
-- Eigenes Seiten- und Anfragebudget je Wettbewerber
+- **Umgesetzt:** Hauptinhalt wird als großgeschriebene Substantiv-Heuristik erfasst;
+  gespeichert werden nur Termhäufigkeiten, keine Volltexte.
+- **Umgesetzt:** TF-IDF gewichtet Begriffe, die bei mindestens der Hälfte der
+  Wettbewerber vorkommen, in der eigenen Stichprobe aber fehlen.
+- **Umgesetzt:** Ausgabe in `04_COMPETITOR_BENCHMARK.md` und
+  `raw_data/benchmark_content_terms.csv`.
+- Offen: Near-Duplicate-/SimHash-Vergleich und manuelle URL-Auswahl je Seitentyp.
+- Eigenes Seitenbudget je Wettbewerber ist über `--max-pages` vorhanden.
 
 ### B3 – Local SEO
 

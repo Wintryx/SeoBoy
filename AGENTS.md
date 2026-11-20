@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.10.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.11.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -46,7 +46,7 @@ unnötiger Aufwand.
 | `src/seoboy/crawl/registry.py` | URL-, Discovery- und Jobregistrierung |
 | `src/seoboy/crawl/http_client.py` | HTTP ohne Redirect-Verfolgung, begrenzte Reads |
 | `src/seoboy/shared/robots.py` | robots.txt-Parser und Googlebot-Auswertung |
-| `src/seoboy/crawl/html_extract.py` | Titel, Beschreibung, H1, Wörter, Bilder, Schema, Links |
+| `src/seoboy/crawl/html_extract.py` | Titel, Beschreibung, H1, Wörter, Bilder, Schema, Links, Content-Terme |
 | `src/seoboy/crawl/rendering.py` | optionaler Playwright-Renderer und DOM-Vergleich |
 | `src/seoboy/shared/urls.py` | URL-Normalisierung und Pfadmuster |
 | `src/seoboy/gsc/importer.py` | GSC-Manifest, CSV-Import, UI-Aufbereiter |
@@ -62,7 +62,7 @@ unnötiger Aufwand.
 | `src/seoboy/reporting/gsc_history.py` | GSC-Verlauf über mehrere Läufe |
 | `src/seoboy/reporting/diff_report.py` | Vergleich zweier Läufe |
 | `src/seoboy/benchmark/sampler.py` | robots-konforme Wettbewerbsstichprobe |
-| `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich und Begriffskandidaten |
+| `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich, TF-IDF und Begriffskandidaten |
 | `src/seoboy/local_seo/audit.py` | Standort-, NAP- und LocalBusiness-Prüfung |
 | `src/seoboy/geo/audit.py` | AI-Bots, llms.txt und GEO-Readiness |
 | `src/seoboy/application/runner.py` | run/resume/inspect/report/diff, Batch und Benchmark |
@@ -99,7 +99,8 @@ Die Tests benötigen nur die Standardbibliothek und PyYAML. Im Quellbaum kann
 
 Die Suite deckt URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter/-Import, Crawl, Limits, Retries, Redirect-Schleifen, Resume,
-Parallelität, Batch-Läufe, Unterseitenanalyse, Wettbewerbsbenchmark, GSC-Query-/
+Parallelität, Batch-Läufe, Unterseitenanalyse, Wettbewerbsbenchmark, Content-Terme/
+TF-IDF, GSC-Query-/
 Zielseitenbericht, GSC-Verlauf, GSC-API/URL Inspection, URL-Inspection-Persistenz
 und -Diff, Playwright-Vergleich mit injiziertem Browser,
 Local SEO, GEO, Einzel-URL-Prüfung,
@@ -206,7 +207,10 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
 - Dieselbe Website (Host und Port) wird im Batch nicht parallel geprüft.
 - Batch importiert keine GSC-Daten; GSC bleibt der Einzellauf mit `--gsc-dir`.
 - Der Benchmark ist eine Stichprobe, kein vollständiges Wettbewerbs-Audit.
-- Wettbewerbs-HTML wird nicht gespeichert; gespeichert werden Metriken und URLs.
+- Wettbewerbs-HTML wird nicht gespeichert; gespeichert werden Metriken, URLs und
+  aggregierte Content-Terme.
+- Content-Terme sind eine großgeschriebene Substantiv-Heuristik, keine linguistische
+  Lemmatisierung.
 - Der Benchmark benötigt einen abgeschlossenen eigenen Lauf mit Inhaltsmetriken.
 - Der Batch nutzt Threads. Bei sehr großen, CPU-lastigen Batches wäre ein Prozess-Pool
   die nächste Ausbaustufe.
