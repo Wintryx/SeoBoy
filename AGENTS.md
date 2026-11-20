@@ -20,7 +20,9 @@ Projekte und ein Git-basierter CLI-Updater.
    Mindestabstand pro Host und ohne Umgehung von Sperren oder Bot-Schutz.
 3. **Keine Secrets committen.** Keine Zugangsdaten, API-Schlüssel, Cookies, GSC-Rohdaten
    oder Kunden-URLs in versionierte Dateien. `.env`, `local/`, `data/`, `reports/` und
-   Datenbanken sind lokal und bleiben unversioniert.
+   Datenbanken sind lokal und bleiben unversioniert. Vor jedem Commit
+   `python scripts/check_secrets.py --staged` und vor dem Push
+   `python scripts/check_secrets.py --history` ausführen.
 4. **Keine lokalen Daten in Tests oder Commits.** Testfixtures erzeugen ihre Daten in
    temporären Verzeichnissen. Echte Website-Daten gehören nicht ins Repository.
 5. **Schema und IDs stabil halten.** Befund- und Maßnahmen-IDs dürfen keine Lauf-ID,
@@ -164,7 +166,7 @@ Nur nach ausdrücklicher Freigabe und ausschließlich lesend. Empfohlen:
 1. Relevante Spezifikation und vorhandene Implementierung lesen.
 2. Änderung klein und nachvollziehbar halten; bestehende Verträge nicht still brechen.
 3. Tests ergänzen, die das neue Verhalten und den Fehlerfall abdecken.
-4. `compileall` und die komplette Testsuite ausführen.
+4. Secret-Scan, `compileall` und die komplette Testsuite ausführen.
 5. Bei Benutzer-sichtbaren Änderungen README/AGENTS.md aktualisieren.
 6. Nur notwendige Dateien stagen; lokale Daten und `.env` ausschließen.
 7. Änderungen in kleinen, logischen Schritten committen; Commit-Nachrichten auf Englisch.

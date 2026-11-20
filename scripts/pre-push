@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+ROOT="$(git rev-parse --show-toplevel)"
+if [ -f "$ROOT/.venv/Scripts/python.exe" ]; then
+    PYTHON="$ROOT/.venv/Scripts/python.exe"
+else
+    PYTHON="python"
+fi
+exec "$PYTHON" "$ROOT/scripts/check_secrets.py" --history

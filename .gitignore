@@ -29,6 +29,14 @@ __pycache__/
 !.env.example
 /credentials/
 /secrets/
+credentials*
+*.pem
+*.key
+*.p12
+*.pfx
+client_secret*.json
+service-account*.json
+*gsc-oauth*.json
 
 # Lokale Test- und Arbeitsverzeichnisse
 /local/

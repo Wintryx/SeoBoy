@@ -94,6 +94,29 @@ Optional und nur bei Bedarf:
 SeoBoy-Laufzeit nicht gelesen. Die Bedienung erfolgt vollständig über die CLI und die
 dokumentierten YAML-/JSON-Dateien.
 
+## Secrets und öffentliches Repository
+
+Dieses Repository ist öffentlich. API-Keys, OAuth-Tokens, Service-Account-JSONs und
+lokale Zugangsdateien gehören niemals in den Arbeitsbaum oder in die Git-Historie.
+
+Hooks einmalig installieren:
+
+```powershell
+.\scripts\install_hooks.ps1
+```
+
+Danach prüft `pre-commit` den Index und `pre-push` die vollständige Historie.
+Manuell:
+
+```powershell
+.\scripts\check_secrets.py --staged
+.\scripts\check_secrets.py --history
+```
+
+Die GitHub-Actions-Pipeline führt den History-Scan ebenfalls aus und blockiert den
+Build bei einem Treffer. `.env`, `local/`, `secrets/`, `credentials*`, `*.pem` und
+`*.key` sind ignoriert. Weitere Hinweise stehen in [SECURITY.md](SECURITY.md).
+
 ## GitHub-Upstream einrichten
 
 Ein E-Mail-Konto allein reicht für den Updater nicht. Benötigt werden Repository-URL und
