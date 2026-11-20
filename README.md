@@ -109,8 +109,8 @@ Danach prüft `pre-commit` den Index und `pre-push` die vollständige Historie.
 Manuell:
 
 ```powershell
-.\scripts\check_secrets.py --staged
-.\scripts\check_secrets.py --history
+.\.venv\Scripts\python.exe .\scripts\check_secrets.py --staged
+.\.venv\Scripts\python.exe .\scripts\check_secrets.py --history
 ```
 
 Die GitHub-Actions-Pipeline führt den History-Scan ebenfalls aus und blockiert den
