@@ -5,7 +5,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.11.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.12.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -29,7 +29,8 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - GSC-Import mit Manifest, Seiten- und URL-Suchanfrage-Granularität
 - GSC-Auswertung Suchanfrage × Zielseite mit Chancen und Mehr-URL-Erkennung
 - GSC-Verlauf zwischen Läufen mit Klick-, Impressions-, CTR- und Positionsdelta
-- GSC-API-Abruf über Refresh-Token oder Service-Account und URL Inspection API
+- GSC-API-Abruf über Refresh-Token, Service-Account oder interaktiven OAuth-Login
+- Persistenter GSC-Token-Store mit restriktiven Dateirechten
 - Persistente URL-Inspection-Ergebnisse, 06-Bericht und Audit-Diff
 - Aufbereiter für den deutschen GSC-UI-Seitenexport (Semikolon, Dezimalkomma)
 - Optionales Playwright-Rendering mit HTTP-/Browser-DOM-Vergleich
@@ -40,9 +41,9 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - Vergleich zweier Läufe mit den Zuständen neu, erstmals beobachtet, fortbestehend,
   behoben, ungeprüft und nicht vergleichbar
 
-Nicht in dieser Stufe: interaktiver OAuth-Browserflow, vollständige
-Wettbewerber-Crawls, SERP-/Backlink-Adapter, lokale Suchergebnisse, KI-Antwortstichproben,
-Performance-/CrUX-Messungen und ein manueller Maßnahmenstatus.
+Nicht in dieser Stufe: vollständige Wettbewerber-Crawls, SERP-/Backlink-Adapter,
+lokale Suchergebnisse, KI-Antwortstichproben, Performance-/CrUX-Messungen und ein
+manueller Maßnahmenstatus.
 
 ## Voraussetzungen
 
@@ -79,7 +80,7 @@ Mit `--strict` werden auch Hinweise zu Fehlern.
 
 Optional und nur bei Bedarf:
 
-- **GSC-API/URL Inspection:** OAuth-Zugangsdatei mit Refresh-Token.
+- **GSC-API/URL Inspection:** Refresh-Token, Service-Account oder interaktiver OAuth-Login.
 - **Playwright-Rendering:** zusätzliche Installation von Playwright und Chromium.
 - **CLI-Updater:** Git-Checkout mit Upstream.
 - **GSC-CSV:** ein normalisierter Importordner.
@@ -132,6 +133,10 @@ notepad .env
 | --- | --- |
 | `SEOBOY_CONFIG` | Standardpfad für `--config`, z. B. `./local/projekt/seoboy.yaml` |
 | `SEOBOY_GSC_DIR` | Standard für `seoboy run --gsc-dir`; bei `--resume` ignoriert |
+| `SEOBOY_GSC_CREDENTIALS` | OAuth- oder Service-Account-JSON für den automatischen Abruf |
+| `SEOBOY_GSC_PROPERTY` | GSC-Property; sonst Start-URL mit abschließendem Slash |
+| `SEOBOY_GSC_TOKEN_STORE` | Pfad des persistenten OAuth-Token-Stores |
+| `SEOBOY_OPENSSL` | Optionaler OpenSSL-Pfad für die Service-Account-Signatur |
 | `SEOBOY_ENV_FILE` | Alternatives Env-File; muss vor dem Prozessstart gesetzt sein |
 
 Explizite CLI-Optionen haben Vorrang. `.env` ist in `.gitignore` und wird nicht
@@ -308,13 +313,19 @@ seoboy benchmark `
   Startseitenlinks geladen; robots.txt wird respektiert.
 - Der Vergleich ist eine Stichprobe, kein vollständiges Wettbewerbs-Audit.
 - Ausgegeben werden `04_COMPETITOR_BENCHMARK.md`, `raw_data/benchmark_pages.csv`,
-  `raw_data/benchmark_terms.csv`, `raw_data/benchmark_content_terms.csv` und
-  `manifest.json` in einem eigenen Berichtsordner.
+  `raw_data/benchmark_terms.csv`, `raw_data/benchmark_content_terms.csv`,
+  `raw_data/benchmark_similar_pages.csv` und `manifest.json` in einem eigenen
+  Berichtsordner.
+- Mit `--competitor-url` lassen sich einzelne Wettbewerbsseiten manuell auswählen;
+  die Sitemap-Stichprobe wird dann für diese Website umgangen. Die Startseite wird
+  zusätzlich geladen, sofern sie nicht selbst ausgewählt wurde.
 - Verglichen werden unter anderem Indexierbarkeit, Titel-/Beschreibungslängen, H1,
   Wortzahl, strukturierte Daten, Bild-Alt-Texte und interne Links.
 - Der TF-IDF-Abschnitt gewichtet Begriffe aus dem Hauptinhalt und zeigt Konzepte, die
   bei mindestens der Hälfte der Wettbewerber vorkommen, in der eigenen Stichprobe aber
   fehlen. Marken- und Navigationsbegriffe werden gefiltert.
+- Der SimHash-Abschnitt markiert Seitenpaare mit sehr ähnlichen Content-Termen
+  (Hamming-Distanz ≤ 3 von 64 Bit). Das ist ein Hinweis, kein Duplicate-Content-Urteil.
 - Die Content-Terme sind eine großgeschriebene Substantiv-Heuristik; gespeichert werden
   nur Termhäufigkeiten, keine Volltexte.
 - Wettbewerbs-HTML wird nicht gespeichert; gespeichert werden nur Metriken und URLs.
@@ -439,9 +450,20 @@ seoboy url-inspection `
   --url https://example.de/leistungen/
 ```
 
-Ein interaktiver OAuth-Browserflow und die dauerhafte Token-Ablage sind noch offen;
-aktuell wird ein vorhandener Refresh-Token oder ein Service-Account verwendet.
-Zugangsdaten gehören nicht ins Repository und nicht in Berichte.
+Neben Refresh-Token und Service-Account gibt es einen interaktiven Browser-Login:
+
+    seoboy gsc-auth --client-file .\client_secret.json
+
+Die Google-Desktop-Clientdatei enthält client_id und client_secret. SeoBoy startet
+einen lokalen Loopback-Server, öffnet die Zustimmungsseite und speichert den
+Refresh-Token anschließend unter
+
+    %LOCALAPPDATA%\SeoBoy\gsc-oauth.json
+
+oder unter SEOBOY_GSC_TOKEN_STORE. Der Token-Store ist nicht verschlüsselt, wird aber
+mit restriktiven Dateirechten angelegt und enthält niemals einen Access-Token. Ohne
+--credentials nutzt SeoBoy diesen Store automatisch. Zugangsdaten gehören nicht ins
+Repository und nicht in Berichte.
 
 ### URL Inspection für einen Lauf
 
@@ -489,9 +511,8 @@ den Zeitraum. SEOBOY_GSC_CREDENTIALS und SEOBOY_GSC_PROPERTY können die Optione
 --gsc-dir hat Vorrang vor dem automatischen Abruf. Bei --resume wird kein GSC-Abruf
 ausgeführt.
 
-Der Access-Token wird nur im Arbeitsspeicher zwischengespeichert, nie in Berichte oder
-Logs geschrieben. Eine dauerhafte Token-Ablage und ein interaktiver OAuth-Browserflow
-bleiben offen.
+Der Refresh-Token wird im persistenten OAuth-Token-Store abgelegt; der Access-Token
+bleibt nur im Arbeitsspeicher und wird nie in Berichte oder Logs geschrieben.
 
 ### Playwright-Rendering
 
@@ -610,10 +631,11 @@ dann als behoben, wenn die Quellseite im Ziellauf vollständig ausgewertet wurde
 Die Tests decken URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter und -Import, den vollständigen Crawl, Limits, Wiederholungen,
 Redirect-Schleifen, Wiederaufnahme, Parallelität, Batch-Läufe, Unterseitenanalyse,
-Wettbewerbsbenchmark, GSC-API/URL Inspection, GSC-Query-/Zielseitenbericht,
-GSC-Verlauf, URL-Inspection-Persistenz und -Diff, Playwright-Vergleich (mit injiziertem
-Browser), Local SEO, GEO, Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich,
-den Systemcheck und den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
+Wettbewerbsbenchmark, Content-Terme/TF-IDF, SimHash und manuelle Wettbewerbs-URLs,
+GSC-API/URL Inspection, OAuth-Helfer, GSC-Query-/Zielseitenbericht, GSC-Verlauf,
+URL-Inspection-Persistenz und -Diff, Playwright-Vergleich (mit injiziertem Browser),
+Local SEO, GEO, Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich, den
+Systemcheck und den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
 kein Netzwerk; die Updater-Tests nutzen lokale Git-Repositories.
 
 ## Projektstruktur
@@ -648,6 +670,7 @@ src/seoboy/
     registry.py                URL-, Discovery- und Jobregistrierung
   gsc/
     api.py                     GSC-API und URL Inspection
+    oauth.py                   interaktiver Desktop-OAuth-Flow
     importer.py                GSC-Import und UI-Aufbereiter
     inspection_store.py        URL-Inspection-Persistenz und Bericht
   infrastructure/
@@ -692,7 +715,7 @@ Berichte werden nicht versioniert.
 
 ## Nächste Ausbaustufen
 
-- Interaktiver Desktop-OAuth-Flow und sichere Token-Ablage
+- Retry/Backoff und Quotenbegrenzung für GSC-API-Aufrufe
 - Persistente Migrationen für Wettbewerber, Local SEO und GEO
 - Vollständige Wettbewerber-Läufe, SERP- und Backlink-Adapter
 - Playwright-Browser-Matrix, Screenshots und Performance-/CrUX-Messungen

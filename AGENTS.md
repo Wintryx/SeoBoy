@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.11.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.12.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -51,6 +51,7 @@ unnötiger Aufwand.
 | `src/seoboy/shared/urls.py` | URL-Normalisierung und Pfadmuster |
 | `src/seoboy/gsc/importer.py` | GSC-Manifest, CSV-Import, UI-Aufbereiter |
 | `src/seoboy/gsc/api.py` | GSC-API, OAuth/Service-Account und URL Inspection |
+| `src/seoboy/gsc/oauth.py` | interaktiver Desktop-OAuth-Flow und Token-Store |
 | `src/seoboy/gsc/inspection_store.py` | URL-Inspection-Persistenz, Auswahl und Bericht |
 | `src/seoboy/analysis/audit_data.py` | Geladene Laufdaten für Regeln und Berichte |
 | `src/seoboy/analysis/rules.py` | Technische Regeln und Prüfengine |
@@ -101,8 +102,8 @@ Die Suite deckt URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter/-Import, Crawl, Limits, Retries, Redirect-Schleifen, Resume,
 Parallelität, Batch-Läufe, Unterseitenanalyse, Wettbewerbsbenchmark, Content-Terme/
 TF-IDF, GSC-Query-/
-Zielseitenbericht, GSC-Verlauf, GSC-API/URL Inspection, URL-Inspection-Persistenz
-und -Diff, Playwright-Vergleich mit injiziertem Browser,
+Zielseitenbericht, GSC-Verlauf, GSC-API/URL Inspection, OAuth-Helfer,
+URL-Inspection-Persistenz und -Diff, Playwright-Vergleich mit injiziertem Browser,
 Local SEO, GEO, Einzel-URL-Prüfung,
 Ausnahmen, Berichte, Diff, den Systemcheck und den Git-Updater ab. Sie nutzt lokale
 HTTP-Server, lokale Git-Repositories und benötigt kein Internet.
@@ -119,6 +120,7 @@ gesetzte Umgebungsvariablen werden nicht überschrieben.
 | `SEOBOY_GSC_CREDENTIALS` | OAuth- oder Service-Account-JSON für den automatischen GSC-Abruf |
 | `SEOBOY_GSC_PROPERTY` | GSC-Property; sonst Start-URL mit abschließendem Slash |
 | `SEOBOY_GSC_ACCESS_TOKEN` | Kurzlebiger Access-Token für Tests/Notfälle; nicht speichern |
+| `SEOBOY_GSC_TOKEN_STORE` | Pfad des persistenten OAuth-Token-Stores |
 | `SEOBOY_OPENSSL` | Optionaler OpenSSL-Pfad für die Service-Account-Signatur |
 | `SEOBOY_ENV_FILE` | Alternatives Env-File; muss vor dem Prozessstart gesetzt sein |
 
@@ -218,8 +220,9 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   in Repository und Read-Model getrennt werden.
 - Der GSC-Importer nutzt die Crawl-Registry. Die API-Anbindung liegt getrennt in
   `gsc/api.py`.
-- GSC-API und URL Inspection akzeptieren Refresh-Token oder Service-Account; ein
-  interaktiver OAuth-Browserflow und die persistente Token-Ablage sind offen.
+- GSC-API und URL Inspection akzeptieren Refresh-Token, Service-Account oder den
+  interaktiven OAuth-Login. Der Token-Store ist dateirechtlich geschützt, aber nicht
+  verschlüsselt; er enthält nur den Refresh-Token, keinen Access-Token.
 - URL Inspection ist auf API-Kontingente begrenzt; der Batch-Modus prüft standardmäßig
   höchstens 10 und maximal 100 wichtige URLs.
 - Playwright ist optional und benötigt eine separate Browser-Installation.

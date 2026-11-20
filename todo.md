@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.11.0
+Stand: 20.11.2026, Version 0.12.0
 
 ## Priorisierung
 
@@ -10,12 +10,12 @@ Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand �
 | --- | --- | --- | --- |
 | A1 | GSC: Suchanfrage × Zielseite, Chancen und Mehr-URL-Fälle | Zeigt, welche Seiten für welche Nachfrage tatsächlich Klicks bringen | **erledigt in 0.7.0** |
 | A2 | GSC standardmäßig in jeden Lauf (Service-Account) | Macht A1 zur Routine statt zum manuellen Export | **erledigt in 0.8.0** |
-| A2b | Interaktiver OAuth-Flow und persistente Token-Ablage | Komfort für Nutzer ohne Service-Account | offen |
+| A2b | Interaktiver OAuth-Flow und persistente Token-Ablage | Komfort für Nutzer ohne Service-Account | **erledigt in 0.12.0** |
 | A3 | Maßnahmen mit gemeinsamer Ursache bündeln | CTA und 404 werden als eine Baustelle sichtbar; weniger Reportrauschen | **erledigt in 0.8.0** |
 | A4 | GSC-Query-/Seitenverlauf über mehrere Läufe | Messbar machen, ob eine Änderung Klicks und Anfragen verbessert | **erledigt in 0.9.0** |
 | B1 | URL Inspection in SQLite und Audit-Diff | Indexstatus und Canonical-Abweichungen dauerhaft nachvollziehen | **erledigt in 0.10.0** |
 | B2 | TF-IDF-Content-Gaps aus dem Hauptinhalt | Inhaltliche Lücken belastbarer priorisieren als Titel/H1-Listen | **erledigt in 0.11.0** |
-| B2b | Near-Duplicate/SimHash und manuelle Wettbewerbs-URL-Auswahl | Ähnliche Seiten und bewusst gewählte Vergleichsseiten erkennen | offen |
+| B2b | Near-Duplicate/SimHash und manuelle Wettbewerbs-URL-Auswahl | Ähnliche Seiten und bewusst gewählte Vergleichsseiten erkennen | **erledigt in 0.12.0** |
 | B3 | Local SEO mit externen Profilen und lokalen Ergebnissen | Standortseiten an echten lokalen Signalen messen | offen |
 | B4 | Performance/CrUX und Lighthouse | Conversion- und Ladezeitrisiken sichtbar machen | offen |
 | C1 | Playwright-Browser-Matrix und CI | Rendering-Diagnose reproduzierbar machen | offen |
@@ -44,10 +44,18 @@ zum Vorzeitraum. Nur eindeutig zugeordnete Zeilen werden ausgewertet.
   über cryptography oder OpenSSL; Access-Token-Cache nur im Arbeitsspeicher.
 - **Umgesetzt:** Property-, Zeitraum- und Tagesoptionen; `SEOBOY_GSC_CREDENTIALS` und
   `SEOBOY_GSC_PROPERTY`.
-- Offen: interaktiver Desktop-OAuth-Flow, persistente Token-Ablage, Retry/Backoff und
-  Quotenbegrenzung, Abgleich der API-Abdeckung mit dem CSV-Import.
+- Offen: Retry/Backoff und Quotenbegrenzung, Abgleich der API-Abdeckung mit dem CSV-Import.
 
 Nutzen: Der wichtigste Bericht wird zur Routine, ohne manuellen Export.
+
+### A2b – Interaktiver OAuth-Login (erledigt)
+
+- `seoboy gsc-auth --client-file client_secret.json` startet den Loopback-Login.
+- PKCE, State-Prüfung und lokaler Callback sind implementiert.
+- Der Refresh-Token wird unter `%LOCALAPPDATA%\SeoBoy\gsc-oauth.json` oder
+  `SEOBOY_GSC_TOKEN_STORE` gespeichert; Dateirechte restriktiv, keine Verschlüsselung.
+- `load_credentials` nutzt den Store automatisch, wenn keine andere Quelle gesetzt ist.
+- Access-Tokens bleiben nur im Arbeitsspeicher.
 
 ### A3 – Ursachen bündeln (erledigt)
 
@@ -91,8 +99,16 @@ H1, Inhalt oder CTA tatsächlich Klicks und Anfragen verändert hat.
   Wettbewerber vorkommen, in der eigenen Stichprobe aber fehlen.
 - **Umgesetzt:** Ausgabe in `04_COMPETITOR_BENCHMARK.md` und
   `raw_data/benchmark_content_terms.csv`.
-- Offen: Near-Duplicate-/SimHash-Vergleich und manuelle URL-Auswahl je Seitentyp.
 - Eigenes Seitenbudget je Wettbewerber ist über `--max-pages` vorhanden.
+
+### B2b – Near-Duplicate und manuelle URLs (erledigt)
+
+- **Umgesetzt:** SimHash über Content-Terme; Paare mit Hamming-Distanz ≤ 3 werden
+  in `04_COMPETITOR_BENCHMARK.md` und `raw_data/benchmark_similar_pages.csv` gezeigt.
+- **Umgesetzt:** `--competitor-url` erlaubt manuell ausgewählte Wettbewerbsseiten
+  je Website und umgeht die Sitemap-Stichprobe.
+- **Umgesetzt:** Die Auswahl wird im Bericht und im Benchmark-Manifest ausgewiesen.
+- Grenze: SimHash ist ein Ähnlichkeitshinweis, kein Duplicate-Content-Urteil.
 
 ### B3 – Local SEO
 
