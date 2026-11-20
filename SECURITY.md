@@ -45,6 +45,28 @@ Kosten verursachen. Für den Agenten sollte ein eigener Key mit Ausgabenlimit ve
 werden. Der Anbieter sieht die übermittelten Prompts; dort niemals Secrets oder
 personenbezogene Daten eintragen.
 
+## KI-Agent: Audit-Review
+
+Die beratende KI-Review hat zusätzlich nur diese Fähigkeiten:
+
+| Erlaubt | Nicht erlaubt |
+| --- | --- |
+| Gespeicherte Audit-Evidenz als kompakte JSON-Packung lesen | Website crawlen oder HTML lesen |
+| Einen HTTPS-POST an api.deepseek.com senden | Websuche oder andere Hosts |
+| 07_AI_REVIEW.md und Cache schreiben | Befunde, Maßnahmen oder DB verändern |
+| Vorschläge und Referenzen validieren | Modellantworten ausführen |
+
+Zusätzliche Grenzen:
+
+- ein Aufruf pro Lauf, keine automatische Wiederholung,
+- maximal 40 Befunde und 25 Maßnahmen in der Packung,
+- maximal 60.000 Zeichen,
+- Standardbudget 0,25 USD,
+- Modell-Allowlist und Host-Allowlist wie beim GEO-Sampling,
+- keine vollständigen GSC-Zeilen; Query-Namen nur aus vorhandenen Befunden/Evidenz,
+- Cache nur lokal unter dem Datenbankordner, nicht versioniert,
+- unbekannte Befund-/Maßnahmen-Referenzen werden als ungeprüft ausgewiesen.
+
 ## Wenn ein Key versehentlich committed wurde
 
 1. Key sofort beim Anbieter widerrufen und ersetzen.

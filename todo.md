@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.15.2
+Stand: 20.11.2026, Version 0.16.0
 
 ## Priorisierung
 
@@ -24,6 +24,7 @@ Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand �
 | C2 | Reproduzierbare KI-Antwortstichproben für GEO | AI-Sichtbarkeit messen statt nur Bot-Zugriff prüfen | **erledigt in 0.15.0** |
 | C3 | Vollständige Wettbewerber-Läufe, SERP-/Backlink-Adapter | Wettbewerb und Content-Lücken breiter einordnen | blockiert: SERP-/Backlink-Zugang |
 | C4 | Manueller Maßnahmenstatus und Verlauf | Umsetzung und Wirkung im Tool nachhalten | **erledigt in 0.13.0** |
+| D1 | KI-Review des Gesamtaudits | Widersprüche, Datenlücken und Prioritätsfehler finden | **erledigt in 0.16.0** |
 
 ## A – Direkter Buchungsnutzen
 
@@ -179,6 +180,21 @@ Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 - **Umgesetzt:** Status `open`, `in_progress`, `done`, `ignored` mit Notiz und Zeitstempel.
 - **Umgesetzt:** Status erscheint im Maßnahmenplan und wird bei `report` neu gerendert.
 - Offen: einheitliche Erweiterungs-Abdeckung je Lauf.
+
+## D – KI-Review
+
+### D1 – Beratende Review des Gesamtaudits (erledigt)
+
+- **Umgesetzt:** `seoboy ai-review --run <id>` und `seoboy run --ai-review`.
+- **Umgesetzt:** kompakte Evidenzpackung statt HTML oder Rohdatenbank.
+- **Umgesetzt:** strukturierte JSON-Antwort mit Evidenz- und Maßnahmenreferenzen.
+- **Umgesetzt:** Validierung unbekannter Referenzen als ungeprüft.
+- **Umgesetzt:** nur ein API-Aufruf, 40 Befunde/25 Maßnahmen, 0,25 USD Budget.
+- **Umgesetzt:** SHA-256-Cache; Cache-Treffer kosten keinen Aufruf.
+- **Umgesetzt:** 07_AI_REVIEW.md, JSON, CSV und Link in der Executive Summary.
+- **Live:** aw-audio-Review mit 20 Befunden/20 Maßnahmen, gültige Referenzen,
+  ca. 0,0065 USD.
+- Grenze: KI-Review ist advisory und ändert keine Prioritäten automatisch.
 
 ## Erledigt
 

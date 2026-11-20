@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.15.2:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.16.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -70,6 +70,7 @@ unnötiger Aufwand.
 | `src/seoboy/performance/audit.py` | PageSpeed/Lighthouse und CrUX |
 | `src/seoboy/geo/audit.py` | AI-Bots, llms.txt und GEO-Readiness |
 | `src/seoboy/geo/sampling.py` | budgetiertes DeepSeek-GEO-Sampling |
+| `src/seoboy/ai/review.py` | beratende KI-Review des Gesamtaudits |
 | `src/seoboy/application/runner.py` | run/resume/inspect/report/diff, Batch und Benchmark |
 | `src/seoboy/infrastructure/env.py` | Optionales Laden von `.env` |
 | `src/seoboy/infrastructure/doctor.py` | Systemcheck für den Betrieb ohne Agent |
@@ -83,6 +84,7 @@ Die verbindlichen Anforderungen stehen in:
 - `02_seo_geo_und_konkurrenz_engine_md.md`
 - `03_reporting_und_priorisierung_md.md`
 - `04_datenmodell_sqlite_md.md`
+- `docs/ki_review_spezifikation.md`
 - `README.md`
 
 ## Entwicklungsumgebung
@@ -110,7 +112,8 @@ TF-IDF, GSC-Query-/
 Zielseitenbericht, GSC-Verlauf, GSC-API/URL Inspection, OAuth-Helfer,
 URL-Inspection-Persistenz und -Diff, Playwright-Vergleich mit injiziertem Browser,
 Local SEO-Profile/Local-Results, Performance-Adapter, Maßnahmenstatus,
-GEO-Readiness und DeepSeek-Sampling, Einzel-URL-Prüfung,
+GEO-Readiness und DeepSeek-Sampling, KI-Review-Packung/-Validierung/-Cache,
+Einzel-URL-Prüfung,
 Ausnahmen, Berichte, Diff, den Systemcheck und den Git-Updater ab. Sie nutzt lokale
 HTTP-Server, lokale Git-Repositories und benötigt kein Internet.
 
@@ -242,9 +245,12 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
 - PageSpeed/CrUX benötigt einen API-Key; ohne Key bleibt der Befehl klar deaktiviert.
 - GEO-Sampling nutzt standardmäßig DeepSeek-V4.1-Flash-1017 mit Thinking enabled
   und reasoning_effort=max; Antworten sind Momentaufnahmen und keine Rankings.
-- Der GEO-Adapter darf nur api.deepseek.com per HTTPS kontaktieren, keine Redirects
-  folgen, keine Shell/Browser/Website/DB verändern und nur saubere Report-Ordner
-  schreiben. Details stehen in SECURITY.md.
+- Der GEO-Adapter und die KI-Review dürfen nur api.deepseek.com per HTTPS kontaktieren,
+  keine Redirects folgen, keine Shell/Browser/Website/DB verändern und nur saubere
+  Report-Ordner schreiben. Details stehen in SECURITY.md.
+- Die KI-Review ist advisory: Sie ändert keine Befunde, Maßnahmen oder Prioritäten.
+- KI-Review nutzt standardmäßig einen Aufruf, maximal 40 Befunde/25 Maßnahmen,
+  ein Budget von 0,25 USD und einen SHA-256-Cache.
 - Vollständige Wettbewerber-Audits und SERP-/Backlink-Adapter bleiben externe
   Ausbaustufen.
 - Der CLI-Updater setzt einen Git-Checkout mit Upstream voraus; Wheel-/PyPI-Installationen

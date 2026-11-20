@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.15.2 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.16.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -41,6 +41,7 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - Maßnahmenstatus mit Verlauf
 - GEO-Readiness für AI-Bots, llms.txt und vorhandene Content-/Schema-Signale
 - Budgetiertes GEO-Sampling über DeepSeek mit Marken-/Zitat-Auswertung
+- Beratende KI-Review des Gesamtaudits mit Evidenzprüfung und Cache
 - Priorisierte Maßnahmen (P1 bis P4), Quick Wins und Evidenz je Befund
 - Markdown-Berichte, CSV-Rohdaten und Manifest je Lauf
 - Vergleich zweier Läufe mit den Zuständen neu, erstmals beobachtet, fortbestehend,
@@ -674,6 +675,34 @@ Rohantworten werden nur lokal unter `reports/.../raw_data/geo_answers.jsonl` ges
 `--retention-days` dokumentiert die Aufbewahrungsfrist, die Löschung erfolgt manuell.
 Ein API-Key wird nie in Berichte, Logs oder Commits geschrieben.
 
+## KI-Review des Gesamtaudits
+
+Nach einem Lauf kann der gesamte Audit durch eine beratende KI-Review geprüft werden:
+
+```powershell
+seoboy ai-review --run <lauf-id>
+seoboy ai-review --run <lauf-id> --dry-run
+seoboy run --ai-review
+```
+
+Die Review erhält **nicht** die Website oder Roh-HTML, sondern eine kompakte Evidenzpackung
+aus Befunden, Maßnahmen, Abdeckung und Datenlücken. Sie darf keine Befunde ändern und
+keine Fakten erfinden. Referenzen auf unbekannte Befund- oder Maßnahmen-IDs werden als
+ungeprüft ausgewiesen.
+
+Ausgabe:
+
+- `07_AI_REVIEW.md` mit dem Abschnitt
+  **„Der SeoBoy KI-Agent hat darüber hinaus folgendes analysiert“**
+- `raw_data/ai_review.json`
+- `raw_data/ai_review_suggestions.csv`
+
+Effizienz: ein API-Aufruf pro Lauf, maximal 40 Befunde/25 Maßnahmen, Modell
+`deepseek-flash`, Thinking deaktiviert, 0,25 USD Standardbudget, SHA-256-Cache.
+Ein Cache-Treffer kostet keinen API-Aufruf. `--refresh` erzwingt eine neue Review.
+
+Die Detail-Spezifikation steht in [docs/ki_review_spezifikation.md](docs/ki_review_spezifikation.md).
+
 ## Regeln
 
 | Regel | Inhalt | Standardpriorität |
@@ -713,6 +742,7 @@ Ein Lauf schreibt in `reports/<datum>_<projekt-id>_<lauf-id>/`:
 | `04_GSC_QUERY_PAGES.md` | Suchanfragen, Zielseiten, Chancen und Mehr-URL-Fälle bei GSC-Daten |
 | `05_GSC_HISTORY.md` | Vergleich des GSC-Zeitraums mit dem jüngsten vergleichbaren Lauf |
 | `06_URL_INSPECTION.md` | Gespeicherte URL-Inspection-Ergebnisse für wichtige URLs |
+| `07_AI_REVIEW.md` | Beratende KI-Review des Gesamtaudits, optional |
 | `raw_data/all_urls.csv` | URL-Inventar mit Herkunft, Status, Profil, HTTP-Status |
 | `raw_data/pages.csv` | Seitenmetriken je Unterseite |
 | `raw_data/rule_results.csv` | vollständige Prüfergebnisse inklusive Evidenzverweisen |
@@ -759,8 +789,9 @@ Wettbewerbsbenchmark, Content-Terme/TF-IDF, SimHash und manuelle Wettbewerbs-URL
 GSC-API/URL Inspection, OAuth-Helfer, GSC-Query-/Zielseitenbericht, GSC-Verlauf,
 URL-Inspection-Persistenz und -Diff, Playwright-Vergleich (mit injiziertem Browser),
 Local-SEO-Profile/-Messergebnisse, Performance-Adapter, Maßnahmenstatus mit Verlauf,
-GEO-Readiness und DeepSeek-Sampling, Einzel-URL-Prüfung, Ausnahmen, Berichte, den
-Lauf-Vergleich, den Systemcheck und den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
+GEO-Readiness und DeepSeek-Sampling, KI-Review-Packung/-Validierung/-Cache,
+Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich, den Systemcheck und den
+Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
 kein Netzwerk; die Updater-Tests nutzen lokale Git-Repositories.
 
 ## Projektstruktur
