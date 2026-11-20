@@ -5,9 +5,10 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: MVP 0.3.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
-optionalem GSC-CSV-Import, technischen Kernregeln, Markdown-/CSV-Berichten, Audit-Diff
-und einem Batch-Modus für mehrere Projekte. Der Audit arbeitet ausschließlich lesend.
+Aktueller Stand: MVP 0.4.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+optionalem GSC-CSV-Import, technischen Kernregeln, Unterseiten-Inhaltsanalyse,
+Wettbewerbsbenchmark, Markdown-/CSV-Berichten, Audit-Diff und einem Batch-Modus für
+mehrere Projekte. Der Audit arbeitet ausschließlich lesend.
 
 ## Funktionsumfang
 
@@ -18,6 +19,8 @@ und einem Batch-Modus für mehrere Projekte. Der Audit arbeitet ausschließlich 
 - Budgets für URLs, Anfragen und Laufzeit; Wiederaufnahme nach Pause oder Abbruch
 - Wiederholungen bei 429, 5xx und Timeouts, inklusive Retry-After
 - Regeln für HTTP, Indexierung, Canonicals, Sitemaps, interne Links und Metadaten
+- Unterseitenanalyse mit Titel-/Beschreibungslänge, H1, Wortzahl, Bild-Alt-Texten und Schema
+- Wettbewerbsbenchmark mit begrenzter, robots-konformer Seitenstichprobe
 - GSC-Import mit Manifest, Seiten- und URL-Suchanfrage-Granularität
 - Aufbereiter für den deutschen GSC-UI-Seitenexport (Semikolon, Dezimalkomma)
 - Priorisierte Maßnahmen (P1 bis P4), Quick Wins und Evidenz je Befund
@@ -25,8 +28,9 @@ und einem Batch-Modus für mehrere Projekte. Der Audit arbeitet ausschließlich 
 - Vergleich zweier Läufe mit den Zuständen neu, erstmals beobachtet, fortbestehend,
   behoben, ungeprüft und nicht vergleichbar
 
-Nicht im MVP: direkte GSC-API, Playwright-Rendering, URL Inspection, Wettbewerber-,
-Local-SEO- und GEO-Module sowie ein manueller Maßnahmenstatus.
+Nicht im MVP: direkte GSC-API, Playwright-Rendering, URL Inspection, vollständige
+Wettbewerber-Crawls, SERP-/Backlink-Adapter, Local-SEO- und GEO-Module sowie ein manueller
+Maßnahmenstatus.
 
 ## Voraussetzungen
 
@@ -77,6 +81,7 @@ seoboy migrate
 seoboy run
 seoboy run --gsc-dir .\imports\gsc
 seoboy batch --config .\projekt-a\seoboy.yaml --config .\projekt-b\seoboy.yaml --workers 2
+seoboy benchmark --config .\seoboy.yaml --competitor https://wettbewerb.de/ --max-pages 20
 seoboy inspect https://example.de/leistungen/
 seoboy diff --base <lauf-id> --target <lauf-id>
 seoboy report --run <lauf-id>
@@ -218,6 +223,29 @@ begrenzen. GSC-Daten werden im Batch nicht importiert; dafür bleibt `run --gsc-
 richtige Weg. Der Batch-Exitcode ist `0`, wenn alle Läufe erfolgreich sind, `1` bei
 mindestens einem Teillauf und `2` bei einem Fehler.
 
+## Wettbewerbsvergleich
+
+`benchmark` vergleicht den letzten abgeschlossenen eigenen Lauf mit einer begrenzten
+Stichprobe öffentlich erreichbarer Wettbewerbsseiten:
+
+```powershell
+seoboy benchmark `
+  --config .\seoboy.yaml `
+  --competitor https://wettbewerb-a.de/ `
+  --competitor https://wettbewerb-b.de/ `
+  --max-pages 20
+```
+
+- Grundlage ist der letzte `completed`-Lauf der eigenen Konfiguration.
+- Je Wettbewerber werden höchstens `--max-pages` Seiten aus robots.txt-Sitemaps oder
+  Startseitenlinks geladen; robots.txt wird respektiert.
+- Der Vergleich ist eine Stichprobe, kein vollständiges Wettbewerbs-Audit.
+- Ausgegeben werden `00_COMPETITOR_BENCHMARK.md` und
+  `raw_data/benchmark_pages.csv` in einem eigenen Berichtsordner.
+- Verglichen werden unter anderem Indexierbarkeit, Titel-/Beschreibungslängen, H1,
+  Wortzahl, strukturierte Daten, Bild-Alt-Texte und interne Links.
+- Wettbewerbs-HTML wird nicht gespeichert; gespeichert werden nur Metriken und URLs.
+
 ## Google Search Console
 
 Der MVP liest einen normalisierten CSV-Import. Das Verzeichnis enthält eine
@@ -309,7 +337,9 @@ Ein Lauf schreibt in `reports/<datum>_<projekt-id>_<lauf-id>/`:
 | `00_EXECUTIVE_SUMMARY.md` | Status, Abdeckung, Datenquellen, wichtigste Maßnahmen |
 | `01_ACTION_PLAN_PRIORITIZED.md` | priorisierte Maßnahmen mit Evidenz, Beispielen, Aufwand und Prüfschritt |
 | `02_TECHNICAL_SEO_AUDIT.md` | Abdeckung je Regel, Grundcodes, Befunde, GSC-Zusammenfassung |
+| `03_PAGE_ANALYSIS.md` | Unterseitenanalyse mit Titel-/Beschreibungslänge, H1, Wörtern, Alt-Texten und Schema |
 | `raw_data/all_urls.csv` | URL-Inventar mit Herkunft, Status, Profil, HTTP-Status |
+| `raw_data/pages.csv` | Seitenmetriken je Unterseite |
 | `raw_data/rule_results.csv` | vollständige Prüfergebnisse inklusive Evidenzverweisen |
 | `raw_data/broken_links.csv` | defekte Linkziele mit Quellseiten |
 | `raw_data/gsc_metrics.csv` | alle gespeicherten GSC-Zeilen mit Granularität und Zuordnung |
@@ -332,9 +362,9 @@ dann als behoben, wenn die Quellseite im Ziellauf vollständig ausgewertet wurde
 
 Die Tests decken URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter und -Import, den vollständigen Crawl, Limits, Wiederholungen,
-Redirect-Schleifen, Wiederaufnahme, Parallelität, Batch-Läufe, Einzel-URL-Prüfung,
-Ausnahmen, Berichte und den Lauf-Vergleich ab. Sie verwenden einen lokalen HTTP-Server
-und benötigen kein Netzwerk.
+Redirect-Schleifen, Wiederaufnahme, Parallelität, Batch-Läufe, Unterseitenanalyse,
+Wettbewerbsbenchmark, Einzel-URL-Prüfung, Ausnahmen, Berichte und den Lauf-Vergleich ab.
+Sie verwenden einen lokalen HTTP-Server und benötigen kein Netzwerk.
 
 ## Projektstruktur
 
@@ -372,7 +402,11 @@ src/seoboy/
     lock.py                    exklusive Datenbanksperre
   reporting/
     run_report.py              Markdown-/CSV-Berichte
+    page_analysis.py           Unterseiten- und Inhaltsanalyse
     diff_report.py             Lauf-Vergleich
+  benchmark/
+    sampler.py                 robots-konforme Wettbewerbsstichprobe
+    report.py                  Wettbewerbsvergleich
   shared/
     agents.py                  Googlebot-/SeoBoy-Agenten
     robots.py                  robots.txt-Parser
@@ -388,14 +422,15 @@ Die Datenbank und die Berichte bleiben lokal. HTML-Volltexte werden nicht gespei
 gespeichert werden Statuswerte, Metadaten, Links, Evidenz und Auszüge. Zugangsdaten und
 API-Schlüssel gehören nicht in die Projektkonfiguration, in Berichte oder in Logs.
 Response-Header werden ohne `Set-Cookie` gespeichert. Der Audit verändert keine Website.
-Lokale `.env`-Dateien, Konfigurationen unter `local/`, Datenbanken und Berichte werden
-nicht versioniert.
+Wettbewerbsseiten werden nur für die Benchmark-Metriken gelesen; ihr HTML wird nicht
+gespeichert. Lokale `.env`-Dateien, Konfigurationen unter `local/`, Datenbanken und
+Berichte werden nicht versioniert.
 
 ## Nächste Ausbaustufen
 
 - GSC-API mit Desktop-OAuth, URL Inspection und gemeldetem Indexstatus
 - gezieltes Playwright-Rendering und Performance-Stichproben
-- Wettbewerbervergleich, SERP- und Backlink-Adapter
+- vollständige Wettbewerber-Crawls, SERP- und Backlink-Adapter
 - Local SEO und experimentelle GEO-Auswertungen
 - manueller Maßnahmenstatus mit Verlauf
 

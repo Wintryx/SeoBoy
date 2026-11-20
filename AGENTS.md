@@ -6,9 +6,10 @@ Spezifikationen, ersetzt sie aber nicht.
 ## Zweck und Status
 
 SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist der MVP
-0.3.0: paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
-GSC-CSV-Import, Maßnahmenpriorisierung, Markdown-/CSV-Berichte, Audit-Diff und ein
-Batch-Modus für mehrere Projekte.
+0.4.0: paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
+Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import,
+Maßnahmenpriorisierung, Markdown-/CSV-Berichte, Audit-Diff und ein Batch-Modus für
+mehrere Projekte.
 
 ## Nicht verhandelbare Regeln
 
@@ -31,7 +32,7 @@ Batch-Modus für mehrere Projekte.
 ## Architektur
 
 Die Struktur ist ein domain-orientierter modularer Monolith. Fachliche Capabilities
-(Crawl, Analyse, GSC, Reporting) sind getrennt; technische Adapter liegen unter
+(Crawl, Analyse, GSC, Reporting, Benchmark) sind getrennt; technische Adapter liegen unter
 `infrastructure`, gemeinsam genutzte Primitiven unter `shared`. Vollständiges DDD mit
 Aggregaten, Repositories und Domain Events wäre für diesen lokalen Batch-Audit
 unnötiger Aufwand.
@@ -44,7 +45,7 @@ unnötiger Aufwand.
 | `src/seoboy/crawl/registry.py` | URL-, Discovery- und Jobregistrierung |
 | `src/seoboy/crawl/http_client.py` | HTTP ohne Redirect-Verfolgung, begrenzte Reads |
 | `src/seoboy/shared/robots.py` | robots.txt-Parser und Googlebot-Auswertung |
-| `src/seoboy/crawl/html_extract.py` | Titel, Beschreibung, Robots-Signale, Canonicals, Links |
+| `src/seoboy/crawl/html_extract.py` | Titel, Beschreibung, H1, Wörter, Bilder, Schema, Links |
 | `src/seoboy/shared/urls.py` | URL-Normalisierung und Pfadmuster |
 | `src/seoboy/gsc/importer.py` | GSC-Manifest, CSV-Import, UI-Aufbereiter |
 | `src/seoboy/analysis/audit_data.py` | Geladene Laufdaten für Regeln und Berichte |
@@ -52,8 +53,11 @@ unnötiger Aufwand.
 | `src/seoboy/analysis/rules_gsc.py` | Search-Console-Regeln |
 | `src/seoboy/analysis/actions.py` | Maßnahmenbildung und Priorisierung |
 | `src/seoboy/reporting/run_report.py` | Markdown-/CSV-Berichte und Manifest |
+| `src/seoboy/reporting/page_analysis.py` | Unterseiten- und Inhaltsanalyse |
 | `src/seoboy/reporting/diff_report.py` | Vergleich zweier Läufe |
-| `src/seoboy/application/runner.py` | run/resume/inspect/report/diff und Batch |
+| `src/seoboy/benchmark/sampler.py` | robots-konforme Wettbewerbsstichprobe |
+| `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich |
+| `src/seoboy/application/runner.py` | run/resume/inspect/report/diff, Batch und Benchmark |
 | `src/seoboy/infrastructure/env.py` | Optionales Laden von `.env` |
 | `migrations/001_initial.sql` | SQLite-Schema |
 
@@ -84,8 +88,9 @@ Die Tests benötigen nur die Standardbibliothek und PyYAML. Im Quellbaum kann
 
 Die Suite deckt URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter/-Import, Crawl, Limits, Retries, Redirect-Schleifen, Resume,
-Parallelität, Batch-Läufe, Einzel-URL-Prüfung, Ausnahmen, Berichte und Diff ab. Sie
-nutzt einen lokalen HTTP-Server und benötigt kein Internet.
+Parallelität, Batch-Läufe, Unterseitenanalyse, Wettbewerbsbenchmark, Einzel-URL-Prüfung,
+Ausnahmen, Berichte und Diff ab. Sie nutzt einen lokalen HTTP-Server und benötigt kein
+Internet.
 
 ## Lokale .env
 
@@ -111,7 +116,8 @@ Nur nach ausdrücklicher Freigabe und ausschließlich lesend. Empfohlen:
 3. Medien- und Admin-Pfade über `exclude_paths` ausschließen, wenn sie das Budget
    verbrauchen würden.
 4. Läufe nicht wiederholen, wenn der Zweck erreicht ist. Keine Lasttests.
-5. Befunde nur als Empfehlung formulieren; keine Website-Änderung durchführen.
+5. Wettbewerbsvergleiche nur als begrenzte, robots-konforme Stichprobe ausführen.
+6. Befunde nur als Empfehlung formulieren; keine Website-Änderung durchführen.
 
 ## Datenmodell-Invarianten
 
@@ -177,11 +183,15 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
 - Batch-Läufe benötigen getrennte SQLite-Datenbanken; derselbe DB-Pfad wird abgelehnt.
 - Dieselbe Website (Host und Port) wird im Batch nicht parallel geprüft.
 - Batch importiert keine GSC-Daten; GSC bleibt der Einzellauf mit `--gsc-dir`.
+- Der Benchmark ist eine Stichprobe, kein vollständiges Wettbewerbs-Audit.
+- Wettbewerbs-HTML wird nicht gespeichert; gespeichert werden Metriken und URLs.
+- Der Benchmark benötigt einen abgeschlossenen eigenen Lauf mit Inhaltsmetriken.
 - Der Batch nutzt Threads. Bei sehr großen, CPU-lastigen Batches wäre ein Prozess-Pool
   die nächste Ausbaustufe.
 - Das Analyse-Read-Model liest SQLite direkt. Bei mehreren Bounded Contexts sollte es
   in Repository und Read-Model getrennt werden.
 - Der GSC-Importer nutzt die Crawl-Registry. Eine spätere API-Anbindung sollte über einen
   eigenen Adapter mit klarer Abhängigkeitsrichtung laufen.
-- Keine GSC-API, kein Playwright-Rendering, keine Wettbewerber-/Local-SEO-/GEO-Module.
+- Keine GSC-API, kein Playwright-Rendering, keine vollständigen Wettbewerber-Audits,
+  keine Local-SEO-/GEO-Module.
 - Kein globaler SEO-Score; Priorisierung erfolgt über P1–P4 und Evidenz.
