@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.19.1 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.20.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -431,12 +431,19 @@ aus einer `gsc_ui_csv`-Quelle wird als unbekannt übernommen.
 Enthält der Import einen Seiten-Suchanfragenbericht (`page_queries`), schreibt jeder Lauf
 zusätzlich `04_GSC_QUERY_PAGES.md` und `raw_data/gsc_query_pages.csv`. Der Bericht zeigt:
 
-- stärkste Zielseiten und Suchanfragen nach Impressionen und Klicks,
-- die konkreten Paare aus Suchanfrage und Zielseite,
+- stärkste Zielseiten mit **Seiten-Gesamtwerten** aus dem page-Export,
+- die **Abdeckung** dieser Seitenwerte durch die vorhandenen Suchanfrage-Zeilen,
+- stärkste Suchanfragen und die konkreten Paare aus Suchanfrage und Zielseite,
 - Chancen auf Position 5–20 mit mindestens der konfigurierten Impressionen-Schwelle
   und einer CTR unter 5 Prozent,
 - Suchanfragen, für die mehrere Zielseiten Impressionen erhalten,
 - Klickveränderungen gegenüber dem gleich langen Vorzeitraum.
+
+Seiten- und Suchanfragewerte können sich unterscheiden: Der Seitenexport enthält die
+Gesamtimpressionen der Seite, der Suchanfragenexport nur die verfügbaren, teils
+anonymisierten Zeilen. Deshalb zeigt die Zielseitenübersicht beide Perspektiven statt
+einen Wert still zu vermischen. Fehlt der Seitenexport, wird die Abdeckung als fehlend
+markiert und ausdrücklich auf die Suchanfrage-Summe zurückgefallen.
 
 Ausgewertet werden nur eindeutig zugeordnete Zeilen. Nicht zuordenbare oder mehrdeutige
 Zeilen bleiben im technischen Audit sichtbar. Der Bericht ist eine Nachfrage- und
@@ -567,9 +574,11 @@ Ein Lauf kann die GSC-Daten direkt holen und danach crawlen:
       --gsc-start 2026-10-01 --gsc-end 2026-10-31
 
 Ohne Start-/Enddatum werden die letzten 28 Tage bis gestern verwendet; --gsc-days ändert
-den Zeitraum. SEOBOY_GSC_CREDENTIALS und SEOBOY_GSC_PROPERTY können die Optionen ersetzen.
---gsc-dir hat Vorrang vor dem automatischen Abruf. Bei --resume wird kein GSC-Abruf
-ausgeführt.
+den Zeitraum. Beim automatischen Abruf wird standardmäßig zusätzlich der **gleich lange,
+abgeschlossene Vorzeitraum** geholt, damit der Bericht sofort vergleichen kann.
+`--no-gsc-compare` deaktiviert das. SEOBOY_GSC_CREDENTIALS und SEOBOY_GSC_PROPERTY
+können die Optionen ersetzen. --gsc-dir hat Vorrang vor dem automatischen Abruf.
+Bei --resume wird kein GSC-Abruf ausgeführt.
 
 Der Refresh-Token wird im persistenten OAuth-Token-Store abgelegt; der Access-Token
 bleibt nur im Arbeitsspeicher und wird nie in Berichte oder Logs geschrieben.
@@ -774,16 +783,23 @@ Die Detail-Spezifikation steht in [docs/ki_review_spezifikation.md](docs/ki_revi
 | `LINK_DEPTH` | wichtiges Ziel oberhalb der konfigurierten Klicktiefe | P4 |
 | `META_TITLE` | fehlender oder doppelter Titel | P3 auf wichtigen, sonst P4 |
 | `META_DESCRIPTION` | fehlende oder doppelte Beschreibung | P4 |
-| `GSC_NEAR_TOP` | 100+ Impressionen und Position 5 bis 20 | P3 |
+| `GSC_NEAR_TOP` | 100+ Impressionen und Position 5 bis 20 | P2 auf kommerziellen Seiten, sonst P3 |
 | `GSC_DECLINE` | Klickrückgang von mindestens 10 und 25 % bei vorher 20+ Klicks | P3 |
-| `GSC_CTR_REVIEW` | CTR-Rückgang ab 2 Prozentpunkten bei vergleichbarer Position | P3 |
-| `GSC_MULTI_URL` | zwei oder mehr belegte URLs für dieselbe Suchanfrage | P3 |
+| `GSC_CTR_REVIEW` | CTR-Rückgang ab 2 Prozentpunkten bei vergleichbarer Position | P2 auf kommerziellen Seiten, sonst P3 |
+| `GSC_MULTI_URL` | zwei oder mehr belegte URLs für dieselbe Suchanfrage | P4-Beobachtung |
 
 Ergebnisse sind `pass`, `finding`, `not_checked` oder `not_applicable`. Für
 `not_checked` und `not_applicable` wird immer ein Grundcode gespeichert, etwa
 `url_limit_reached`, `robots_disallowed`, `fetch_timeout`, `missing_gsc_data` oder
 `incomplete_link_graph`. Ausnahmen werden im Prüfergebnis gespeichert, unterdrücken aber
 nur die Maßnahme.
+
+GSC-Chancen und CTR-Hinweise werden im Maßnahmenplan **pro Zielseite gebündelt**.
+Kommerzielle Suchanfragen (z. B. Hochzeit, Firmenfeier, Preise, Buchung) auf
+priorisierten Seiten erhalten P2; informative Anfragen bleiben P3. Mehrfach-URLs sind
+eine **Beobachtung**: Der Plan nennt die dominante URL und den Positionsabstand, empfiehlt
+aber keine Konsolidierung allein aufgrund eines Zeitraums. Markenanfragen werden dort
+ausgeklammert.
 
 ## Fortschritt und externe Agenten
 

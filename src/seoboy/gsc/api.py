@@ -454,6 +454,7 @@ def fetch_to_directory(
     device: str | None = None,
     row_limit: int = 25_000,
     max_rows: int = MAX_ROWS,
+    append: bool = False,
 ) -> GscFetchSummary:
     token = access_token(credentials)
     folder = Path(out)
@@ -524,20 +525,46 @@ def fetch_to_directory(
         ["page", "query", "clicks", "impressions", "position"],
         query_output,
     )
+    period_entry = {
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "source_format": "gsc_api",
+        "pages": pages_name,
+        "page_queries": queries_name,
+    }
+    periods = [period_entry]
+    if append:
+        try:
+            previous_manifest = json.loads(
+                (folder / "manifest.json").read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
+            previous_manifest = {}
+        same_scope = (
+            previous_manifest.get("property") == property_name
+            and previous_manifest.get("search_type") == search_type
+            and (previous_manifest.get("country") or "") == (country or "")
+            and (previous_manifest.get("device") or "")
+            == (device.upper() if device else "")
+        )
+        if same_scope:
+            existing = previous_manifest.get("periods")
+            if isinstance(existing, list):
+                periods = [
+                    item
+                    for item in existing
+                    if isinstance(item, dict)
+                    and not (
+                        item.get("start") == period_entry["start"]
+                        and item.get("end") == period_entry["end"]
+                    )
+                ] + [period_entry]
     manifest = {
         "property": property_name,
         "search_type": search_type,
         "country": country,
         "device": device.upper() if device else None,
-        "periods": [
-            {
-                "start": start.isoformat(),
-                "end": end.isoformat(),
-                "source_format": "gsc_api",
-                "pages": pages_name,
-                "page_queries": queries_name,
-            }
-        ],
+        "periods": periods,
     }
     (folder / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",

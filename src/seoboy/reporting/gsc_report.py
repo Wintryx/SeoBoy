@@ -98,6 +98,68 @@ def segments(data: RunData) -> list[Segment]:
     return result
 
 
+def _page_totals(
+    data: RunData, dataset: dict[str, Any] | None
+) -> dict[int, dict[str, Any]]:
+    if dataset is None:
+        return {}
+    totals: dict[int, dict[str, Any]] = {}
+    for row in data.metrics.get(int(dataset["dataset_id"]), []):
+        if row["mapping_status"] != "matched" or row["url_id"] is None:
+            continue
+        url_id = int(row["url_id"])
+        item = totals.setdefault(
+            url_id,
+            {
+                "url": data.url_string(url_id),
+                "clicks": 0,
+                "impressions": 0,
+                "position_weight": 0.0,
+                "position_impressions": 0,
+            },
+        )
+        item["clicks"] += int(row["clicks"])
+        item["impressions"] += int(row["impressions"])
+        position = row["position"]
+        impressions = int(row["impressions"])
+        if position is not None and impressions:
+            item["position_weight"] += float(position) * impressions
+            item["position_impressions"] += impressions
+    for item in totals.values():
+        item["position"] = (
+            item["position_weight"] / item["position_impressions"]
+            if item["position_impressions"]
+            else None
+        )
+    return totals
+
+
+def _page_dataset(
+    data: RunData,
+    reference: dict[str, Any] | None,
+    *,
+    period_start: str | None = None,
+    period_end: str | None = None,
+) -> dict[str, Any] | None:
+    if reference is None:
+        return None
+    start = period_start or reference["period_start"]
+    end = period_end or reference["period_end"]
+    for dataset in data.datasets:
+        if dataset["grain"] != "page":
+            continue
+        if (
+            dataset["property"] == reference["property"]
+            and dataset["search_type"] == reference["search_type"]
+            and (dataset["country"] or "") == (reference["country"] or "")
+            and (dataset["device"] or "") == (reference["device"] or "")
+            and dataset["period_start"] == start
+            and dataset["period_end"] == end
+        ):
+            return dataset
+    return None
+
+
 def _segment_label(dataset: dict[str, Any]) -> str:
     return (
         f"{dataset['property']} · {dataset['search_type']} · "
@@ -150,10 +212,10 @@ def _table(header: list[str], rows: list[list[str]]) -> list[str]:
     return result
 
 
-def _page_rows(segment: Segment) -> list[dict[str, Any]]:
-    current: dict[int, dict[str, Any]] = {}
+def _page_rows(data: RunData, segment: Segment) -> list[dict[str, Any]]:
+    query_current: dict[int, dict[str, Any]] = {}
     for pair in segment.pairs:
-        item = current.setdefault(
+        item = query_current.setdefault(
             pair.url_id,
             {
                 "url": pair.url,
@@ -170,21 +232,67 @@ def _page_rows(segment: Segment) -> list[dict[str, Any]]:
         if pair.position is not None and pair.impressions:
             item["position_weight"] += pair.position * pair.impressions
             item["position_impressions"] += pair.impressions
-    previous: dict[int, tuple[int, int]] = {}
-    for pair in segment.previous_pairs:
-        clicks, impressions = previous.get(pair.url_id, (0, 0))
-        previous[pair.url_id] = (clicks + pair.clicks, impressions + pair.impressions)
-    for url_id, item in current.items():
-        item["previous_clicks"], item["previous_impressions"] = previous.get(
-            url_id, (None, None)
-        )
+    for item in query_current.values():
         item["position"] = (
             item["position_weight"] / item["position_impressions"]
             if item["position_impressions"]
             else None
         )
+
+    page_current = _page_totals(data, _page_dataset(data, segment.dataset))
+    previous_dataset = None
+    if segment.previous is not None:
+        previous_dataset = _page_dataset(
+            data,
+            segment.dataset,
+            period_start=segment.previous["period_start"],
+            period_end=segment.previous["period_end"],
+        )
+    page_previous = _page_totals(data, previous_dataset)
+    query_previous: dict[int, tuple[int, int]] = {}
+    for pair in segment.previous_pairs:
+        clicks, impressions = query_previous.get(pair.url_id, (0, 0))
+        query_previous[pair.url_id] = (clicks + pair.clicks, impressions + pair.impressions)
+
+    result: list[dict[str, Any]] = []
+    for url_id in sorted(set(query_current) | set(page_current)):
+        query_item = query_current.get(url_id, {})
+        page_item = page_current.get(url_id, {})
+        current = page_item or query_item
+        previous_page = page_previous.get(url_id, {})
+        previous_query = query_previous.get(url_id)
+        previous_clicks = (
+            previous_page.get("clicks")
+            if previous_page
+            else (previous_query[0] if previous_query else None)
+        )
+        previous_impressions = (
+            previous_page.get("impressions")
+            if previous_page
+            else (previous_query[1] if previous_query else None)
+        )
+        query_impressions = int(query_item.get("impressions", 0))
+        page_impressions = int(current.get("impressions", 0))
+        result.append(
+            {
+                "url": current.get("url") or query_item.get("url", ""),
+                "clicks": int(current.get("clicks", 0)),
+                "impressions": page_impressions,
+                "position": current.get("position"),
+                "queries": query_item.get("queries", set()),
+                "query_impressions": query_impressions,
+                "coverage": (
+                    min(1.0, query_impressions / page_impressions)
+                    if page_item and page_impressions
+                    else None
+                ),
+                "basis": "page" if page_item else "queries",
+                "previous_clicks": previous_clicks,
+                "previous_impressions": previous_impressions,
+            }
+        )
     return sorted(
-        current.values(),
+        result,
         key=lambda item: (-item["impressions"], -item["clicks"], item["url"]),
     )
 
@@ -311,6 +419,11 @@ def render_gsc_query_pages(data: RunData) -> str:
         "zugeordneten Zielseiten. Sie ergänzt die technischen Regeln um Nachfrage- und "
         "Buchungssignale. Nur Zeilen mit eindeutiger URL-Zuordnung werden ausgewertet.",
         "",
+        "Die Zielseitenübersicht nutzt die Seiten-Gesamtwerte aus dem page-Export. "
+        "Die Spalte **Abdeckung** zeigt, welcher Anteil der Seiten-Impressionen durch "
+        "die vorhandenen page_query-Zeilen erklärt wird. Beides kann sich "
+        "unterscheiden, weil die Search Console Suchanfragen anonymisiert und begrenzt.",
+        "",
     ]
     if not items:
         lines.extend(
@@ -364,7 +477,7 @@ def render_gsc_query_pages(data: RunData) -> str:
             lines.extend(["Keine zugeordneten Query-/Seitenzeilen.", ""])
             continue
 
-        pages = _page_rows(segment)
+        pages = _page_rows(data, segment)
         page_table = [
             [
                 _md(_display(data, row["url"])),
@@ -375,6 +488,11 @@ def render_gsc_query_pages(data: RunData) -> str:
                 ),
                 _format_position(row["position"]),
                 str(len(row["queries"])),
+                (
+                    "– (keine page-Daten)"
+                    if row["coverage"] is None
+                    else f"{row['coverage'] * 100:.1f} %"
+                ),
                 _format_delta(row["clicks"], row["previous_clicks"]),
             ]
             for row in pages[:15]
@@ -391,10 +509,18 @@ def render_gsc_query_pages(data: RunData) -> str:
                         "CTR",
                         "Ø Position",
                         "Anfragen",
+                        "Abdeckung",
                         "Δ Klicks",
                     ],
                     page_table,
                 ),
+                "",
+                "**Lesart:** Impressionen und Klicks stammen aus dem Seiten-Export "
+                "(Gesamtwerte der Seite). Die Abdeckung zeigt, welcher Anteil davon "
+                "durch die vorhandenen Suchanfrage-Zeilen erklärt wird; 100 % ist "
+                "wegen GSC-Anonymisierung und Zeilenlimits nicht zu erwarten. "
+                "Fehlt der Seiten-Export, werden die Suchanfrage-Zeilen summiert und "
+                "die Abdeckung als fehlend markiert.",
                 "",
             ]
         )

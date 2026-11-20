@@ -131,6 +131,22 @@ class GscApiTests(unittest.TestCase):
         self.assertEqual(manifest["periods"][0]["source_format"], "gsc_api")
         self.assertEqual(manifest["country"], "deu")
         self.assertEqual(manifest["device"], "MOBILE")
+
+        gsc_api.fetch_to_directory(
+            credentials,
+            "sc-domain:example.de",
+            gsc_api.date(2026, 9, 1),
+            gsc_api.date(2026, 9, 30),
+            out,
+            country="deu",
+            device="mobile",
+            append=True,
+        )
+        manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(manifest["periods"]), 2)
+        self.assertTrue(
+            (out / "2026-09-01_2026-09-30_pages.csv").is_file()
+        )
         page_csv = (out / "2026-10-01_2026-10-31_pages.csv").read_text(encoding="utf-8-sig")
         self.assertIn("https://example.de/", page_csv)
         self.assertIn("4.2", page_csv)

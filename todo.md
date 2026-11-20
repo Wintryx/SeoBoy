@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.19.1
+Stand: 20.11.2026, Version 0.20.0
 
 ## Priorisierung
 
@@ -29,6 +29,7 @@ Die nächsten Umsetzungsschritte mit Datenverträgen und Abnahmekriterien stehen
 | D1 | KI-Review des Gesamtaudits | Widersprüche, Datenlücken und Prioritätsfehler finden | **erledigt in 0.16.0** |
 | D2 | Keyword-Kannibalisierung | GSC- und On-Page-Evidenz statt bloßer URL-Zählung verbinden | **erledigt in 0.17.0** |
 | E1 | Fortschritt und lokale Report-Zeit | CLI/Agenten live informieren, Ordner lesbar machen | **erledigt in 0.19.0** |
+| E2 | GSC-Zahlen und Buchungsabsicht | Seitenwerte, Abdeckung, zwei Perioden, gebündelte Maßnahmen | **erledigt in 0.20.0** |
 
 ## A – Direkter Buchungsnutzen
 
@@ -224,6 +225,16 @@ Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 - **Umgesetzt:** bestehende Reports werden über `manifest.json` gefunden.
 - Grenze: ETA ist eine Schätzung aus bisherigem Fortschritt; unbekannte URL-Zahlen
   und langsame Hosts machen sie unsicher.
+
+### E2 – GSC-Zahlen und Buchungsabsicht (erledigt)
+
+- **Umgesetzt:** Zielseiten nutzen Seiten-Gesamtwerte; Suchanfragen-Abdeckung separat.
+- **Umgesetzt:** Automatischer GSC-Abruf holt standardmäßig den gleich langen Vorzeitraum.
+- **Umgesetzt:** GSC-Chancen/CTR-Hinweise pro Zielseite gebündelt.
+- **Umgesetzt:** Kommerzielle Queries auf priorisierten Seiten P2, informative P3.
+- **Umgesetzt:** Mehrfach-URLs als P4-Beobachtung mit dominanter URL und Positionsabstand.
+- **Umgesetzt:** Markenanfragen aus der Mehrfach-URL-Regel ausgeklammert.
+- Grenze: Die Intent-Erkennung ist eine Termheuristik, keine semantische Klassifikation.
 
 ## Erledigt
 

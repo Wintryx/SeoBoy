@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.19.1:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.20.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -259,6 +259,11 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
 - Die Audit-Review nutzt standardmäßig Thinking disabled/none für zuverlässiges JSON;
   Reasoning-Stufen sind über .env oder CLI konfigurierbar.
 - Antworten sind Momentaufnahmen und keine Rankings.
+- GSC-Zielseitenwerte stammen aus dem Seiten-Export; die Abdeckung durch
+  Suchanfrage-Zeilen wird separat ausgewiesen. Automatische Abrufe holen standardmäßig
+  den gleich langen Vorzeitraum mit.
+- GSC-Chancen werden pro Zielseite gebündelt; Mehrfach-URLs bleiben Beobachtungen mit
+  dominanter URL und Positionsabstand, keine automatische Konsolidierungsempfehlung.
 - Lange Läufe senden Fortschritt auf stderr; `--progress json` liefert JSONL
   mit Phase, Zähler, Prozent und ETA für externe Agenten.
 - Report-Ordner verwenden lokale Zeit und keinen Run-ID-Hash; Kollisionen werden

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Any
+from urllib.parse import urlsplit
 
 from seoboy.analysis.audit_data import RunData
 from seoboy.gsc.importer import select_comparison_periods
@@ -17,6 +19,20 @@ GSC_RULES = (
     "GSC_CTR_REVIEW",
     "GSC_MULTI_URL",
 )
+TOKEN_RE = re.compile(r"[a-z0-9äöüß]+")
+
+
+def _brand_terms(data: RunData) -> frozenset[str]:
+    host = (urlsplit(data.config.start_url).hostname or "").casefold()
+    return frozenset(part for part in re.split(r"[.\-]", host) if part)
+
+
+def _is_brand_query(query: str, brands: frozenset[str]) -> bool:
+    tokens = set(TOKEN_RE.findall(query.casefold()))
+    meaningful = {
+        value for value in brands if len(value) >= 3 and value not in {"www", "com", "de"}
+    }
+    return bool(meaningful) and meaningful.issubset(tokens)
 
 
 @dataclass(frozen=True)
@@ -623,24 +639,35 @@ def _multi_url(
 ) -> list[RuleResult]:
     results: list[RuleResult] = []
     thresholds = data.config.gsc
+    brands = _brand_terms(data)
     by_query: dict[str, list[Metric]] = {}
+    had_query_rows = False
     for metric in _metrics(data, latest):
-        if metric.query:
+        if not metric.query:
+            continue
+        had_query_rows = True
+        if not _is_brand_query(metric.query, brands):
             by_query.setdefault(metric.query, []).append(metric)
     if not by_query:
-        results.append(
-            _segment_unchecked(
-                "GSC_MULTI_URL",
-                latest,
-                "missing_gsc_data",
-                {"summary": "Keine zugeordneten URL-Suchanfrage-Zeilen"},
+        if not had_query_rows:
+            results.append(
+                _segment_unchecked(
+                    "GSC_MULTI_URL",
+                    latest,
+                    "missing_gsc_data",
+                    {"summary": "Keine zugeordneten URL-Suchanfrage-Zeilen"},
+                )
             )
-        )
         return results
     for query, metrics in sorted(by_query.items()):
         significant = [
             metric for metric in metrics if metric.impressions >= thresholds.multi_url_min_impressions
         ]
+        significant.sort(key=lambda metric: (-metric.impressions, metric.position or 999))
+        positions = [
+            metric.position for metric in significant if metric.position is not None
+        ]
+        dominant = significant[0] if significant else None
         subject = _subject(latest, query=query)
         facts = {
             "summary": (
@@ -651,6 +678,11 @@ def _multi_url(
             "grain": latest["grain"],
             "period_start": latest["period_start"],
             "period_end": latest["period_end"],
+            "dominant_url": dominant.url if dominant is not None else None,
+            "dominant_position": dominant.position if dominant is not None else None,
+            "position_gap": (
+                max(positions) - min(positions) if len(positions) >= 2 else None
+            ),
             "urls": [
                 {
                     "url": metric.url,

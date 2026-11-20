@@ -180,6 +180,12 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
         default=28,
         help="Zeitraum in Tagen, wenn kein Startdatum gesetzt ist (Standard: 28)",
     )
+    run.add_argument(
+        "--gsc-compare",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="beim automatischen Abruf zusätzlich den gleich langen Vorzeitraum holen",
+    )
     run.add_argument("--resume", metavar="LAUF-ID", help="Pausierten Lauf fortsetzen")
     _add_progress_options(run)
     run.add_argument(
@@ -589,10 +595,37 @@ def main(argv: list[str] | None = None) -> int:
                                 Path(temporary_gsc.name),
                             )
                             gsc_dir = Path(temporary_gsc.name)
+                            compared = False
+                            if args.gsc_compare:
+                                previous_end = start - timedelta(days=1)
+                                previous_start = previous_end - timedelta(
+                                    days=(end - start).days
+                                )
+                                try:
+                                    gsc_api.fetch_to_directory(
+                                        credentials,
+                                        property_name,
+                                        previous_start,
+                                        previous_end,
+                                        Path(temporary_gsc.name),
+                                        append=True,
+                                    )
+                                    compared = True
+                                except GscApiError as error:
+                                    print(
+                                        "Hinweis: GSC-Vorzeitraum nicht geladen: "
+                                        f"{error}",
+                                        file=sys.stderr,
+                                    )
                             print(
                                 f"GSC-API: {summary.pages} Seitenzeilen, "
                                 f"{summary.queries} Suchanfrage-Zeilen "
-                                f"({summary.period_start} bis {summary.period_end})."
+                                f"({summary.period_start} bis {summary.period_end})"
+                                + (
+                                    " inkl. gleich langem Vorzeitraum."
+                                    if compared
+                                    else "."
+                                )
                             )
                         except GscApiError as error:
                             print(

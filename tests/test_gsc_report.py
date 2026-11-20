@@ -11,7 +11,18 @@ from seoboy.application import runner
 from tests.support import FixtureSite, make_config
 
 
-def write_gsc(directory: Path, base: str, start: str, end: str, clicks: int, impressions: int, position: float) -> None:
+def write_gsc(
+    directory: Path,
+    base: str,
+    start: str,
+    end: str,
+    clicks: int,
+    impressions: int,
+    position: float,
+    *,
+    page_impressions: int | None = None,
+    query_impressions: int | None = None,
+) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "manifest.json").write_text(
         json.dumps(
@@ -33,14 +44,16 @@ def write_gsc(directory: Path, base: str, start: str, end: str, clicks: int, imp
         ),
         encoding="utf-8",
     )
+    page_impr = impressions if page_impressions is None else page_impressions
+    query_impr = impressions if query_impressions is None else query_impressions
     (directory / "pages.csv").write_text(
         "page,clicks,impressions,position\n"
-        f"{base}/,{clicks},{impressions},{position}\n",
+        f"{base}/,{clicks},{page_impr},{position}\n",
         encoding="utf-8",
     )
     (directory / "queries.csv").write_text(
         "page,query,clicks,impressions,position\n"
-        f"{base}/,seo,{clicks},{impressions},{position}\n",
+        f"{base}/,seo,{clicks},{query_impr},{position}\n",
         encoding="utf-8",
     )
 
@@ -70,6 +83,30 @@ class GscReportTests(unittest.TestCase):
             self.assertEqual(rows[0]["status"], "common")
             self.assertEqual(rows[0]["clicks_delta"], "-5")
             self.assertEqual(rows[0]["previous_run_id"], first_outcome.run_id)
+
+    def test_page_totals_and_query_coverage_are_distinct(self):
+        with tempfile.TemporaryDirectory() as tmp, FixtureSite() as site:
+            site.add_html("/", "Start", "<h1>Start</h1>")
+            config = make_config(Path(tmp), site.base)
+            gsc = Path(tmp) / "gsc"
+            write_gsc(
+                gsc,
+                site.base,
+                "2026-10-01",
+                "2026-10-31",
+                10,
+                100,
+                8.0,
+                page_impressions=120,
+                query_impressions=80,
+            )
+            outcome = runner.run_project(config, gsc)
+            text = (outcome.report_dir / "04_GSC_QUERY_PAGES.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("120", text)
+            self.assertIn("66.7 %", text)
+            self.assertIn("Abdeckung", text)
 
     def test_page_only_gsc_writes_query_report_note(self):
         with tempfile.TemporaryDirectory() as tmp, FixtureSite() as site:

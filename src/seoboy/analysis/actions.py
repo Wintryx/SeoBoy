@@ -39,6 +39,41 @@ P2_RULES = {
     "SITEMAP_TARGET",
     "LINK_BROKEN",
 }
+GSC_QUERY_RULES = {
+    "GSC_NEAR_TOP",
+    "GSC_DECLINE",
+    "GSC_CTR_REVIEW",
+    "GSC_MULTI_URL",
+}
+GSC_BUNDLE_RULES = {"GSC_NEAR_TOP", "GSC_CTR_REVIEW"}
+COMMERCIAL_TERMS = (
+    "dj",
+    "hochzeit",
+    "firmenfeier",
+    "geburtstag",
+    "karneval",
+    "buchen",
+    "buchung",
+    "preis",
+    "kosten",
+    "miete",
+    "mieten",
+    "verleih",
+    "vermietung",
+    "angebot",
+    "kontakt",
+)
+INFORMATIONAL_TERMS = (
+    "pdf",
+    "anleitung",
+    "bau",
+    "selber",
+    "selbst",
+    "plan",
+    "skizze",
+    "schaltplan",
+    "grundlagen",
+)
 
 
 @dataclass
@@ -111,6 +146,43 @@ def _facts(findings: list[RuleResult]) -> dict[str, Any]:
     return {}
 
 
+def _query_facts(findings: list[RuleResult]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for finding in findings:
+        facts = _facts([finding])
+        query = facts.get("query")
+        if query:
+            rows.append(facts)
+    return rows
+
+
+def _booking_intent(findings: list[RuleResult]) -> bool:
+    facts_rows = _query_facts(findings)
+    text = " ".join(
+        str(row.get("query") or row.get("page") or "") for row in facts_rows
+    ).casefold()
+    if not text:
+        return False
+    return any(term in text for term in COMMERCIAL_TERMS) and not any(
+        term in text for term in INFORMATIONAL_TERMS
+    )
+
+
+def _bundle_query_findings(
+    data: RunData, groups: dict[tuple[str, str, str], list[RuleResult]]
+) -> dict[tuple[str, str, str], list[RuleResult]]:
+    bundled: dict[tuple[str, str, str], list[RuleResult]] = {}
+    for (rule_id, fix_kind, _group_key), findings in groups.items():
+        if rule_id not in GSC_BUNDLE_RULES:
+            bundled[(rule_id, fix_kind, _group_key)] = findings
+            continue
+        page = _primary_url(data, findings)
+        scope = findings[0].scope_key if findings else ""
+        key = (rule_id, fix_kind, f"page:{page}|{scope}")
+        bundled.setdefault(key, []).extend(findings)
+    return bundled
+
+
 def _cause_counts(results: list[RuleResult]) -> dict[tuple[str, str], set[int]]:
     counts: dict[tuple[str, str], set[int]] = {}
     for result in results:
@@ -155,7 +227,11 @@ def _priority(
         and (important or cause_count >= 3)
     ):
         return 2
-    if rule_id == "GSC_NEAR_TOP" or rule_id == "GSC_DECLINE" or rule_id == "GSC_CTR_REVIEW" or rule_id == "GSC_MULTI_URL":
+    if rule_id in GSC_QUERY_RULES:
+        if rule_id == "GSC_MULTI_URL":
+            return 4
+        if important and _booking_intent(findings):
+            return 2
         return 3
     if rule_id == "LINK_ORPHAN_CANDIDATE":
         return 3
@@ -170,6 +246,48 @@ def _priority(
     return 3
 
 
+def _bundle_texts(
+    data: RunData, rule_id: str, findings: list[RuleResult]
+) -> tuple[str, str, str, str]:
+    rows = sorted(
+        _query_facts(findings),
+        key=lambda row: (-int(row.get("impressions") or 0), str(row.get("query"))),
+    )
+    page = _display(data, _primary_url(data, findings))
+    impressions = sum(int(row.get("impressions") or 0) for row in rows)
+    clicks = sum(int(row.get("clicks") or 0) for row in rows)
+    weighted = [
+        (float(row["position"]), int(row.get("impressions") or 0))
+        for row in rows
+        if row.get("position") is not None and int(row.get("impressions") or 0)
+    ]
+    position = (
+        sum(value * weight for value, weight in weighted)
+        / sum(weight for _value, weight in weighted)
+        if weighted
+        else None
+    )
+    labels = [f"»{truncate(str(row.get('query')), 60)}«" for row in rows[:3]]
+    if len(rows) > 3:
+        labels.append(f"u. a. {len(rows) - 3} weitere")
+    query_text = ", ".join(labels)
+    metrics = f"{impressions} Impressionen, {clicks} Klicks"
+    if position is not None:
+        metrics += f", Ø Position {position:.1f}"
+    title = f"Suchchancen auf {page}: {len(rows)} Suchanfragen bündeln"
+    fix = (
+        f"{metrics}: {query_text} nach Suchintention trennen und Title, Snippet "
+        "sowie interne Verlinkung der Zielseite darauf ausrichten."
+    )
+    return (
+        title,
+        fix,
+        "Weniger doppelte Prüfaufträge und eine klare Seitenpriorität.",
+        "Im nächsten GSC-Zeitraum Impressionen, Klicks und Positionen der gebündelten "
+        "Suchanfragen gemeinsam vergleichen.",
+    )
+
+
 def _texts(
     data: RunData,
     rule_id: str,
@@ -177,6 +295,8 @@ def _texts(
     findings: list[RuleResult],
     infos: list[UrlInfo],
 ) -> tuple[str, str, str, str]:
+    if len(findings) > 1 and rule_id in GSC_BUNDLE_RULES:
+        return _bundle_texts(data, rule_id, findings)
     facts = _facts(findings)
     primary = _display(data, _primary_url(data, findings))
     if fix_kind == "broken_link":
@@ -329,11 +449,22 @@ def _texts(
         )
     if rule_id == "GSC_MULTI_URL":
         query = facts.get("query") or ""
+        dominant = facts.get("dominant_url")
+        gap = facts.get("position_gap")
+        details = []
+        if dominant:
+            details.append(f"dominante URL: {_display(data, str(dominant))}")
+        if isinstance(gap, (int, float)):
+            details.append(f"Positionsabstand: {gap:.1f}")
+        detail_text = f" ({'; '.join(details)})" if details else ""
         return (
-            f"Mehrfach-URLs für Suchanfrage »{truncate(query, 80)}« prüfen",
-            "Kandidaten auf Kannibalisierung prüfen und auf eine klare Zielseite konsolidieren.",
-            "Klarere Zielseite je Suchintention.",
-            "URLs für die Suchanfrage im nächsten GSC-Export vergleichen.",
+            f"Mehrfach-URLs für »{truncate(query, 80)}« beobachten",
+            "Dominante URL und Positionsdifferenz beobachten. Keine Konsolidierung "
+            "allein aufgrund eines Zeitraums; erst bei wiederholter, wechselnder "
+            f"führender URL und gleicher Suchintention eingreifen{detail_text}.",
+            "Beobachtung statt vorschneller Konsolidierung.",
+            "Im nächsten GSC-Zeitraum prüfen, ob dieselbe URL führt und ob die "
+            "Positionsdifferenz bleibt.",
         )
     return (
         f"Befund {rule_id} auf {primary} prüfen",
@@ -344,7 +475,7 @@ def _texts(
 
 
 def build_actions(data: RunData, results: list[RuleResult]) -> list[ActionDraft]:
-    groups = _group_findings(results)
+    groups = _bundle_query_findings(data, _group_findings(results))
     cause_counts = _cause_counts(results)
     drafts: list[ActionDraft] = []
     for (rule_id, fix_kind, group_key), findings in groups.items():
