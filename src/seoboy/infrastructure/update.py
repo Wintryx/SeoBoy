@@ -129,9 +129,13 @@ def _upstream(repo: Path) -> str:
 def check_for_update(repo: Path | str | None = None) -> UpdateStatus:
     root = find_repo_root(repo)
     _git(root, "rev-parse", "--show-toplevel")
-    _git(root, "fetch", "--prune", timeout=90)
     branch = _branch(root)
     upstream = _upstream(root)
+    if not _git(root, "remote"):
+        raise UpdateError(
+            "Kein Git-Remote konfiguriert. Beispiel: git remote add origin <url>"
+        )
+    _git(root, "fetch", "--prune", timeout=90)
     current_commit = _git(root, "rev-parse", "HEAD")
     target_commit = _git(root, "rev-parse", "@{u}")
     counts = _git(root, "rev-list", "--left-right", "--count", "HEAD...@{u}").split()
