@@ -5,7 +5,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: MVP 0.4.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: MVP 0.5.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 optionalem GSC-CSV-Import, technischen Kernregeln, Unterseiten-Inhaltsanalyse,
 Wettbewerbsbenchmark, Markdown-/CSV-Berichten, Audit-Diff und einem Batch-Modus für
 mehrere Projekte. Der Audit arbeitet ausschließlich lesend.
@@ -15,6 +15,7 @@ mehrere Projekte. Der Audit arbeitet ausschließlich lesend.
 - HTTP-Crawl mit robots.txt, XML-Sitemaps, Sitemap-Indizes, internen Links und Redirects
 - Parallele Seitenabrufe mit globalem Worker-Pool, Host-Limit und Mindestabstand
 - Batch-Modus für mehrere Projekte mit getrennten SQLite-Datenbanken
+- Sicherer Git-basierter CLI-Updater mit Prüfung, Fast-Forward, Smoke-Test und Rollback
 - URL-Normalisierung mit stabilen Identitäten und nachvollziehbaren Herkunftsarten
 - Budgets für URLs, Anfragen und Laufzeit; Wiederaufnahme nach Pause oder Abbruch
 - Wiederholungen bei 429, 5xx und Timeouts, inklusive Retry-After
@@ -49,6 +50,35 @@ python -m venv .venv
 Für einen Lauf ohne Installation im Quellbaum kann `$env:PYTHONPATH = ".\src"` gesetzt
 und `python -m seoboy ...` verwendet werden. Die Tests brauchen nur die Standardbibliothek
 und PyYAML.
+
+## CLI aktualisieren
+
+SeoBoy aktualisiert sich aus dem lokalen Git-Checkout:
+
+```powershell
+seoboy update --check
+seoboy update --apply
+```
+
+`--check` ruft den Upstream ab und zeigt Version, Commit, Branch und den Abstand zum
+Remote. `--apply` führt ausschließlich einen Fast-Forward aus, installiert das Paket
+anschließend mit `pip install -e .` und prüft `seoboy --version` in einem neuen Prozess.
+
+Voraussetzungen und Sicherheitsregeln:
+
+- Der Checkout benötigt einen Git-Branch mit konfiguriertem Upstream.
+- Lokale Änderungen oder untracked Dateien blockieren das Update.
+- Divergierte Branches werden nicht automatisch zusammengeführt.
+- Schlägt Installation oder Smoke-Test fehl, wird der alte Commit wiederhergestellt.
+- `--no-install` überspringt die Neuinstallation für extern verwaltete Umgebungen.
+- Auf Windows mit aktivem `seoboy.exe` die Neuinstallation über
+  `python -m seoboy update --apply` starten oder `--no-install` verwenden.
+- Nicht während eines laufenden Audits aktualisieren.
+- Datenbankmigrationen laufen beim nächsten normalen SeoBoy-Befehl.
+- Ohne konfigurierten Upstream meldet der Updater einen Fehler; dann zuerst
+  `git branch --set-upstream-to=origin/main` setzen.
+- Der Updater ist für Git-Checkouts gedacht. Bei einer Wheel-/PyPI-Installation wird
+  stattdessen `pip install --upgrade seoboy` verwendet.
 
 ## Lokale Umgebung (.env)
 
@@ -363,8 +393,9 @@ dann als behoben, wenn die Quellseite im Ziellauf vollständig ausgewertet wurde
 Die Tests decken URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter und -Import, den vollständigen Crawl, Limits, Wiederholungen,
 Redirect-Schleifen, Wiederaufnahme, Parallelität, Batch-Läufe, Unterseitenanalyse,
-Wettbewerbsbenchmark, Einzel-URL-Prüfung, Ausnahmen, Berichte und den Lauf-Vergleich ab.
-Sie verwenden einen lokalen HTTP-Server und benötigen kein Netzwerk.
+Wettbewerbsbenchmark, Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich
+und den Git-Updater ab. Sie verwenden einen lokalen HTTP-Server und benötigen kein Netzwerk;
+die Updater-Tests nutzen lokale Git-Repositories.
 
 ## Projektstruktur
 
@@ -400,6 +431,7 @@ src/seoboy/
     database.py                SQLite und Migrationen
     env.py                     optionales Laden der .env
     lock.py                    exklusive Datenbanksperre
+    update.py                  Git-basierter CLI-Updater
   reporting/
     run_report.py              Markdown-/CSV-Berichte
     page_analysis.py           Unterseiten- und Inhaltsanalyse

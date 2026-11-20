@@ -6,10 +6,10 @@ Spezifikationen, ersetzt sie aber nicht.
 ## Zweck und Status
 
 SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist der MVP
-0.4.0: paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
+0.5.0: paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import,
-Maßnahmenpriorisierung, Markdown-/CSV-Berichte, Audit-Diff und ein Batch-Modus für
-mehrere Projekte.
+Maßnahmenpriorisierung, Markdown-/CSV-Berichte, Audit-Diff, ein Batch-Modus für mehrere
+Projekte und ein Git-basierter CLI-Updater.
 
 ## Nicht verhandelbare Regeln
 
@@ -59,6 +59,7 @@ unnötiger Aufwand.
 | `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich |
 | `src/seoboy/application/runner.py` | run/resume/inspect/report/diff, Batch und Benchmark |
 | `src/seoboy/infrastructure/env.py` | Optionales Laden von `.env` |
+| `src/seoboy/infrastructure/update.py` | Git-basierter CLI-Updater mit Rollback |
 | `migrations/001_initial.sql` | SQLite-Schema |
 
 Die verbindlichen Anforderungen stehen in:
@@ -89,8 +90,8 @@ Die Tests benötigen nur die Standardbibliothek und PyYAML. Im Quellbaum kann
 Die Suite deckt URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter/-Import, Crawl, Limits, Retries, Redirect-Schleifen, Resume,
 Parallelität, Batch-Läufe, Unterseitenanalyse, Wettbewerbsbenchmark, Einzel-URL-Prüfung,
-Ausnahmen, Berichte und Diff ab. Sie nutzt einen lokalen HTTP-Server und benötigt kein
-Internet.
+Ausnahmen, Berichte, Diff und den Git-Updater ab. Sie nutzt einen lokalen HTTP-Server,
+lokale Git-Repositories und benötigt kein Internet.
 
 ## Lokale .env
 
@@ -141,6 +142,10 @@ Nur nach ausdrücklicher Freigabe und ausschließlich lesend. Empfohlen:
 5. Bei Benutzer-sichtbaren Änderungen README/AGENTS.md aktualisieren.
 6. Nur notwendige Dateien stagen; lokale Daten und `.env` ausschließen.
 7. Änderungen in kleinen, logischen Schritten committen; Commit-Nachrichten auf Englisch.
+8. Updates nur über `seoboy update` aus einem sauberen Git-Checkout mit Upstream;
+   keine manuellen Fast-Forwards oder Installationen in laufende Audits hinein.
+   Auf Windows die Neuinstallation bevorzugt mit `python -m seoboy update --apply`
+   starten, damit der laufende `seoboy.exe`-Launcher nicht blockiert.
 
 ## Entscheidungsregel
 
@@ -194,4 +199,6 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   eigenen Adapter mit klarer Abhängigkeitsrichtung laufen.
 - Keine GSC-API, kein Playwright-Rendering, keine vollständigen Wettbewerber-Audits,
   keine Local-SEO-/GEO-Module.
+- Der CLI-Updater setzt einen Git-Checkout mit Upstream voraus; Wheel-/PyPI-Installationen
+  werden mit pip aktualisiert.
 - Kein globaler SEO-Score; Priorisierung erfolgt über P1–P4 und Evidenz.
