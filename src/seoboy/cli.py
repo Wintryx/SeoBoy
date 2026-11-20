@@ -49,6 +49,7 @@ from seoboy.ai.review import (
     run_ai_review,
     write_ai_review,
 )
+from seoboy.monitoring.monitor import run_monitor_check
 from seoboy.reporting.run_report import (
     find_report_dir,
     load_report_data,
@@ -470,6 +471,19 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     update.add_argument(
         "--repo", type=Path, help="Pfad zum SeoBoy-Git-Checkout"
     )
+
+    monitor = commands.add_parser(
+        "monitor", help="Wichtige URLs leichtgewichtig überwachen"
+    )
+    monitor_commands = monitor.add_subparsers(dest="monitor_command", required=True)
+    monitor_check = monitor_commands.add_parser(
+        "check", help="Konfigurierte wichtige URLs einmal prüfen"
+    )
+    monitor_check.add_argument("--config", type=Path, default=default_config)
+    monitor_check.add_argument(
+        "--url", action="append", default=[], help="Explizite URL; mehrfach angebbar"
+    )
+    monitor_check.add_argument("--timeout", type=float, default=15.0)
 
     inspect = commands.add_parser("inspect", help="Einzelne URL prüfen")
     inspect.add_argument("url", help="Zu prüfende URL")
@@ -1216,6 +1230,24 @@ def main(argv: list[str] | None = None) -> int:
                 force=True,
             )
             print(f"Wettbewerbsvergleich geschrieben: {folder}")
+            return 0
+        if args.command == "monitor":
+            config = _load(args.config)
+            migrate_database(config.database)
+            connection = connect(config.database)
+            try:
+                folder, checks = run_monitor_check(
+                    connection,
+                    config,
+                    urls=args.url,
+                    timeout=args.timeout,
+                )
+            finally:
+                connection.close()
+            confirmed = sum(1 for check in checks if check.state == "confirmed")
+            suspect = sum(1 for check in checks if check.state == "suspect")
+            print(f"Monitor: {len(checks)} URLs, {suspect} verdächtig, {confirmed} bestätigt")
+            print(f"Status: {folder}")
             return 0
         if args.command == "inspect":
             config = _load(args.config)

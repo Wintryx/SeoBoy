@@ -297,6 +297,14 @@ def _page_rows(data: RunData, segment: Segment) -> list[dict[str, Any]]:
     )
 
 
+def latest_page_rows(data: RunData) -> list[dict[str, Any]]:
+    """Return landing-page metrics from the latest page_query segment."""
+    items = segments(data)
+    if not items:
+        return []
+    return _page_rows(data, items[0])
+
+
 def _query_rows(segment: Segment) -> list[dict[str, Any]]:
     current: dict[str, dict[str, Any]] = {}
     for pair in segment.pairs:

@@ -16,6 +16,7 @@ from seoboy.infrastructure.config import ProjectConfig
 from seoboy.analysis.rules import RULE_VERSIONS
 from seoboy.gsc.inspection_store import load_inspections, write_url_inspection_report
 from seoboy.reporting.gsc_history import write_gsc_history_report
+from seoboy.reporting.overview import write_project_overview
 from seoboy.reporting.cannibalization import write_cannibalization_report
 from seoboy.reporting.gsc_report import write_gsc_query_report
 from seoboy.reporting.page_analysis import render_page_analysis, write_page_analysis_csv
@@ -503,6 +504,7 @@ def render_run_report(
         ),
     )
     _write_text(folder / "01_ACTION_PLAN_PRIORITIZED.md", _action_plan(report, coverage, wins))
+    write_project_overview(folder, report)
     _write_text(
         folder / "02_TECHNICAL_SEO_AUDIT.md",
         _technical_audit(
@@ -559,6 +561,7 @@ def render_run_report(
             for item in data.source_imports
         ],
         "files": [
+            "PROJECT_OVERVIEW.html",
             "00_EXECUTIVE_SUMMARY.md",
             "01_ACTION_PLAN_PRIORITIZED.md",
             "02_TECHNICAL_SEO_AUDIT.md",
@@ -705,6 +708,7 @@ def _executive_summary(
             "",
             "## Berichte",
             "",
+            "- [Projektübersicht (HTML)](PROJECT_OVERVIEW.html)",
             "- [Maßnahmenplan](01_ACTION_PLAN_PRIORITIZED.md)",
             "- [Technischer Audit](02_TECHNICAL_SEO_AUDIT.md)",
             "- [Unterseiten- und Inhaltsanalyse](03_PAGE_ANALYSIS.md)",

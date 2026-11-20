@@ -51,7 +51,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("existiert bereits", error)
         code, output, error = run_cli(["migrate", "--config", str(config_path)])
         self.assertEqual(code, 0, error)
-        self.assertIn("SQLite-Schema 3", output)
+        self.assertIn("SQLite-Schema 4", output)
         self.assertTrue((self.directory / "data" / "seoboy.db").is_file())
 
     def test_gsc_auth_cli(self):

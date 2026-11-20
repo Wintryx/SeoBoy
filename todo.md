@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.20.0
+Stand: 20.11.2026, Version 0.21.0
 
 ## Priorisierung
 
@@ -30,6 +30,7 @@ Die nächsten Umsetzungsschritte mit Datenverträgen und Abnahmekriterien stehen
 | D2 | Keyword-Kannibalisierung | GSC- und On-Page-Evidenz statt bloßer URL-Zählung verbinden | **erledigt in 0.17.0** |
 | E1 | Fortschritt und lokale Report-Zeit | CLI/Agenten live informieren, Ordner lesbar machen | **erledigt in 0.19.0** |
 | E2 | GSC-Zahlen und Buchungsabsicht | Seitenwerte, Abdeckung, zwei Perioden, gebündelte Maßnahmen | **erledigt in 0.20.0** |
+| E3 | Projektübersicht und URL-Monitor | Offline-HTML, leichte Checks, Bestätigung und Recovery | **erledigt in 0.21.0** |
 
 ## A – Direkter Buchungsnutzen
 
@@ -235,6 +236,17 @@ Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 - **Umgesetzt:** Mehrfach-URLs als P4-Beobachtung mit dominanter URL und Positionsabstand.
 - **Umgesetzt:** Markenanfragen aus der Mehrfach-URL-Regel ausgeklammert.
 - Grenze: Die Intent-Erkennung ist eine Termheuristik, keine semantische Klassifikation.
+
+### E3 – Projektübersicht und URL-Monitor (erledigt)
+
+- **Umgesetzt:** `PROJECT_OVERVIEW.html` neben den Markdown-Berichten.
+- **Umgesetzt:** Top-3-Maßnahmen, Buchungsseiten, GSC-Werte, Abdeckung und Änderungsnotizen.
+- **Umgesetzt:** Offline-HTML ohne externe Assets, mit sicherem Escaping und optionalen Filtern.
+- **Umgesetzt:** Schema 4 mit `monitor_observations` und `monitor_events`.
+- **Umgesetzt:** `seoboy monitor check` prüft wichtige Seiten oder explizite URLs lesend.
+- **Umgesetzt:** Zwei Fehlmessungen bestätigen, erfolgreicher Check markiert Recovery.
+- **Umgesetzt:** Netzwerkfehler/429 bleiben `not_checked` und bestätigen kein Ereignis.
+- Grenze: Monitor läuft nur bei manueller/externer Planung, nicht als 24/7-Dienst.
 
 ## Erledigt
 

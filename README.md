@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.20.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.21.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -43,6 +43,8 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - Budgetiertes GEO-Sampling über DeepSeek mit Marken-/Zitat-Auswertung
 - Beratende KI-Review des Gesamtaudits mit Evidenzprüfung und Cache
 - Keyword-Kannibalisierung aus GSC- und On-Page-Evidenz
+- Offline-Projektübersicht als `PROJECT_OVERVIEW.html`
+- Leichter URL-Monitor mit Bestätigung und Wiederherstellungserkennung
 - Priorisierte Maßnahmen (P1 bis P4), Quick Wins und Evidenz je Befund
 - Markdown-Berichte, CSV-Rohdaten und Manifest je Lauf
 - Vergleich zweier Läufe mit den Zuständen neu, erstmals beobachtet, fortbestehend,
@@ -824,6 +826,28 @@ Beispiel:
 Die ETA ist eine grobe Schätzung aus bisherigen Fortschritten. Sie ist bei
 unbekanntem URL-Bestand, langsameren Hosts oder Pausen entsprechend unsicher.
 Fortschritt wird gedrosselt, damit weder Terminal noch Agent unnötig geflutet werden.
+
+## Projektübersicht und URL-Monitor
+
+Jeder Lauf schreibt zusätzlich `PROJECT_OVERVIEW.html`: eine offline lesbare Übersicht
+mit den drei wichtigsten offenen Maßnahmen, den Buchungs-/wichtigen Seiten, GSC-Werten,
+Abdeckung, URL-Monitor-Ereignissen und `changes.csv`-Notizen. Die Datei benötigt keine
+externen Assets und funktioniert ohne JavaScript; Filter blenden nur lokale Tabellenzeilen
+aus.
+
+Der leichte Monitor prüft konfigurierte wichtige Seiten ohne vollständigen Crawl:
+
+```powershell
+seoboy monitor check --config local/aw-audio/seoboy.yaml
+seoboy monitor check --config local/aw-audio/seoboy.yaml --url https://aw-audio.de/kontakt/
+```
+
+Ohne `--url` werden die wichtigen Seiten des jüngsten abgeschlossenen Audits geprüft.
+Zwei vergleichbare verdächtige Messungen bestätigen ein Ereignis; ein späterer
+erfolgreicher Check markiert es als `recovered`. Netzwerkfehler und 429 bleiben
+`not_checked` und bestätigen kein Ereignis. Ausgabe:
+`reports/monitor/MONITOR_STATUS.md` und `reports/monitor/raw_data/monitor_events.csv`.
+Der Monitor ist lesend und respektiert robots.txt.
 
 ## Berichte
 

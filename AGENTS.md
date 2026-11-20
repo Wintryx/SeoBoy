@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.20.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.21.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -66,6 +66,8 @@ unnötiger Aufwand.
 | `src/seoboy/reporting/gsc_history.py` | GSC-Verlauf über mehrere Läufe |
 | `src/seoboy/reporting/diff_report.py` | Vergleich zweier Läufe |
 | `src/seoboy/reporting/cannibalization.py` | Keyword-Kannibalisierung aus GSC und On-Page |
+| `src/seoboy/reporting/overview.py` | Offline-Projektübersicht `PROJECT_OVERVIEW.html` |
+| `src/seoboy/monitoring/monitor.py` | Leichter URL-Monitor mit Bestätigung und Recovery |
 | `src/seoboy/benchmark/sampler.py` | robots-konforme Stichprobe und sitemapweiter Modus |
 | `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich, TF-IDF und Begriffskandidaten |
 | `src/seoboy/local_seo/audit.py` | Standort-, NAP-, Profil- und Local-Result-Prüfung |
@@ -80,6 +82,7 @@ unnötiger Aufwand.
 | `migrations/001_initial.sql` | SQLite-Basisschema |
 | `migrations/002_url_inspections.sql` | persistente URL-Inspection-Ergebnisse |
 | `migrations/003_action_statuses.sql` | Maßnahmenstatus und Verlauf |
+| `migrations/004_monitor.sql` | URL-Monitor-Beobachtungen und Ereignisse |
 
 Die verbindlichen Anforderungen stehen in:
 - `docs/01_architektur_und_techstack_md.md`
@@ -264,6 +267,10 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   den gleich langen Vorzeitraum mit.
 - GSC-Chancen werden pro Zielseite gebündelt; Mehrfach-URLs bleiben Beobachtungen mit
   dominanter URL und Positionsabstand, keine automatische Konsolidierungsempfehlung.
+- `PROJECT_OVERVIEW.html` wird aus bestehenden Laufdaten erzeugt, ist offline lesbar
+  und maskiert Website-/CSV-Texte.
+- Der URL-Monitor prüft nur lesend, bestätigt Ereignisse nach zwei vergleichbaren
+  Fehlmessungen und markiert Recovery. Netzwerkfehler und 429 bestätigen nichts.
 - Lange Läufe senden Fortschritt auf stderr; `--progress json` liefert JSONL
   mit Phase, Zähler, Prozent und ETA für externe Agenten.
 - Report-Ordner verwenden lokale Zeit und keinen Run-ID-Hash; Kollisionen werden
