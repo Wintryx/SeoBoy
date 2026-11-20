@@ -5,7 +5,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.6.1 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.6.2 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -554,6 +554,7 @@ src/seoboy/
     database.py                SQLite und Migrationen
     env.py                     optionales Laden der .env
     lock.py                    exklusive Datenbanksperre
+    doctor.py                  Systemcheck ohne KI-Agent
     update.py                  Git-basierter CLI-Updater
   reporting/
     run_report.py              Markdown-/CSV-Berichte

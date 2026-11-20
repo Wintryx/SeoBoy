@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten
 
-Stand: 20.11.2026, Version 0.6.1
+Stand: 20.11.2026, Version 0.6.2
 
 ## Erledigt
 
