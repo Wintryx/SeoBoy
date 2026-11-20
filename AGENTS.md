@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.13.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.14.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -47,7 +47,7 @@ unnötiger Aufwand.
 | `src/seoboy/crawl/http_client.py` | HTTP ohne Redirect-Verfolgung, begrenzte Reads |
 | `src/seoboy/shared/robots.py` | robots.txt-Parser und Googlebot-Auswertung |
 | `src/seoboy/crawl/html_extract.py` | Titel, Beschreibung, H1, Wörter, Bilder, Schema, Links, Content-Terme |
-| `src/seoboy/crawl/rendering.py` | optionaler Playwright-Renderer und DOM-Vergleich |
+| `src/seoboy/crawl/rendering.py` | Playwright- oder Chrome/Edge-Renderer und DOM-Vergleich |
 | `src/seoboy/shared/urls.py` | URL-Normalisierung und Pfadmuster |
 | `src/seoboy/gsc/importer.py` | GSC-Manifest, CSV-Import, UI-Aufbereiter |
 | `src/seoboy/gsc/api.py` | GSC-API, OAuth/Service-Account und URL Inspection |
@@ -62,7 +62,7 @@ unnötiger Aufwand.
 | `src/seoboy/reporting/gsc_report.py` | GSC-Auswertung Suchanfrage × Zielseite |
 | `src/seoboy/reporting/gsc_history.py` | GSC-Verlauf über mehrere Läufe |
 | `src/seoboy/reporting/diff_report.py` | Vergleich zweier Läufe |
-| `src/seoboy/benchmark/sampler.py` | robots-konforme Wettbewerbsstichprobe |
+| `src/seoboy/benchmark/sampler.py` | robots-konforme Stichprobe und sitemapweiter Modus |
 | `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich, TF-IDF und Begriffskandidaten |
 | `src/seoboy/local_seo/audit.py` | Standort-, NAP-, Profil- und Local-Result-Prüfung |
 | `src/seoboy/performance/audit.py` | PageSpeed/Lighthouse und CrUX |
@@ -212,7 +212,8 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
 - Batch-Läufe benötigen getrennte SQLite-Datenbanken; derselbe DB-Pfad wird abgelehnt.
 - Dieselbe Website (Host und Port) wird im Batch nicht parallel geprüft.
 - Batch importiert keine GSC-Daten; GSC bleibt der Einzellauf mit `--gsc-dir`.
-- Der Benchmark ist eine Stichprobe, kein vollständiges Wettbewerbs-Audit.
+- Der Benchmark bleibt budgetiert; `--full` verfolgt Sitemap-Kandidaten bis
+  `--max-pages`, ist aber kein unbegrenzter Crawl.
 - Wettbewerbs-HTML wird nicht gespeichert; gespeichert werden Metriken, URLs und
   aggregierte Content-Terme.
 - Content-Terme sind eine großgeschriebene Substantiv-Heuristik, keine linguistische
@@ -229,7 +230,8 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   verschlüsselt; er enthält nur den Refresh-Token, keinen Access-Token.
 - URL Inspection ist auf API-Kontingente begrenzt; der Batch-Modus prüft standardmäßig
   höchstens 10 und maximal 100 wichtige URLs.
-- Playwright ist optional und benötigt eine separate Browser-Installation.
+- Playwright ist optional; ohne Playwright kann `render --engine chrome` einen
+  vorhandenen Chrome/Edge ohne HTTP-Status nutzen.
 - Local SEO prüft konfigurierte Profil-URLs per Textabgleich und importiert lokale
   Messergebnisse aus CSV; offizielle Profil-APIs und Suchmaschinenabfragen sind nicht
   angebunden.

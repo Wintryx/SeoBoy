@@ -5,7 +5,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.13.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.14.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -90,6 +90,19 @@ Optional und nur bei Bedarf:
 `AGENTS.md` ist ausschließlich eine Arbeitsanweisung für Coding-Agenten und wird von der
 SeoBoy-Laufzeit nicht gelesen. Die Bedienung erfolgt vollständig über die CLI und die
 dokumentierten YAML-/JSON-Dateien.
+
+## GitHub-Upstream einrichten
+
+Ein E-Mail-Konto allein reicht für den Updater nicht. Benötigt werden Repository-URL und
+eine funktionierende Git-Authentifizierung (PAT, SSH-Key oder gh login).
+
+```powershell
+.\scripts\setup_github.ps1 -RepoUrl https://github.com/<account>/<repo>.git -Branch main
+seoboy update --check
+```
+
+Das Skript verweigert einen unsauberen Arbeitsbaum und überschreibt keinen abweichenden
+Remote. Zugangsdaten gehören weder in die URL noch in die Konfiguration.
 
 ## CLI aktualisieren
 
@@ -321,6 +334,8 @@ seoboy benchmark `
 - Mit `--competitor-url` lassen sich einzelne Wettbewerbsseiten manuell auswählen;
   die Sitemap-Stichprobe wird dann für diese Website umgangen. Die Startseite wird
   zusätzlich geladen, sofern sie nicht selbst ausgewählt wurde.
+- Mit `--full` werden alle Sitemap-Kandidaten bis zum expliziten `--max-pages`-Budget
+  verfolgt. Das ist keine unbegrenzte Crawl-Freigabe; das Budget bleibt die Schutzgrenze.
 - Verglichen werden unter anderem Indexierbarkeit, Titel-/Beschreibungslängen, H1,
   Wortzahl, strukturierte Daten, Bild-Alt-Texte und interne Links.
 - Der TF-IDF-Abschnitt gewichtet Begriffe aus dem Hauptinhalt und zeigt Konzepte, die
@@ -525,11 +540,13 @@ Rendering ist optional und benötigt Playwright plus Chromium:
 .\venv\Scripts\playwright.exe install chromium
 seoboy render --url https://example.de/ --url https://example.de/leistungen/
 seoboy render --browser firefox --url https://example.de/
+seoboy render --engine chrome --url https://example.de/
 ```
 
 Der Bericht vergleicht HTTP-Dokument und Browser-DOM (Titel, Beschreibung, H1, Wörter,
-Links, Schema). Ohne installierten Browser endet der Befehl mit einer verständlichen
-Fehlermeldung.
+Links, Schema). `--engine auto` nutzt Playwright, falls installiert, sonst einen
+vorhandenen Chrome/Edge-Headless-Browser. Der Chrome-Fallback liefert keinen
+verlässlichen HTTP-Status; das wird im Bericht ausgewiesen.
 
 ### Local SEO
 
@@ -765,6 +782,9 @@ Berichte werden nicht versioniert.
 - Reproduzierbare KI-Antwortstichproben für GEO
 
 Die detaillierte offene Liste steht in [todo.md](todo.md).
+
+Die detaillierte Erweiterungsspezifikation mit API-Verträgen, Grenzen und
+Abnahmekriterien steht in [docs/erweiterungen_spezifikation.md](docs/erweiterungen_spezifikation.md).
 
 Die verbindlichen Anforderungen stehen in den Spezifikationen
 [Architektur](01_architektur_und_techstack_md.md),

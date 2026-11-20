@@ -1,10 +1,10 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.13.0
+Stand: 20.11.2026, Version 0.14.0
 
 ## Priorisierung
 
-Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand – nicht nach technischer Attraktivität.
+Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand – nicht nach technischer Attraktivität. Die verbindliche Detail-Spezifikation steht in [docs/erweiterungen_spezifikation.md](docs/erweiterungen_spezifikation.md).
 
 | Rang | Vorhaben | Nutzen | Status |
 | --- | --- | --- | --- |
@@ -109,6 +109,8 @@ H1, Inhalt oder CTA tatsächlich Klicks und Anfragen verändert hat.
 - **Umgesetzt:** `--competitor-url` erlaubt manuell ausgewählte Wettbewerbsseiten
   je Website und umgeht die Sitemap-Stichprobe.
 - **Umgesetzt:** Die Auswahl wird im Bericht und im Benchmark-Manifest ausgewiesen.
+- **Umgesetzt:** `--full` verfolgt mehrere Sitemap-Kinder bis zum expliziten
+  `--max-pages`-Budget; das bleibt eine budgetierte Erhebung.
 - Grenze: SimHash ist ein Ähnlichkeitshinweis, kein Duplicate-Content-Urteil.
 
 ### B3 – Local SEO (erledigt)
@@ -132,10 +134,12 @@ H1, Inhalt oder CTA tatsächlich Klicks und Anfragen verändert hat.
 
 ## C – Diagnose und Experimente
 
-### C1 – Playwright (Browser-Auswahl erledigt)
+### C1 – Playwright (Browser-Auswahl und Chrome-Fallback erledigt)
 
 - **Umgesetzt:** `--browser chromium|firefox|webkit`.
-- **Umgesetzt:** Browser wird im Rendering-Manifest ausgewiesen.
+- **Umgesetzt:** `--engine auto|playwright|chrome`.
+- **Umgesetzt:** Ohne Playwright nutzt auto einen vorhandenen Chrome/Edge headless;
+  der Bericht markiert den fehlenden HTTP-Status.
 - Offen: gepinnte Browser-Versionen, CI-Image, Screenshots, Performance-Messwerte und
   Integration in regelmäßige Crawl-Läufe.
 
