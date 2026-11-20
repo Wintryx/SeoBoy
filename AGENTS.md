@@ -134,7 +134,7 @@ Nur nach ausdrücklicher Freigabe und ausschließlich lesend. Empfohlen:
 4. `compileall` und die komplette Testsuite ausführen.
 5. Bei Benutzer-sichtbaren Änderungen README/AGENTS.md aktualisieren.
 6. Nur notwendige Dateien stagen; lokale Daten und `.env` ausschließen.
-7. Commit mit klarer deutscher oder englischer Zusammenfassung.
+7. Änderungen in kleinen, logischen Schritten committen; Commit-Nachrichten auf Englisch.
 
 ## Entscheidungsregel
 
@@ -148,7 +148,8 @@ werden dabei nie riskiert.
 
 - Python 3.11+, Standardbibliothek plus PyYAML; keine neuen Laufzeitabhängigkeiten ohne
   zwingenden Grund.
-- Deutsche Benutzertexte und Berichte, englische Bezeichner im Code.
+- Code-Kommentare und Docstrings auf Englisch; Benutzertexte, CLI-Hilfe und Berichte
+  auf Deutsch. Bezeichner im Code sind englisch.
 - Dataclasses, Typannotationen, kurze Funktionen, keine stillen Fallbacks bei
   ungültigen Daten.
 - Zeitstempel in SQLite UTC/ISO-8601; Anzeige in Europe/Berlin.
