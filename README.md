@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.14.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.15.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -40,6 +40,7 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - Performance-Bericht für PageSpeed/Lighthouse und CrUX
 - Maßnahmenstatus mit Verlauf
 - GEO-Readiness für AI-Bots, llms.txt und vorhandene Content-/Schema-Signale
+- Budgetiertes GEO-Sampling über DeepSeek mit Marken-/Zitat-Auswertung
 - Priorisierte Maßnahmen (P1 bis P4), Quick Wins und Evidenz je Befund
 - Markdown-Berichte, CSV-Rohdaten und Manifest je Lauf
 - Vergleich zweier Läufe mit den Zuständen neu, erstmals beobachtet, fortbestehend,
@@ -605,8 +606,35 @@ seoboy geo --config .\seoboy.yaml
 
 Der Bericht prüft robots.txt für Googlebot, Google-Extended, GPTBot, OAI-SearchBot,
 PerplexityBot und ClaudeBot, das Vorhandensein von `llms.txt` sowie Content-/Schema-Signale
-aus dem letzten abgeschlossenen Lauf. Es werden keine KI-Antworten abgefragt und kein
-GEO-Score berechnet.
+aus dem letzten abgeschlossenen Lauf.
+
+### GEO-Sampling mit DeepSeek
+
+`seoboy geo-sample` erzeugt echte, budgetierte KI-Antwortstichproben:
+
+```powershell
+$env:DEEPSEEK_API_KEY = "sk-..."
+seoboy geo-sample `
+  --domain aw-audio.de `
+  --brand "AW Audio" `
+  --brand "Arne Winter" `
+  --max-calls 6 `
+  --budget-usd 0.50 `
+  --web-search
+```
+
+Der Bericht enthält Marken-Erwähnungen, eigene und fremde URL-Zitate, Wettbewerber-
+Erwähnungen, Tokens und eine konservative Kosten-Schätzung. Standardmäßig werden sechs
+deutsche Prompts im Non-Thinking-Modus mit `deepseek-flash` verwendet. Eigene Prompt-Sets
+lassen sich per YAML mit `--prompts` übergeben.
+
+`--web-search` aktiviert die serverseitige DeepSeek-Websuche. Das Modell entscheidet,
+ob es sucht, und liefert Quellen und Zitate; die Suche kostet zusätzlich 0,75 USD je
+1.000 Suchschritte. Ohne `--web-search` wird nur Modellwissen gemessen.
+
+Rohantworten werden nur lokal unter `reports/.../raw_data/geo_answers.jsonl` gespeichert;
+`--retention-days` dokumentiert die Aufbewahrungsfrist, die Löschung erfolgt manuell.
+Ein API-Key wird nie in Berichte, Logs oder Commits geschrieben.
 
 ## Regeln
 
@@ -693,8 +721,8 @@ Wettbewerbsbenchmark, Content-Terme/TF-IDF, SimHash und manuelle Wettbewerbs-URL
 GSC-API/URL Inspection, OAuth-Helfer, GSC-Query-/Zielseitenbericht, GSC-Verlauf,
 URL-Inspection-Persistenz und -Diff, Playwright-Vergleich (mit injiziertem Browser),
 Local-SEO-Profile/-Messergebnisse, Performance-Adapter, Maßnahmenstatus mit Verlauf,
-GEO, Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich, den Systemcheck und
-den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
+GEO-Readiness und DeepSeek-Sampling, Einzel-URL-Prüfung, Ausnahmen, Berichte, den
+Lauf-Vergleich, den Systemcheck und den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
 kein Netzwerk; die Updater-Tests nutzen lokale Git-Repositories.
 
 ## Projektstruktur

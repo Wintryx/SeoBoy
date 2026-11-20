@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.14.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.15.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -67,6 +67,7 @@ unnötiger Aufwand.
 | `src/seoboy/local_seo/audit.py` | Standort-, NAP-, Profil- und Local-Result-Prüfung |
 | `src/seoboy/performance/audit.py` | PageSpeed/Lighthouse und CrUX |
 | `src/seoboy/geo/audit.py` | AI-Bots, llms.txt und GEO-Readiness |
+| `src/seoboy/geo/sampling.py` | budgetiertes DeepSeek-GEO-Sampling |
 | `src/seoboy/application/runner.py` | run/resume/inspect/report/diff, Batch und Benchmark |
 | `src/seoboy/infrastructure/env.py` | Optionales Laden von `.env` |
 | `src/seoboy/infrastructure/doctor.py` | Systemcheck für den Betrieb ohne Agent |
@@ -107,7 +108,7 @@ TF-IDF, GSC-Query-/
 Zielseitenbericht, GSC-Verlauf, GSC-API/URL Inspection, OAuth-Helfer,
 URL-Inspection-Persistenz und -Diff, Playwright-Vergleich mit injiziertem Browser,
 Local SEO-Profile/Local-Results, Performance-Adapter, Maßnahmenstatus,
-GEO, Einzel-URL-Prüfung,
+GEO-Readiness und DeepSeek-Sampling, Einzel-URL-Prüfung,
 Ausnahmen, Berichte, Diff, den Systemcheck und den Git-Updater ab. Sie nutzt lokale
 HTTP-Server, lokale Git-Repositories und benötigt kein Internet.
 
@@ -126,6 +127,7 @@ gesetzte Umgebungsvariablen werden nicht überschrieben.
 | `SEOBOY_GSC_TOKEN_STORE` | Pfad des persistenten OAuth-Token-Stores |
 | `SEOBOY_OPENSSL` | Optionaler OpenSSL-Pfad für die Service-Account-Signatur |
 | `SEOBOY_PSI_API_KEY` | API-Key für PageSpeed Insights und CrUX |
+| `SEOBOY_GEO_API_KEY` | DeepSeek-Key für GEO-Sampling; alternativ `DEEPSEEK_API_KEY` |
 | `SEOBOY_ENV_FILE` | Alternatives Env-File; muss vor dem Prozessstart gesetzt sein |
 
 `.env.example` ist die dokumentierte Vorlage. `.env` selbst ist in `.gitignore` und darf
@@ -236,8 +238,9 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   Messergebnisse aus CSV; offizielle Profil-APIs und Suchmaschinenabfragen sind nicht
   angebunden.
 - PageSpeed/CrUX benötigt einen API-Key; ohne Key bleibt der Befehl klar deaktiviert.
-- Vollständige Wettbewerber-Audits, SERP-/Backlink-Adapter und KI-Antwortstichproben
-  bleiben externe Ausbaustufen.
+- GEO-Sampling nutzt DeepSeek; Antworten sind Momentaufnahmen und keine Rankings.
+- Vollständige Wettbewerber-Audits und SERP-/Backlink-Adapter bleiben externe
+  Ausbaustufen.
 - Der CLI-Updater setzt einen Git-Checkout mit Upstream voraus; Wheel-/PyPI-Installationen
   werden mit pip aktualisiert.
 - Die Laufzeit benötigt keinen KI-Agenten und kein LLM; `AGENTS.md` ist nur eine

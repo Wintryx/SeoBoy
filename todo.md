@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.14.0
+Stand: 20.11.2026, Version 0.15.0
 
 ## Priorisierung
 
@@ -21,7 +21,7 @@ Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand �
 | C1 | Playwright-Browser-Auswahl | Chromium/Firefox/WebKit gezielt prüfen | **erledigt in 0.13.0** |
 | C1b | GitHub-Actions-Testlauf | Änderungen automatisch prüfen | **erledigt in 0.14.0** |
 | C1c | Playwright-Browser-Matrix mit gepinnten Browsern und Screenshots | Rendering-Diagnose reproduzierbar machen | offen |
-| C2 | Reproduzierbare KI-Antwortstichproben für GEO | AI-Sichtbarkeit messen statt nur Bot-Zugriff prüfen | blockiert: KI-Anbieter-Zugang |
+| C2 | Reproduzierbare KI-Antwortstichproben für GEO | AI-Sichtbarkeit messen statt nur Bot-Zugriff prüfen | **erledigt in 0.15.0** |
 | C3 | Vollständige Wettbewerber-Läufe, SERP-/Backlink-Adapter | Wettbewerb und Content-Lücken breiter einordnen | blockiert: SERP-/Backlink-Zugang |
 | C4 | Manueller Maßnahmenstatus und Verlauf | Umsetzung und Wirkung im Tool nachhalten | **erledigt in 0.13.0** |
 
@@ -145,17 +145,19 @@ H1, Inhalt oder CTA tatsächlich Klicks und Anfragen verändert hat.
 - Offen: gepinnte Playwright-Browser-Versionen, Browser-Matrix im CI, Screenshots,
   Performance-Messwerte und Integration in regelmäßige Crawl-Läufe.
 
-### C2 – GEO (blockiert)
+### C2 – GEO-Sampling (erledigt)
 
-- Versionierte Prompt-Sätze und reproduzierbare KI-Stichproben
-- Anbieter-, Modell-, Sprach-, Regions- und Suchmodus-Metadaten
-- Marken-Erwähnungen und Zitierungen pro erfolgreicher Stichprobe
-- Fehlerquote und Kostenbegrenzung je Lauf
-- `llms.txt`-Struktur und `@id`-/sameAs-Prüfung vertiefen
-
-Blockiert: Es liegt kein Zugang zu einem KI-Anbieter vor. Bot-Zugriff und llms.txt werden
-bereits geprüft; echte Antwortstichproben würden einen kostenpflichtigen Provider und
-eine belastbare Kosten-/Fehlerquote benötigen.
+- **Umgesetzt:** DeepSeek-Adapter mit `deepseek-flash` im Non-Thinking-Modus.
+- **Umgesetzt:** versionierte Prompt-Sätze, Sprache, Region und Intent.
+- **Umgesetzt:** Marken-Erwähnungen, eigene/fremde URL-Zitate und Wettbewerber-Zählung.
+- **Umgesetzt:** Aufruf-, Token- und Kostenbudget; Stopp bei Auth- und Fehlerrate.
+- **Umgesetzt:** lokale Rohantworten, CSV-Auswertung und Manifest.
+- **Live, ohne Websuche:** 6/6 erfolgreich, 3312 Tokens, ca. 0,004 USD;
+  AW Audio wurde in dieser Runde nicht genannt oder zitiert.
+- **Live, mit Websuche:** 6/6 erfolgreich, 70493 Tokens, ca. 0,030 USD;
+  AW Audio/Arne Winter wurde 1/6 genannt, aw-audio.de 1/6 zitiert.
+- Grenze: eine Momentaufnahme, keine Rankings; Wiederholungen und weitere Modelle nötig.
+- Offen: `llms.txt`-Struktur und `@id`-/sameAs-Prüfung vertiefen.
 
 ### C3 – Wettbewerb (blockiert)
 
@@ -197,6 +199,7 @@ Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 - PageSpeed/Lighthouse- und CrUX-Adapter
 - Playwright-Browser-Auswahl für Chromium, Firefox und WebKit
 - Maßnahmenstatus mit Verlauf und Projektbindung
+- DeepSeek-GEO-Sampling mit Budget, Zitaten und Marken-Auswertung
 
 ## Bewusste Grenzen
 

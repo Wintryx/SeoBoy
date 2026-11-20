@@ -33,7 +33,7 @@ Grundsätze:
 | GSC Search Analytics | Service Account/OAuth | Google-OAuth | umgesetzt |
 | URL Inspection | ja | Google-OAuth + Kontingent | umgesetzt |
 | GitHub-Updater | Git-Mechanik | GitHub-Remote + Auth | blockiert bis Remote |
-| GEO-Antwortstichproben | nein | KI-Anbieter | blockiert |
+| GEO-Antwortstichproben | DeepSeek-Adapter | API-Key | umgesetzt |
 | SERP/Backlinks | nein | lizenzierter Anbieter | blockiert |
 
 ## 3. Benchmark: sitemapweiter Modus
@@ -271,20 +271,60 @@ Danach:
 - Rollback auf den vorherigen Commit bei Fehler.
 - Keine Tokens in Remotes oder Berichten.
 
-## 9. C2 GEO-Sampling (blockiert)
+## 9. C2 GEO-Sampling (DeepSeek umgesetzt)
 
-Ein echter Sampling-Adapter braucht:
+### 9.1 Anbieter
 
-- Anbieter und Modell
-- API-Key und Kostenlimit
-- versionierte Prompts
-- Sprache, Region, Suchmodus
-- Rohantwort, Zitierungen, Zeitstempel
-- Fehlerquote und Abbruchkriterien
-- Datenschutz und Aufbewahrungsfrist
+- Provider: DeepSeek
+- Modell: deepseek-flash
+- Endpoint: https://api.deepseek.com/chat/completions
+- Modus: Non-Thinking, damit max_tokens nicht von Reasoning aufgebraucht wird
+- Optional: serverseitige Websuche deepseek_web_search mit Quellen/Zitaten
+- API-Key: SEOBOY_GEO_API_KEY, DEEPSEEK_API_KEY oder --api-key; nie im Repo
 
-Ohne diese Angaben werden keine KI-Antworten erzeugt. Die vorhandene GEO-Prüfung
-(Bots, llms.txt, Schema) bleibt davon getrennt.
+### 9.2 CLI
+
+    seoboy geo-sample --domain aw-audio.de --brand "AW Audio" --max-calls 6 --budget-usd 0.50
+
+Optionen:
+
+- --prompts YAML mit version, language, region und prompts
+- --model, --temperature, --max-tokens, --thinking
+- --web-search, --search-price
+- --max-calls, --budget-usd, --input-price, --output-price
+- --retention-days
+- --brand, --competitor, --domain
+- --dry-run ohne API-Aufruf
+
+### 9.3 Ausgabe
+
+- 00_GEO_SAMPLING.md
+- raw_data/geo_samples.csv
+- raw_data/geo_citations.csv
+- raw_data/geo_answers.jsonl (nur lokal, wenn retention_days > 0)
+- manifest.json
+
+### 9.4 Kosten und Fehler
+
+- Standard: 6 Aufrufe, 800 Output-Tokens, 0.50 USD Budget.
+- Peak-Preise als konservative Schätzung: 0.30 USD/1M Input, 1.20 USD/1M Output.
+- Websuche: 0.75 USD je 1.000 Suchschritte, zusätzlich zu Tokens.
+- Ein Suchlauf kann durch Seitenkontext deutlich mehr Input-Tokens erzeugen.
+- 401/403 stoppt sofort.
+- Drei Fehler bei mindestens der Hälfte der Versuche stoppen den Lauf.
+- Eine leere Antwort ist ein Fehler, kein Erfolg.
+- Der Key erscheint nie in Bericht, CSV oder Manifest.
+
+### 9.5 Retention
+
+Rohantworten werden lokal gespeichert. --retention-days dokumentiert die Frist; die
+Löschung erfolgt manuell. retention_days=0 schreibt keine Rohantworten.
+
+### 9.6 Grenzen
+
+Die Antworten sind KI-Momentaufnahmen, keine Suchmaschinen-Rankings. Marken- und
+URL-Erkennung ist Textabgleich. Für belastbare Aussagen sind Wiederholungen, weitere
+Modelle und Zeitvergleiche nötig.
 
 ## 10. C3 SERP/Backlinks (blockiert)
 
@@ -331,13 +371,14 @@ Invarianten:
 4. Performance ohne Key liefert Exitcode 2.
 5. Local-Profile und Local-Rankings erscheinen im Bericht.
 6. action-status ist projektgebunden und historisiert.
-7. Alle Tests laufen mit -W error und ohne Netzwerk.
-8. Keine Secrets in Commits oder Berichten.
+7. GEO-Sampling stoppt bei Auth-Fehlern und überschreitet das Aufrufbudget nicht.
+8. Alle Tests laufen mit -W error und ohne Netzwerk.
+9. Keine Secrets in Commits oder Berichten.
 
 ## 14. Offene Entscheidungen
 
 - GitHub-Repository-URL und Sichtbarkeit.
 - PageSpeed-API-Key und Tageslimit.
-- KI-Anbieter, Modell, Budget und Aufbewahrung für C2.
+- DeepSeek-Budget pro Monat und Wiederholungsfrequenz für C2.
 - SERP-/Backlink-Anbieter und Lizenz für C3.
 - Ob der Token-Store zusätzlich per DPAPI verschlüsselt werden soll.
