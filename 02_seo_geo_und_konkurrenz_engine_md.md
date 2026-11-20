@@ -13,6 +13,8 @@ Jede Regel hat eine feste ID, eine eigene Version, einen Geltungsbereich und def
 | `not_checked` | Eine nötige Beobachtung fehlt, etwa wegen Sperre, Timeout, Teilcrawl oder fehlenden Imports. |
 | `not_applicable` | Die Regel gilt für diese Seite oder dieses Teilobjekt fachlich nicht. |
 
+Für `not_checked` und `not_applicable` ist ein nicht leerer, maschinenlesbarer `reason_code` Pflicht. `not_checked` bezeichnet eine anwendbare Prüfung mit fehlenden Eingaben. Geeignete Codes sind `url_limit_reached`, `request_limit_reached`, `runtime_limit_reached`, `robots_disallowed`, `fetch_timeout`, `missing_gsc_data` und `incomplete_link_graph`. `not_applicable` beschreibt eine fachliche Ausnahme vom Geltungsbereich, etwa `non_html_document`, `expected_non_indexable` oder `canonical_duplicate_variant`. Die Regel darf zusätzliche stabile Codes definieren. Bei mehreren fehlenden Eingaben wird der erste blockierende Prüfschritt in der festgelegten Reihenfolge der Regel als Hauptgrund gespeichert. Weitere Ursachen können in der Evidenz stehen.
+
 Ausnahmen unterdrücken eine Empfehlung und bleiben im Prüfergebnis sichtbar. Der beobachtete Befund bleibt erhalten. Bei URLs ohne konfiguriertes Soll zur Indexierbarkeit meldet SeoBoy widersprüchliche Signale zur Prüfung. Ein bestätigter Indexierungsblocker setzt eine nachvollziehbare Sollvorgabe voraus.
 
 ## 2. Technische Kernregeln im MVP

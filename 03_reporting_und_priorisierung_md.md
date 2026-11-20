@@ -10,12 +10,15 @@ SeoBoy schreibt Berichte in einen Ordner wie `reports/2026-11-20_example-de_<lau
 | --- | --- |
 | `00_EXECUTIVE_SUMMARY.md` | Status des Laufs, Abdeckung, Datenquellen, wichtigste Maßnahmen. |
 | `01_ACTION_PLAN_PRIORITIZED.md` | Priorisierte Maßnahmen mit Evidenz, URL-Beispielen, geschätztem Aufwand und Prüfschritt. |
-| `02_TECHNICAL_SEO_AUDIT.md` | Messbare technische Befunde, GSC-Auswertung bei vorhandenem Import, nicht prüfbare Regeln und Grenzen der Daten. |
+| `02_TECHNICAL_SEO_AUDIT.md` | Abdeckung je Regel, häufigste Gründe für ungeprüfte Fälle, wichtigste technische Befunde und eine kompakte GSC-Zusammenfassung bei vorhandenem Import. |
 | `raw_data/all_urls.csv` | URL-Inventar mit Entdeckungsquellen, Abrufstatus und Profil. |
-| `raw_data/rule_results.csv`, `raw_data/broken_links.csv` | Prüfergebnisse einschließlich Evidenz sowie defekte Linkziele mit Quellseiten. |
+| `raw_data/rule_results.csv`, `raw_data/broken_links.csv` | Vollständige Prüfergebnisse mit `outcome`, `reason_code` und Evidenz sowie defekte Linkziele mit Quellseiten. |
+| `raw_data/gsc_metrics.csv` | Bei vorhandenem Import alle gespeicherten GSC-Zeilen mit Granularität, Quelle, Messwerten, Zeitraum, Filtern und Zuordnungsstatus. |
 | `manifest.json` | Lauf- und Projekt-ID, Tool- und Regelversion, Zeitstempel, Status, Abbruchgrund, Crawl-Konfiguration ohne Geheimnisse und Datenquellenstatus. |
 
 Bei aktivierten Erweiterungen kommen `03_GEO_AND_AI_READINESS.md` und `04_COMPETITOR_BENCHMARK.md` sowie passende CSV-Dateien hinzu. Der MVP zeigt geprüfte, auffällige und ungeprüfte URLs samt Bezugsgröße. Beispiel: 3 von 45 geprüften Sitemap-Zielen liefern einen Fehler, 5 weitere Ziele blieben ungeprüft. Auf einen globalen SEO-, GEO- oder Technik-Score verzichtet v0.1.
+
+Die Auditdatei gruppiert `not_checked` je Regel und Grundcode. Sie nennt Anzahl und lesbare Ursache, etwa „12 Prüfungen offen, weil das Anfragelimit erreicht wurde“. `not_applicable` fließt separat in die Abdeckung ein. Je Regel zeigt die Markdown-Datei höchstens zehn priorisierte Beispiele und verweist auf die vollständige CSV. Bei GSC nennt sie je Auswertung Zeitraum, Segment, Abdeckung und bis zu zehn Beispiele. Die Kennzeichnung „10 von 146“ bezeichnet den Markdown-Ausschnitt. Eine bereits beim Import begrenzte Datenquelle wird separat ausgewiesen.
 
 CSV-Ausgaben nutzen UTF-8 mit BOM, Kommas als Trenner und feste Spaltenüberschriften. Für Excel-Exporte werden Textwerte, die Tabellenprogramme als Formeln interpretieren könnten, als Text geschrieben. Der unveränderte Beobachtungswert bleibt in SQLite.
 
@@ -92,3 +95,4 @@ Im nächsten Ausbau führt SeoBoy einen manuellen Status je Maßnahme mit Datum 
 - Ein defektes internes Linkziel mit drei Quellseiten belegt eine Maßnahme mit drei nachvollziehbaren Links im CSV-Export.
 - Eine im Folgelauf geprüfte und korrigierte URL wird als behoben angezeigt. Eine am Crawl-Limit ausgelassene URL bleibt ungeprüft.
 - Mit und ohne GSC-Import sind Berichte vollständig lesbar. Leere Quellen und unvollständige Stichproben werden sichtbar ausgewiesen. Markdown- und CSV-Exporte lassen sich über Lauf-ID und Befund-ID auf die Datenbank zurückführen.
+- Bei vielen GSC-Treffern zeigt der Markdown-Bericht nur die vorgesehenen Beispiele und deren Bezugsgröße. Alle gespeicherten GSC-Zeilen bleiben in `gsc_metrics.csv` verfügbar. Ausgeschöpfte Limits und fachlich unpassende Regeln ergeben getrennte Auswertungen mit ihren jeweiligen Grundcodes.
