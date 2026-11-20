@@ -18,9 +18,15 @@ from seoboy.local_seo.audit import (
     write_local_report,
 )
 from seoboy.application import runner
+from seoboy.analysis.audit_data import RunData
+from seoboy.gsc.inspection_store import select_targets, store_error, store_inspection
 from seoboy.infrastructure.config import ConfigError, init_config, load_config
 from seoboy.crawl.crawler import ResumeError
-from seoboy.infrastructure.database import DatabaseError, migrate_database
+from seoboy.infrastructure.database import (
+    DatabaseError,
+    connect,
+    migrate_database,
+)
 from seoboy.reporting.diff_report import DiffError
 from seoboy.infrastructure.env import load_env
 from seoboy.gsc.importer import GscError
@@ -174,11 +180,19 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     inspection = commands.add_parser(
         "url-inspection", help="URL Inspection API für eine URL abfragen"
     )
-    inspection.add_argument("--url", required=True)
-    inspection.add_argument("--property", required=True, help="GSC-Property")
+    inspection.add_argument("--url", help="Einzelne URL; ohne --run erforderlich")
+    inspection.add_argument("--run", metavar="LAUF-ID", help="Wichtige URLs eines Laufs prüfen")
+    inspection.add_argument("--config", type=Path, default=default_config)
+    inspection.add_argument("--property", help="GSC-Property; sonst Start-URL")
     inspection.add_argument("--credentials", type=Path)
     inspection.add_argument("--out", type=Path)
     inspection.add_argument("--language", default="de-DE")
+    inspection.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="Maximale Anzahl wichtiger URLs im Batch-Modus (Standard: 10)",
+    )
 
     geo = commands.add_parser(
         "geo", help="GEO- und AI-Readiness beobachtbar prüfen"
@@ -459,7 +473,70 @@ def main(argv: list[str] | None = None) -> int:
             print("Weiter mit: seoboy run --gsc-dir <verzeichnis>")
             return 0
         if args.command == "url-inspection":
+            if args.run and args.url:
+                parser.error("--run und --url schließen sich aus.")
             credentials = gsc_api.load_credentials(args.credentials)
+            if args.run:
+                if not 1 <= args.limit <= 100:
+                    parser.error("--limit muss zwischen 1 und 100 liegen.")
+                config = _load(args.config)
+                migrate_database(config.database)
+                connection = connect(config.database)
+                try:
+                    try:
+                        data = RunData(connection, config, args.run)
+                    except (KeyError, sqlite3.Error) as error:
+                        print(f"SeoBoy: Lauf nicht lesbar: {error}", file=sys.stderr)
+                        return 2
+                    property_name = _gsc_property(config, args.property)
+                    targets = select_targets(data, args.limit)
+                    if not targets:
+                        print("Keine wichtigen HTML-URLs für die Inspection gefunden.")
+                        return 0
+                    success = 0
+                    for url_id, inspection_url in targets:
+                        try:
+                            result = gsc_api.inspect_url(
+                                credentials,
+                                property_name,
+                                inspection_url,
+                                language_code=args.language,
+                            )
+                        except GscApiError as error:
+                            store_error(
+                                connection,
+                                args.run,
+                                url_id,
+                                property_name,
+                                inspection_url,
+                                "inspection_failed",
+                                language_code=args.language,
+                            )
+                            print(
+                                f"Hinweis: {inspection_url}: {error}",
+                                file=sys.stderr,
+                            )
+                            continue
+                        store_inspection(
+                            connection,
+                            args.run,
+                            url_id,
+                            property_name,
+                            inspection_url,
+                            result,
+                            language_code=args.language,
+                        )
+                        success += 1
+                finally:
+                    connection.close()
+                folder = runner.rerender_report(config, args.run)
+                print(
+                    f"URL-Inspection: {success} von {len(targets)} URL(s) gespeichert."
+                )
+                print(f"Berichte geschrieben: {folder}")
+                return 0 if success else 2
+            if not args.url or not args.property:
+                parser.error("Ohne --run sind --url und --property erforderlich.")
             result = gsc_api.inspect_url(
                 credentials,
                 args.property,

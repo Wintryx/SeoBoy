@@ -10,6 +10,7 @@ import re
 import sqlite3
 
 from seoboy.analysis.audit_data import RunData
+from seoboy.gsc.inspection_store import load_inspections
 from seoboy.infrastructure.config import ProjectConfig
 from seoboy.reporting.run_report import (
     ReportData,
@@ -24,6 +25,7 @@ from seoboy.reporting.run_report import (
     _severity,
     load_report_data,
 )
+from seoboy.shared.urls import relative_url
 from seoboy.shared.util import excel_safe, format_local, local_date_from_utc, parse_utc
 
 DIFF_STATES = {
@@ -288,6 +290,60 @@ def _action_state(
     return "Teilweise behoben", counts
 
 
+def _inspection_diff(
+    connection: sqlite3.Connection,
+    base_run_id: str,
+    target_run_id: str,
+) -> list[dict[str, object]]:
+    base = {
+        str(row["url"]): row for row in load_inspections(connection, base_run_id)
+    }
+    target = {
+        str(row["url"]): row for row in load_inspections(connection, target_run_id)
+    }
+    fields = (
+        "verdict",
+        "coverage_state",
+        "indexing_state",
+        "robots_txt_state",
+        "page_fetch_state",
+        "google_canonical",
+        "user_canonical",
+        "error_code",
+    )
+    result: list[dict[str, object]] = []
+    for url in sorted(set(base) | set(target)):
+        before = base.get(url)
+        after = target.get(url)
+        if before is not None and after is not None:
+            changes = []
+            for field in fields:
+                old = before.get(field)
+                new = after.get(field)
+                if old != new:
+                    changes.append(f"{field}: {old or '–'} → {new or '–'}")
+            if not changes:
+                continue
+            state = "changed"
+            note = "; ".join(changes)
+        elif after is not None:
+            state = "new"
+            note = "Erstmals im Ziellauf geprüft"
+        else:
+            state = "missing"
+            note = "Nur im Basislauf geprüft"
+        result.append(
+            {
+                "url": url,
+                "state": state,
+                "base": before,
+                "target": after,
+                "note": note,
+            }
+        )
+    return result
+
+
 def _safe(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._") or "project"
 
@@ -443,7 +499,82 @@ def render_diff_report(
         )
     else:
         lines.append("Der Basislauf enthält keine Maßnahmen.")
-    lines.extend(["", "## Rohdaten", "", "- [Audit-Diff als CSV](raw_data/audit_diff.csv)", ""])
+    inspection_rows = _inspection_diff(connection, base_run_id, target_run_id)
+    if inspection_rows:
+        labels = {"new": "Neu", "missing": "Nur Basislauf", "changed": "Geändert"}
+        lines.extend(
+            [
+                "## URL Inspection",
+                "",
+                "Verglichen werden gespeicherte URL-Inspection-Ergebnisse derselben URL. "
+                "Ein fehlender Eintrag bedeutet nicht automatisch, dass ein Indexproblem "
+                "behoben ist.",
+                "",
+                "| Seite | Status | Vorher | Nachher | Hinweis |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+        )
+        for row in inspection_rows[:30]:
+            before = row["base"] or {}
+            after = row["target"] or {}
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        str(relative_url(str(row["url"]), config.allowed_hosts)).replace("|", "/"),
+                        labels.get(str(row["state"]), str(row["state"])),
+                        f"{before.get('verdict') or '–'} / {before.get('coverage_state') or '–'}",
+                        f"{after.get('verdict') or '–'} / {after.get('coverage_state') or '–'}",
+                        str(row["note"]).replace("|", "/"),
+                    ]
+                )
+                + " |"
+            )
+        if len(inspection_rows) > 30:
+            lines.append(
+                f"| … {len(inspection_rows) - 30} weitere in raw_data/url_inspection_diff.csv | | | | |"
+            )
+        lines.append("")
+        raw_inspection = raw / "url_inspection_diff.csv"
+        with raw_inspection.open("w", encoding="utf-8-sig", newline="") as stream:
+            writer = csv.writer(stream, delimiter=",", lineterminator="\n")
+            writer.writerow(
+                [
+                    "url",
+                    "state",
+                    "base_verdict",
+                    "target_verdict",
+                    "base_coverage",
+                    "target_coverage",
+                    "base_google_canonical",
+                    "target_google_canonical",
+                    "base_user_canonical",
+                    "target_user_canonical",
+                    "note",
+                ]
+            )
+            for row in inspection_rows:
+                before = row["base"] or {}
+                after = row["target"] or {}
+                writer.writerow(
+                    [
+                        excel_safe(row["url"]),
+                        row["state"],
+                        excel_safe(before.get("verdict") or ""),
+                        excel_safe(after.get("verdict") or ""),
+                        excel_safe(before.get("coverage_state") or ""),
+                        excel_safe(after.get("coverage_state") or ""),
+                        excel_safe(before.get("google_canonical") or ""),
+                        excel_safe(after.get("google_canonical") or ""),
+                        excel_safe(before.get("user_canonical") or ""),
+                        excel_safe(after.get("user_canonical") or ""),
+                        excel_safe(row["note"]),
+                    ]
+                )
+    lines.extend(["", "## Rohdaten", "", "- [Audit-Diff als CSV](raw_data/audit_diff.csv)"])
+    if inspection_rows:
+        lines.append("- [URL-Inspection-Diff](raw_data/url_inspection_diff.csv)")
+    lines.append("")
     (folder / "05_AUDIT_DIFF.md").write_text(
         "\n".join(lines).rstrip() + "\n", encoding="utf-8", newline="\n"
     )

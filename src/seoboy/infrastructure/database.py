@@ -8,7 +8,7 @@ from pathlib import Path
 import sqlite3
 from typing import Iterator
 
-MIGRATIONS = ("001_initial.sql",)
+MIGRATIONS = ("001_initial.sql", "002_url_inspections.sql")
 MIN_SQLITE_VERSION = (3, 38, 0)
 SCHEMA_TABLES = {"projects", "sites", "runs", "urls", "run_urls"}
 

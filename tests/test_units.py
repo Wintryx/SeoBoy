@@ -283,11 +283,11 @@ class DatabaseTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_migration_and_idempotence(self):
-        self.assertEqual(migrate_database(self.path), 1)
-        self.assertEqual(migrate_database(self.path), 1)
+        self.assertEqual(migrate_database(self.path), 2)
+        self.assertEqual(migrate_database(self.path), 2)
         connection = connect(self.path)
         try:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 1)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 2)
             self.assertEqual(connection.execute("PRAGMA foreign_keys").fetchone()[0], 1)
             tables = {
                 row[0]
@@ -297,6 +297,24 @@ class DatabaseTests(unittest.TestCase):
             }
             self.assertIn("rule_results", tables)
             self.assertEqual(connection.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+        finally:
+            connection.close()
+
+    def test_migration_from_v1_adds_url_inspections(self):
+        migrate_database(self.path)
+        connection = connect(self.path)
+        try:
+            connection.execute("DROP TABLE url_inspections")
+            connection.execute("PRAGMA user_version = 1")
+        finally:
+            connection.close()
+        self.assertEqual(migrate_database(self.path), 2)
+        connection = connect(self.path)
+        try:
+            table = connection.execute(
+                "SELECT name FROM sqlite_schema WHERE type = 'table' AND name = 'url_inspections'"
+            ).fetchone()
+            self.assertIsNotNone(table)
         finally:
             connection.close()
 

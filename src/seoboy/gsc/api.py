@@ -540,7 +540,7 @@ def inspection_markdown(
         "| --- | --- |",
     ]
     fields = [
-        ("Verdict", result.get("verdict")),
+        ("Verdict", result.get("verdict") or index.get("verdict")),
         ("Coverage State", index.get("coverageState")),
         ("Indexing State", index.get("indexingState")),
         ("Robots.txt State", index.get("robotsTxtState")),
