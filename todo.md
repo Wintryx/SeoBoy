@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten
 
-Stand: 20.11.2026, Version 0.6.0
+Stand: 20.11.2026, Version 0.6.1
 
 ## Erledigt
 
@@ -18,6 +18,7 @@ Stand: 20.11.2026, Version 0.6.0
 - GEO-Readiness für Googlebot, Google-Extended, GPTBot, OAI-SearchBot,
   PerplexityBot und ClaudeBot sowie llms.txt und Schema-Signale
 - Git-basierter CLI-Updater mit Fast-Forward, Smoke-Test und Rollback
+- Selbstständiger Systemcheck mit seoboy doctor für den Betrieb ohne KI-Agent
 
 ## Offen
 

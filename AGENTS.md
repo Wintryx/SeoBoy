@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.6.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.6.1:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -64,6 +64,7 @@ unnötiger Aufwand.
 | `src/seoboy/geo/audit.py` | AI-Bots, llms.txt und GEO-Readiness |
 | `src/seoboy/application/runner.py` | run/resume/inspect/report/diff, Batch und Benchmark |
 | `src/seoboy/infrastructure/env.py` | Optionales Laden von `.env` |
+| `src/seoboy/infrastructure/doctor.py` | Systemcheck für den Betrieb ohne Agent |
 | `src/seoboy/infrastructure/update.py` | Git-basierter CLI-Updater mit Rollback |
 | `migrations/001_initial.sql` | SQLite-Schema |
 
@@ -96,8 +97,8 @@ Die Suite deckt URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter/-Import, Crawl, Limits, Retries, Redirect-Schleifen, Resume,
 Parallelität, Batch-Läufe, Unterseitenanalyse, Wettbewerbsbenchmark, GSC-API/URL
 Inspection, Playwright-Vergleich mit injiziertem Browser, Local SEO, GEO, Einzel-URL-Prüfung,
-Ausnahmen, Berichte, Diff und den Git-Updater ab. Sie nutzt lokale HTTP-Server, lokale
-Git-Repositories und benötigt kein Internet.
+Ausnahmen, Berichte, Diff, den Systemcheck und den Git-Updater ab. Sie nutzt lokale
+HTTP-Server, lokale Git-Repositories und benötigt kein Internet.
 
 ## Lokale .env
 
@@ -212,4 +213,7 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   bleiben Ausbaustufen.
 - Der CLI-Updater setzt einen Git-Checkout mit Upstream voraus; Wheel-/PyPI-Installationen
   werden mit pip aktualisiert.
+- Die Laufzeit benötigt keinen KI-Agenten und kein LLM; `AGENTS.md` ist nur eine
+  Repository-Anweisung für Coding-Agenten.
+- `seoboy doctor` prüft die lokale Installation ohne Netzwerkzugriff.
 - Kein globaler SEO-Score; Priorisierung erfolgt über P1–P4 und Evidenz.

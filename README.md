@@ -5,7 +5,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.6.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.6.1 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -17,6 +17,7 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - Parallele Seitenabrufe mit globalem Worker-Pool, Host-Limit und Mindestabstand
 - Batch-Modus für mehrere Projekte mit getrennten SQLite-Datenbanken
 - Sicherer Git-basierter CLI-Updater mit Prüfung, Fast-Forward, Smoke-Test und Rollback
+- Selbstständiger Systemcheck mit `seoboy doctor`
 - URL-Normalisierung mit stabilen Identitäten und nachvollziehbaren Herkunftsarten
 - Budgets für URLs, Anfragen und Laufzeit; Wiederaufnahme nach Pause oder Abbruch
 - Wiederholungen bei 429, 5xx und Timeouts, inklusive Retry-After
@@ -55,6 +56,32 @@ python -m venv .venv
 Für einen Lauf ohne Installation im Quellbaum kann `$env:PYTHONPATH = ".\src"` gesetzt
 und `python -m seoboy ...` verwendet werden. Die Tests brauchen nur die Standardbibliothek
 und PyYAML.
+
+## Nutzung ohne KI-Agent
+
+SeoBoy ist ein normales lokales CLI-Werkzeug und benötigt zur Laufzeit keinen KI-Agenten,
+kein LLM, kein Konto und keine API-Schlüssel. Der Kernbetrieb braucht nur Python, PyYAML
+und eine YAML-Konfiguration.
+
+```powershell
+seoboy doctor --config .\seoboy.yaml
+```
+
+`doctor` prüft Python, SQLite inklusive JSON-Funktionen, PyYAML, Git, Playwright,
+Konfiguration, Datenbank-/Berichtsverzeichnisse und optional den GSC-API-Zugang. Fehlende
+optionale Komponenten erscheinen als Hinweis; erforderliche Fehler führen zu Exitcode 2.
+Mit `--strict` werden auch Hinweise zu Fehlern.
+
+Optional und nur bei Bedarf:
+
+- **GSC-API/URL Inspection:** OAuth-Zugangsdatei mit Refresh-Token.
+- **Playwright-Rendering:** zusätzliche Installation von Playwright und Chromium.
+- **CLI-Updater:** Git-Checkout mit Upstream.
+- **GSC-CSV:** ein normalisierter Importordner.
+
+`AGENTS.md` ist ausschließlich eine Arbeitsanweisung für Coding-Agenten und wird von der
+SeoBoy-Laufzeit nicht gelesen. Die Bedienung erfolgt vollständig über die CLI und die
+dokumentierten YAML-/JSON-Dateien.
 
 ## CLI aktualisieren
 
@@ -487,8 +514,8 @@ GSC-Aufbereiter und -Import, den vollständigen Crawl, Limits, Wiederholungen,
 Redirect-Schleifen, Wiederaufnahme, Parallelität, Batch-Läufe, Unterseitenanalyse,
 Wettbewerbsbenchmark, GSC-API/URL Inspection, Playwright-Vergleich (mit injiziertem
 Browser), Local SEO, GEO, Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich und
-den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen kein Netzwerk; die
-Updater-Tests nutzen lokale Git-Repositories.
+den Systemcheck und den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
+kein Netzwerk; die Updater-Tests nutzen lokale Git-Repositories.
 
 ## Projektstruktur
 
