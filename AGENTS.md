@@ -173,5 +173,9 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
 
 - Crawler sequenziell; `max_parallel_per_host` wird noch nicht parallel genutzt.
 - robots.txt- und Sitemap-Abrufe folgen keinen Weiterleitungen.
+- Das Analyse-Read-Model liest SQLite direkt. Bei mehreren Bounded Contexts sollte es
+  in Repository und Read-Model getrennt werden.
+- Der GSC-Importer nutzt die Crawl-Registry. Eine spätere API-Anbindung sollte über einen
+  eigenen Adapter mit klarer Abhängigkeitsrichtung laufen.
 - Keine GSC-API, kein Playwright-Rendering, keine Wettbewerber-/Local-SEO-/GEO-Module.
 - Kein globaler SEO-Score; Priorisierung erfolgt über P1–P4 und Evidenz.
