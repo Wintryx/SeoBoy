@@ -1,5 +1,7 @@
 # SeoBoy
 
+[![tests](https://github.com/Wintryx/SeoBoy/actions/workflows/tests.yml/badge.svg)](https://github.com/Wintryx/SeoBoy/actions/workflows/tests.yml)
+
 SeoBoy ist ein lokales SEO-Audit für eigene Websites. Es crawlt eine Site, speichert
 jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befunde mit
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan

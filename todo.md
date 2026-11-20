@@ -19,7 +19,8 @@ Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand �
 | B3 | Local SEO mit Profilen und lokalen Ergebnissen | Standortseiten an lokalen Signalen messen | **erledigt in 0.13.0** |
 | B4 | Performance/CrUX und Lighthouse | Conversion- und Ladezeitrisiken sichtbar machen | **erledigt in 0.13.0** |
 | C1 | Playwright-Browser-Auswahl | Chromium/Firefox/WebKit gezielt prüfen | **erledigt in 0.13.0** |
-| C1b | Playwright-CI mit gepinnten Browsern und Screenshots | Rendering-Diagnose reproduzierbar machen | offen |
+| C1b | GitHub-Actions-Testlauf | Änderungen automatisch prüfen | **erledigt in 0.14.0** |
+| C1c | Playwright-Browser-Matrix mit gepinnten Browsern und Screenshots | Rendering-Diagnose reproduzierbar machen | offen |
 | C2 | Reproduzierbare KI-Antwortstichproben für GEO | AI-Sichtbarkeit messen statt nur Bot-Zugriff prüfen | blockiert: KI-Anbieter-Zugang |
 | C3 | Vollständige Wettbewerber-Läufe, SERP-/Backlink-Adapter | Wettbewerb und Content-Lücken breiter einordnen | blockiert: SERP-/Backlink-Zugang |
 | C4 | Manueller Maßnahmenstatus und Verlauf | Umsetzung und Wirkung im Tool nachhalten | **erledigt in 0.13.0** |
@@ -140,8 +141,9 @@ H1, Inhalt oder CTA tatsächlich Klicks und Anfragen verändert hat.
 - **Umgesetzt:** `--engine auto|playwright|chrome`.
 - **Umgesetzt:** Ohne Playwright nutzt auto einen vorhandenen Chrome/Edge headless;
   der Bericht markiert den fehlenden HTTP-Status.
-- Offen: gepinnte Browser-Versionen, CI-Image, Screenshots, Performance-Messwerte und
-  Integration in regelmäßige Crawl-Läufe.
+- **Umgesetzt:** GitHub-Actions-Testlauf auf Windows.
+- Offen: gepinnte Playwright-Browser-Versionen, Browser-Matrix im CI, Screenshots,
+  Performance-Messwerte und Integration in regelmäßige Crawl-Läufe.
 
 ### C2 – GEO (blockiert)
 
