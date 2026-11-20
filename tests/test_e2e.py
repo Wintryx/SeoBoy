@@ -194,6 +194,7 @@ class EndToEndTests(unittest.TestCase):
                 "02_TECHNICAL_SEO_AUDIT.md",
                 "03_PAGE_ANALYSIS.md",
                 "04_GSC_QUERY_PAGES.md",
+                "05_GSC_HISTORY.md",
                 "manifest.json",
                 "raw_data/all_urls.csv",
                 "raw_data/pages.csv",
@@ -201,6 +202,7 @@ class EndToEndTests(unittest.TestCase):
                 "raw_data/broken_links.csv",
                 "raw_data/gsc_metrics.csv",
                 "raw_data/gsc_query_pages.csv",
+                "raw_data/gsc_history.csv",
             ):
                 self.assertTrue((report / name).is_file(), name)
             self.assertTrue((report / "raw_data" / "all_urls.csv").read_bytes().startswith(b"\xef\xbb\xbf"))
@@ -212,6 +214,8 @@ class EndToEndTests(unittest.TestCase):
             self.assertIn("Suchanfrage × Zielseite", gsc_report)
             self.assertIn("Mehrere URLs für dieselbe Suchanfrage", gsc_report)
             self.assertIn("seo", gsc_report)
+            history = (report / "05_GSC_HISTORY.md").read_text(encoding="utf-8")
+            self.assertIn("Kein Vergleichslauf", history)
             connection = connect(config.database)
             try:
                 run = dict(connection.execute("SELECT * FROM runs").fetchone())

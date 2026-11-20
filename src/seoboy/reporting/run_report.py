@@ -14,6 +14,7 @@ from typing import Any, Iterable
 from seoboy.analysis.audit_data import RunData
 from seoboy.infrastructure.config import ProjectConfig
 from seoboy.analysis.rules import RULE_VERSIONS
+from seoboy.reporting.gsc_history import write_gsc_history_report
 from seoboy.reporting.gsc_report import write_gsc_query_report
 from seoboy.reporting.page_analysis import render_page_analysis, write_page_analysis_csv
 from seoboy.shared.urls import relative_url
@@ -430,12 +431,22 @@ def render_run_report(
         if len(wins) >= 5:
             break
 
-    _write_text(folder / "00_EXECUTIVE_SUMMARY.md", _executive_summary(report, counts, requests, aux_urls, wins))
-    _write_text(folder / "01_ACTION_PLAN_PRIORITIZED.md", _action_plan(report, coverage, wins))
-    _write_text(folder / "02_TECHNICAL_SEO_AUDIT.md", _technical_audit(report, coverage, counts, requests))
-    _write_text(folder / "03_PAGE_ANALYSIS.md", render_page_analysis(data))
+    history_written = False
     if data.datasets:
         write_gsc_query_report(folder, data)
+        history_written = write_gsc_history_report(folder, data, connection)
+    _write_text(
+        folder / "00_EXECUTIVE_SUMMARY.md",
+        _executive_summary(
+            report, counts, requests, aux_urls, wins, history_written
+        ),
+    )
+    _write_text(folder / "01_ACTION_PLAN_PRIORITIZED.md", _action_plan(report, coverage, wins))
+    _write_text(
+        folder / "02_TECHNICAL_SEO_AUDIT.md",
+        _technical_audit(report, coverage, counts, requests, history_written),
+    )
+    _write_text(folder / "03_PAGE_ANALYSIS.md", render_page_analysis(data))
     _write_all_urls_csv(raw / "all_urls.csv", report)
     write_page_analysis_csv(raw / "pages.csv", data)
     _write_rule_results_csv(raw / "rule_results.csv", report)
@@ -490,12 +501,14 @@ def render_run_report(
             "02_TECHNICAL_SEO_AUDIT.md",
             "03_PAGE_ANALYSIS.md",
             *(["04_GSC_QUERY_PAGES.md"] if data.datasets else []),
+            *(["05_GSC_HISTORY.md"] if history_written else []),
             "manifest.json",
             "raw_data/all_urls.csv",
             "raw_data/pages.csv",
             "raw_data/rule_results.csv",
             "raw_data/broken_links.csv",
             *(["raw_data/gsc_metrics.csv", "raw_data/gsc_query_pages.csv"] if data.datasets else []),
+            *(["raw_data/gsc_history.csv"] if history_written else []),
         ],
     }
     _write_text(folder / "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
@@ -508,6 +521,7 @@ def _executive_summary(
     requests: int,
     aux_urls: int,
     wins: list[StoredAction],
+    history_written: bool = False,
 ) -> str:
     data = report.data
     run = data.run
@@ -629,6 +643,11 @@ def _executive_summary(
             *(
                 ["- [GSC: Suchanfragen und Zielseiten](04_GSC_QUERY_PAGES.md)"]
                 if data.datasets
+                else []
+            ),
+            *(
+                ["- [GSC-Verlauf](05_GSC_HISTORY.md)"]
+                if history_written
                 else []
             ),
             "- [Maschinenlesbare Daten](raw_data/) und [Manifest](manifest.json)",
@@ -844,6 +863,7 @@ def _technical_audit(
     coverage: dict[str, dict[str, Any]],
     counts: dict[str, int],
     requests: int,
+    history_written: bool = False,
 ) -> str:
     data = report.data
     run = data.run
@@ -1001,6 +1021,9 @@ def _technical_audit(
         lines.append("- [GSC-Zeilen](raw_data/gsc_metrics.csv)")
         lines.append("- [GSC-Suchanfragen × Zielseiten](04_GSC_QUERY_PAGES.md)")
         lines.append("- [GSC-Query-/Seitenzeilen](raw_data/gsc_query_pages.csv)")
+    if history_written:
+        lines.append("- [GSC-Verlauf](05_GSC_HISTORY.md)")
+        lines.append("- [GSC-Verlaufszeilen](raw_data/gsc_history.csv)")
     lines.append("")
     return "\n".join(lines)
 

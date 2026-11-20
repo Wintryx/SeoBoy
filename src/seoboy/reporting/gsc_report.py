@@ -64,6 +64,10 @@ def _pairs(data: RunData, dataset: dict[str, Any]) -> list[Pair]:
     return result
 
 
+def pairs_for_dataset(data: RunData, dataset: dict[str, Any]) -> list[Pair]:
+    return _pairs(data, dataset)
+
+
 def segments(data: RunData) -> list[Segment]:
     groups: dict[str, list[dict[str, Any]]] = {}
     for dataset in data.datasets:
