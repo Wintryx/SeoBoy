@@ -1,6 +1,6 @@
 # SeoBoy – Reporting und Priorisierung
 
-Ein Lauf liefert einen Maßnahmenplan mit überprüfbaren Befunden. Der Bericht nennt die betroffenen Seiten, schlägt eine Änderung vor und zeigt, woran sich die Behebung erkennen lässt. Er basiert auf dem [Datenmodell](01_architektur_und_techstack_md.md) und den [Prüfregeln](02_seo_geo_und_konkurrenz_engine_md.md).
+Ein Lauf liefert einen Maßnahmenplan mit überprüfbaren Befunden. Der Bericht nennt die betroffenen Seiten, schlägt eine Änderung vor und zeigt, woran sich die Behebung erkennen lässt. Er basiert auf dem [Datenmodell](04_datenmodell_sqlite_md.md) und den [Prüfregeln](02_seo_geo_und_konkurrenz_engine_md.md).
 
 ## 1. Ausgabe je Lauf
 
@@ -23,7 +23,7 @@ CSV-Ausgaben nutzen UTF-8 mit BOM, Kommas als Trenner und feste Spaltenüberschr
 
 Ein Befund ist eine konkrete Regelverletzung oder eine belegte Auffälligkeit. Eine Maßnahme bündelt Befunde, für die dieselbe Änderung genügt. Mehrere Links auf dasselbe defekte Ziel ergeben beispielsweise eine Maßnahme mit einer Liste der Quellseiten. Bei vermuteter gemeinsamer Template-Ursache dürfen die Befunde erst nach einer nachvollziehbaren Zuordnung als gemeinsamer Fix erscheinen.
 
-Die Befund-ID ergibt sich aus Regel-ID, normalisierter URL und einem optionalen, deterministischen Teilobjektschlüssel, etwa der Ziel-URL. Die Maßnahmen-ID ergibt sich aus Projekt, Regel und Art des Fixes sowie einem fachlichen Schlüssel wie betroffener URL, Linkziel oder bekanntem Template. Weder die Lauf-ID noch eine veränderliche URL-Anzahl gehören zu diesen IDs. Die Befundebene bleibt für Vergleiche erhalten, auch wenn sich die Gruppierung der Maßnahmen ändert.
+Die Befund-ID ergibt sich aus Projekt, Website, Regel-ID und einem stabilen Gegenstandsschlüssel. Dieser kann etwa eine normalisierte URL, eine Linkkante, einen Untercheck oder eine Suchanfrage im jeweiligen Segment bezeichnen. Die Maßnahmen-ID ergibt sich aus Projekt, Website, Regel und Art des Fixes sowie einem fachlichen Schlüssel wie betroffener URL, Linkziel oder bekanntem Template. Lauf-ID, Messzeitpunkt und veränderliche URL-Anzahl gehören zu keiner der beiden IDs. Die Befundebene bleibt für Vergleiche erhalten, auch wenn sich die Gruppierung der Maßnahmen ändert.
 
 ## 3. Priorität und Reihenfolge
 
@@ -42,7 +42,7 @@ Jede Regel liefert eine Standardklasse. P1 setzt immer die oben genannten Beding
 | --- | --- |
 | **Beleglage** | Bestätigt vor plausibel vor Hinweis. Ein eindeutiger HTTP- oder Headerwert ist eine direkte Beobachtung. Seine Interpretation als Problem braucht den passenden Seitenkontext. |
 | **Geschäftsbedeutung** | Hoch vor normal vor niedrig. Maßgeblich ist die höchste Bedeutung unter den belegten betroffenen Seiten. |
-| **Reichweite** | Anzahl der betroffenen URLs absteigend. Im Bericht steht zusätzlich die Anzahl der für dieselbe Regel prüfbaren URLs im selben Geltungsbereich. GSC-Impressionen und Klicks liefern Kontext, wenn sie vergleichbar vorliegen. |
+| **Reichweite** | Anzahl der betroffenen URLs absteigend. Die Bezugsgröße zählt eindeutige URLs mit `pass` oder `finding` für dieselbe Regel und denselben Untercheck im gleichen Seitentyp bzw. Geltungsbereich. Bei mehreren Regeln werden die Bezugsgrößen separat angegeben. Für Linkprobleme nennt der Bericht Quellseiten und Linkziele getrennt. GSC-Impressionen und Klicks liefern Kontext, wenn sie vergleichbar vorliegen. |
 | **Aufwand** | Klein vor mittel vor groß vor unbekannt. Grundlage ist der vorgeschlagene Fix. Ein Template-Fix kann viele Seiten betreffen und trotzdem klein sein. |
 | **Gleichstand** | Stabile Maßnahmen-ID aufsteigend. |
 
@@ -56,6 +56,8 @@ Die Zusammenfassung zeigt zuerst die dringendsten offenen Maßnahmen. Eine zusä
 - **Regel und ID:** INDEX_NOINDEX · stabile Maßnahmen-ID
 - **Betroffen:** /leistungen/pa-anlage/ · 1 von 8 geprüften Leistungsseiten
 - **Evidenz:** HTTP 200 und X-Robots-Tag: noindex im gespeicherten Abruf
+- **Datenquelle und Messzeit:** HTTP-Abruf vom 20.11.2026 um 09:32 Uhr MEZ
+- **Schweregrad und Beleglage:** Kritisch, bestätigt
 - **Einordnung:** Die Seite ist als geschäftlich wichtig und indexierbar markiert
 - **Änderung:** Regel für den X-Robots-Tag auf dieser Seite korrigieren
 - **Erwartete Wirkung:** Eine unbeabsichtigte Indexierungssperre entfällt
@@ -63,7 +65,7 @@ Die Zusammenfassung zeigt zuerst die dringendsten offenen Maßnahmen. Eine zusä
 - **Aufwand:** Klein
 ```
 
-Jede Maßnahme enthält außerdem die Datenquelle und den Messzeitpunkt bzw. das Messfenster. Bei mehreren URLs enthält der Text wenige Beispiele und einen relativen Link auf die passenden Rohdaten. Codebeispiele erscheinen nur bei ausreichendem Kontext. Geschäftsdaten wie offizielle Unternehmensprofile werden aus bestätigten Angaben übernommen.
+Bei importbasierten Maßnahmen steht das Messfenster neben der Datenquelle. Bei mehreren URLs enthält der Text wenige Beispiele und einen relativen Link auf die passenden Rohdaten. Codebeispiele erscheinen nur bei ausreichendem Kontext. Geschäftsdaten wie offizielle Unternehmensprofile werden aus bestätigten Angaben übernommen.
 
 ## 5. Vergleich zweier Läufe
 
@@ -77,6 +79,8 @@ Jede Maßnahme enthält außerdem die Datenquelle und den Messzeitpunkt bzw. das
 | **Behoben** | Dieselbe Regel wurde im Ziellauf mit ausreichender Evidenz erneut geprüft und bestanden. |
 | **Ungeprüft** | Eine notwendige Beobachtung fehlt, etwa wegen Zeitlimit, Timeout oder Sperre. |
 | **Nicht vergleichbar** | Die Regel, ihr Geltungsbereich oder ihre fachliche Anwendbarkeit hat sich so geändert, dass der Vergleich keine belastbare Aussage zulässt. |
+
+Bei Linkkanten zählt auch die vollständig geprüfte Entfernung des Links als bestandener Untercheck. Ein fehlender Linkdatensatz allein liefert diesen Nachweis nicht. Die Linkextraktion der Quellseite muss im Ziellauf vollständig sein.
 
 Bei gruppierten Maßnahmen zeigt der Bericht die Zustände der einzelnen Befunde. Eine Maßnahme gilt erst als vollständig behoben, wenn alle bisherigen Befunde nachweislich behoben sind und der aktuelle Lauf innerhalb vergleichbarer Abdeckung für denselben Fix keinen weiteren Befund enthält. Neue oder abgelaufene Ausnahmen ändern die Sichtbarkeit im Maßnahmenplan. Sie ändern keine Beobachtung und gelten nicht als Reparatur.
 

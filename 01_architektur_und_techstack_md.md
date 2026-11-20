@@ -6,13 +6,13 @@
 
 SeoBoy prüft eigene Websites, verbindet technische Befunde mit Daten aus der Google Search Console (GSC) und erstellt einen priorisierten Maßnahmenplan. Wiederholte Audits zeigen, welche Probleme neu sind, fortbestehen oder nachweislich behoben wurden. Ein Audit ist lesend und ändert keine Website.
 
-Die [Prüfregeln](02_seo_geo_und_konkurrenz_engine_md.md) und das [Reporting](03_reporting_und_priorisierung_md.md) bauen auf dem hier beschriebenen Datenmodell auf.
+Die [Prüfregeln](02_seo_geo_und_konkurrenz_engine_md.md) und das [Reporting](03_reporting_und_priorisierung_md.md) verwenden das [SQLite-Datenmodell](04_datenmodell_sqlite_md.md).
 
 ## 1. Umfang und Ausbaustufen
 
 | Stufe | Lieferumfang |
 | --- | --- |
-| **MVP** | Eine eigene Website pro Projekt, HTTP-Crawl, SQLite, technische Kernregeln, optionaler GSC-CSV-Import, Markdown- und CSV-Berichte, Audit-Vergleich. |
+| **MVP** | Eine eigene Website pro Projekt, HTTP-Crawl, SQLite, technische Kernregeln, optionaler GSC-CSV-Import mit kleinem Seitenexport-Aufbereiter, Markdown- und CSV-Berichte, Audit-Vergleich. |
 | **Nächster Ausbau** | Direkte GSC-Anbindung, URL Inspection für ausgewählte Seiten, gezieltes Playwright-Rendering, Performance-Stichproben, erweiterte Link- und Content-Analysen, Maßnahmenstatus. |
 | **Wettbewerb und Local SEO** | Vergleich ausgewählter Seitentypen, SERP-Daten über einen optionalen Anbieter, getrennte Local-SEO-Auswertungen bei Bedarf. |
 | **Experimentelles GEO** | Bot-Regeln, beobachtbare Inhaltsmerkmale und wiederholbare Stichproben aus KI-Suchsystemen. |
@@ -79,31 +79,23 @@ Relative Pfade beziehen sich auf die Konfigurationsdatei. `allowed_hosts` enthä
 ## 4. Crawl-Vertrag
 
 - **Entdeckung.** Die Warteschlange startet mit der Startseite und konkret benannten wichtigen URLs. Interne Links, rekursive XML-Sitemap-Indizes und optional GSC-URLs ergänzen den Bestand. SeoBoy speichert alle bekannten Herkunftsarten je URL. Die Warteschlange priorisiert zuerst Startseite und manuelle Start-URLs, dann verlinkte Seiten nach bekannter Klicktiefe. Unverlinkte Sitemap- und GSC-URLs folgen. Bei gleicher Priorität entscheidet die normalisierte URL. Eine URL aus der Sitemap erhält ihre Klicktiefe erst aus dem von der Startseite erreichbaren Linkgraphen.
-- **URL-Identität.** Relative Links werden gegen die Dokumentbasis aufgelöst. Das Schema und der Host werden kleingeschrieben, Standardports und Fragmente entfernt. Pfadschreibweise, Slash am Ende und übrige Query-Parameter bleiben erhalten. Die angefragte URL, die normalisierte Identität und das endgültige Redirect-Ziel bleiben nachvollziehbar. Canonical-Angaben führen nicht zum Zusammenlegen von URLs.
-- **Geltungsbereich.** Nur HTTP und HTTPS für zugelassene Hosts und Pfade abrufen. Jeder Redirect wird vor dem Folgen erneut geprüft. Externe Ziele werden als Referenz erfasst. Pro Origin prüft SeoBoy `robots.txt` für den eigenen User-Agent nach RFC 9309 und wertet Regeln für andere Bots separat aus. [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309)
-- **Limits.** `max_urls` begrenzt verschiedene zum Abruf zugelassene Seiten-URLs, einschließlich gefolgter interner Weiterleitungen. `max_requests` begrenzt sämtliche HTTP-Anfragen des Laufs, einschließlich Sitemap, Robots, Redirects und Wiederholungen. Anfrage-Timeouts, Größenlimits für Antworten sowie Grenzen für Sitemap-Indizes und URL-Varianten pro Pfad halten einzelne Fälle klein. Bei `429`, `5xx` und Timeouts folgen bis zu zwei Wiederholungen mit zunehmender Wartezeit. Bei vorhandenem `Retry-After` wartet der betroffene Host bis zum angegebenen Zeitpunkt oder bis zum Ende des Laufzeitbudgets.
-- **Wiederaufnahme.** Warteschlange, Ergebnisse und Zähler werden fortlaufend gespeichert. Ein abgebrochener oder am Zeitlimit pausierter Lauf kann mit derselben Konfiguration und Regelversion fortgesetzt werden. Bereits abgeschlossene Abrufe werden wiederverwendet. Das Zeitbudget gilt je Ausführung, URL- und Anfragelimits gelten für den gesamten Lauf. Ein erreichtes Gesamtlimit beendet den Lauf mit Teilabdeckung.
+- **URL-Identität.** Relative Links werden gegen die Dokumentbasis aufgelöst. Schema und Host werden kleingeschrieben, Standardports, Fragmente und konfigurierte Tracking-Parameter entfernt. Pfadschreibweise, Slash am Ende und übrige Query-Parameter bleiben erhalten. SeoBoy speichert die entdeckte Schreibweise getrennt von der normalisierten Abruf-URL. Canonical-Angaben führen nicht zum Zusammenlegen von URLs.
+- **Reihenfolge.** Nach der Normalisierung prüft SeoBoy Schema und Host, Pfadausschlüsse und anschließend `robots.txt` für die tatsächliche Abruf-URL. Erst nach bestandenen Filtern und der Prüfung der URL-Varianten pro Pfad belegt eine Seiten-URL einen Platz im Limit. Jeder Redirect durchläuft die Prüfung erneut. Externe Ziele werden als Referenz erfasst. Robots- und Sitemap-Abrufe haben eigene Warteschlangeneinträge. Die Abfrage von `robots.txt` selbst braucht keine vorherige Robots-Erlaubnis. [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309)
+- **Limits.** `max_urls` zählt jede normalisierte URL einmal, sobald sie als Seite zum Abruf zugelassen wurde. Das gilt für interne Redirect-Ziele und für URLs, die sich erst beim Abruf als Nicht-HTML herausstellen. Hilfsabrufe für Robots und Sitemaps belegen keinen Seitenplatz. `max_requests` zählt jede reservierte HTTP-Anfrage einschließlich Hilfsabrufen, Redirects und Wiederholungen. Bilder, Skripte und Stylesheets werden im MVP nicht als Ressourcen nachgeladen. Bei `429`, `5xx` und Timeouts folgen bis zu zwei Wiederholungen. `Retry-After` und der nächste zulässige Abrufzeitpunkt bleiben über Pausen erhalten.
+- **Wiederaufnahme.** SeoBoy speichert die wirksame Konfiguration, Versionen und Eingaben beim Start. Bei einer für die Auswertung relevanten Änderung startet ein neuer Lauf. Ein vor dem HTTP-Abruf reservierter Versuch bleibt auch bei einem Prozessabbruch im Budget. Die Wiederaufnahme kennzeichnet Versuche ohne gespeichertes Ergebnis als unterbrochen und plant sie innerhalb der Limits erneut ein. Erfolgreich gespeicherte Arbeit wird weiterverwendet. Das Zeitbudget gilt je Ausführung. Die URL- und Anfragelimits gelten für den gesamten Lauf. Nach Ausschöpfung eines Gesamtlimits wird der Lauf als Teillauf abgeschlossen. Die einzelnen Transaktionen sind im [Datenmodell](04_datenmodell_sqlite_md.md) beschrieben.
 - **Abdeckung.** Jeder Lauf unterscheidet entdeckte, geprüfte, gesperrte, ausgeschlossene und noch offene URLs. Bei einer blockierten oder fehlgeschlagenen Seite bleiben inhaltsabhängige Regeln ungeprüft. Teilabdeckung und Abbruchgrund erscheinen im Bericht.
 
 Beim späteren Rendering vergleicht SeoBoy das HTTP-Dokument mit dem Browser-DOM einer ausgewählten URL. Beide Beobachtungen behalten ihre Herkunft. Der Vergleich kann Änderungen durch JavaScript sichtbar machen. Googles Rendering hat eigene Grenzen. [Google zu JavaScript und Rendering](https://developers.google.com/search/docs/crawling-indexing/javascript/fix-search-javascript)
 
 ## 5. Datenmodell
 
-| Tabelle | Inhalt und Identität |
-| --- | --- |
-| `runs` | Lauf-ID, Projekt-ID, Start/Ende, Status, Limits, Abbruchgrund, bereinigte Konfiguration, Regel- und Toolversion. |
-| `urls` | Lauf-ID, normalisierte URL, Herkunft(en), Profil, Zustand und Grund bei Ausschluss oder fehlender Abdeckung. |
-| `fetches` | Lauf-ID, URL, Abrufweg (HTTP oder Browser), Zeit, Versuch, Status, Redirect-Hops, Header und Extrakt. |
-| `links` | Lauf-ID, Quell- und Ziel-URL, Linkart, optional Ankertext und Extraktionsquelle. |
-| `source_imports`, `gsc_metrics` | Herkunft, Property, Zeitraum, Filter, Granularität, Importstatus und Messwerte je URL bzw. URL und Suchanfrage. |
-| `rule_results` | Lauf-ID, Regel-ID und Regelversion, URL und optionales Teilobjekt, Ergebnis, Evidenz und Grund für fehlende Prüfbarkeit. |
-| `actions`, `action_findings` | Maßnahmen je Lauf mit stabiler Maßnahmen-ID, Zuordnung zu Befunden und berechneter Priorität. Der manuelle Bearbeitungsstatus folgt im nächsten Ausbau. |
-
-Beobachtungen sind pro Lauf getrennt. `diff` verwendet stabile Regel- und URL-Identitäten sowie vergleichbare Prüfergebnisse. Details zu den Vergleichsregeln stehen in [Teil 3](03_reporting_und_priorisierung_md.md).
+Das [SQLite-Datenmodell](04_datenmodell_sqlite_md.md) definiert Schlüssel, Status, Transaktionsgrenzen und die Erweiterungspunkte. Die [erste Migration](migrations/001_initial.sql) legt das Schema an. Dauerhafte URL-Identitäten stehen getrennt von Daten eines einzelnen Laufs. `diff` verwendet stabile Befundschlüssel und vergleichbare Prüfergebnisse gemäß [Teil 3](03_reporting_und_priorisierung_md.md).
 
 ## 6. GSC-Import und API-Adapter
 
 Der MVP liest pro GSC-Berichtszeitraum eine normalisierte, UTF-8-kodierte CSV pro Granularität. Die Dateien verwenden Kommas als Trenner und einen Punkt als Dezimalzeichen. Eine `manifest.json` nennt Property, Suchtyp, Länder- und Gerätefilter, Start- und Enddatum je Zeitraum und die zugehörigen Dateien. Die relative Dateiangabe bezieht sich auf das Verzeichnis des Manifests. `null` bezeichnet einen unsegmentierten Länder- bzw. Gerätefilter.
+
+Ein vorgelagerter Aufbereiter übernimmt den Seitenexport aus dem GSC-Leistungsbericht. Er verwendet ein Spaltenmapping und ein angegebenes Zahlen- und Trennzeichenformat, meldet fehlende oder mehrdeutige Felder und übernimmt bestätigte Property, Filter und Zeitraum in das Manifest. Ein deutscher Seitenexport dient als erster Abnahmefall. Der Aufbereiter erzeugt keine künstlichen URL-Suchanfrage-Paare. Das optionale Feld `source_format` je Zeitraum trägt beim Aufbereiter den Wert `gsc_ui_csv`. Der Import kennzeichnet diese Quelle als potenziell abgeschnitten und hält fest, dass fehlende Anzeigewerte beim Export als Nullen ausgegeben werden können. Eine Position `0` aus dieser Quelle wird als unbekannt übernommen. Fehlende Zeilen bleiben unbekannt. [Google zum Export von Search-Console-Berichten](https://support.google.com/webmasters/answer/12919797)
 
 | Datei je Zeitraum | Pflichtspalten |
 | --- | --- |
@@ -120,8 +112,8 @@ Der MVP liest pro GSC-Berichtszeitraum eine normalisierte, UTF-8-kodierte CSV pr
     {
       "start": "2026-10-01",
       "end": "2026-10-28",
-      "pages": "2026-10_pages.csv",
-      "page_queries": "2026-10_page_queries.csv"
+      "source_format": "gsc_ui_csv",
+      "pages": "2026-10_pages.csv"
     },
     {
       "start": "2026-09-03",
@@ -140,5 +132,5 @@ Die spätere GSC-API-Anbindung nutzt Desktop-OAuth mit Lesezugriff auf die konfi
 
 - Ein Testauftritt mit Sitemap, internen Links und Redirects lässt sich ohne Zugangsdaten auditieren. Ausgeschlossene Hosts und Pfade werden nicht abgerufen.
 - Ein abgebrochener Lauf setzt offene Arbeit fort und bleibt innerhalb der konfigurierten URL- und Anfragelimits. Der Bericht nennt fehlende Abdeckung und den Grund.
-- Ein gültiger GSC-Import ordnet bekannte URLs eindeutig zu. Ungültige und nicht zuordenbare Werte werden nachvollziehbar gemeldet. Ohne GSC bleiben technische Prüfungen verfügbar.
+- Ein deutscher GSC-Seitenexport lässt sich in das interne Format überführen und bekannten URLs zuordnen. Ungültige und nicht zuordenbare Werte werden nachvollziehbar gemeldet. Ohne GSC bleiben technische Prüfungen verfügbar.
 - Jeder Befund lässt sich auf einen gespeicherten Abruf oder Import zurückführen. Zwei gespeicherte Läufe sind anhand ihrer IDs vergleichbar.
