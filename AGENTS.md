@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.12.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.13.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -64,7 +64,8 @@ unnötiger Aufwand.
 | `src/seoboy/reporting/diff_report.py` | Vergleich zweier Läufe |
 | `src/seoboy/benchmark/sampler.py` | robots-konforme Wettbewerbsstichprobe |
 | `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich, TF-IDF und Begriffskandidaten |
-| `src/seoboy/local_seo/audit.py` | Standort-, NAP- und LocalBusiness-Prüfung |
+| `src/seoboy/local_seo/audit.py` | Standort-, NAP-, Profil- und Local-Result-Prüfung |
+| `src/seoboy/performance/audit.py` | PageSpeed/Lighthouse und CrUX |
 | `src/seoboy/geo/audit.py` | AI-Bots, llms.txt und GEO-Readiness |
 | `src/seoboy/application/runner.py` | run/resume/inspect/report/diff, Batch und Benchmark |
 | `src/seoboy/infrastructure/env.py` | Optionales Laden von `.env` |
@@ -72,6 +73,7 @@ unnötiger Aufwand.
 | `src/seoboy/infrastructure/update.py` | Git-basierter CLI-Updater mit Rollback |
 | `migrations/001_initial.sql` | SQLite-Basisschema |
 | `migrations/002_url_inspections.sql` | persistente URL-Inspection-Ergebnisse |
+| `migrations/003_action_statuses.sql` | Maßnahmenstatus und Verlauf |
 
 Die verbindlichen Anforderungen stehen in:
 - `01_architektur_und_techstack_md.md`
@@ -104,7 +106,8 @@ Parallelität, Batch-Läufe, Unterseitenanalyse, Wettbewerbsbenchmark, Content-T
 TF-IDF, GSC-Query-/
 Zielseitenbericht, GSC-Verlauf, GSC-API/URL Inspection, OAuth-Helfer,
 URL-Inspection-Persistenz und -Diff, Playwright-Vergleich mit injiziertem Browser,
-Local SEO, GEO, Einzel-URL-Prüfung,
+Local SEO-Profile/Local-Results, Performance-Adapter, Maßnahmenstatus,
+GEO, Einzel-URL-Prüfung,
 Ausnahmen, Berichte, Diff, den Systemcheck und den Git-Updater ab. Sie nutzt lokale
 HTTP-Server, lokale Git-Repositories und benötigt kein Internet.
 
@@ -122,6 +125,7 @@ gesetzte Umgebungsvariablen werden nicht überschrieben.
 | `SEOBOY_GSC_ACCESS_TOKEN` | Kurzlebiger Access-Token für Tests/Notfälle; nicht speichern |
 | `SEOBOY_GSC_TOKEN_STORE` | Pfad des persistenten OAuth-Token-Stores |
 | `SEOBOY_OPENSSL` | Optionaler OpenSSL-Pfad für die Service-Account-Signatur |
+| `SEOBOY_PSI_API_KEY` | API-Key für PageSpeed Insights und CrUX |
 | `SEOBOY_ENV_FILE` | Alternatives Env-File; muss vor dem Prozessstart gesetzt sein |
 
 `.env.example` ist die dokumentierte Vorlage. `.env` selbst ist in `.gitignore` und darf
@@ -226,10 +230,12 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
 - URL Inspection ist auf API-Kontingente begrenzt; der Batch-Modus prüft standardmäßig
   höchstens 10 und maximal 100 wichtige URLs.
 - Playwright ist optional und benötigt eine separate Browser-Installation.
-- Local SEO und GEO sind beobachtungsbasiert; externe Unternehmensprofile, lokale
-  Suchergebnisse und KI-Antwortstichproben sind noch nicht angebunden.
-- Vollständige Wettbewerber-Audits, SERP-/Backlink-Adapter und Performance-/CrUX-Messungen
-  bleiben Ausbaustufen.
+- Local SEO prüft konfigurierte Profil-URLs per Textabgleich und importiert lokale
+  Messergebnisse aus CSV; offizielle Profil-APIs und Suchmaschinenabfragen sind nicht
+  angebunden.
+- PageSpeed/CrUX benötigt einen API-Key; ohne Key bleibt der Befehl klar deaktiviert.
+- Vollständige Wettbewerber-Audits, SERP-/Backlink-Adapter und KI-Antwortstichproben
+  bleiben externe Ausbaustufen.
 - Der CLI-Updater setzt einen Git-Checkout mit Upstream voraus; Wheel-/PyPI-Installationen
   werden mit pip aktualisiert.
 - Die Laufzeit benötigt keinen KI-Agenten und kein LLM; `AGENTS.md` ist nur eine

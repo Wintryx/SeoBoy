@@ -5,7 +5,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.12.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.13.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -33,8 +33,10 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - Persistenter GSC-Token-Store mit restriktiven Dateirechten
 - Persistente URL-Inspection-Ergebnisse, 06-Bericht und Audit-Diff
 - Aufbereiter für den deutschen GSC-UI-Seitenexport (Semikolon, Dezimalkomma)
-- Optionales Playwright-Rendering mit HTTP-/Browser-DOM-Vergleich
-- Local-SEO-Prüfung für Standorte, NAP und LocalBusiness-Schema
+- Optionales Playwright-Rendering mit Chromium/Firefox/WebKit
+- Local-SEO-Prüfung für Standorte, NAP, Profile und lokale Messevidenz
+- Performance-Bericht für PageSpeed/Lighthouse und CrUX
+- Maßnahmenstatus mit Verlauf
 - GEO-Readiness für AI-Bots, llms.txt und vorhandene Content-/Schema-Signale
 - Priorisierte Maßnahmen (P1 bis P4), Quick Wins und Evidenz je Befund
 - Markdown-Berichte, CSV-Rohdaten und Manifest je Lauf
@@ -522,6 +524,7 @@ Rendering ist optional und benötigt Playwright plus Chromium:
 .\venv\Scripts\python.exe -m pip install -e ".[rendering]"
 .\venv\Scripts\playwright.exe install chromium
 seoboy render --url https://example.de/ --url https://example.de/leistungen/
+seoboy render --browser firefox --url https://example.de/
 ```
 
 Der Bericht vergleicht HTTP-Dokument und Browser-DOM (Titel, Beschreibung, H1, Wörter,
@@ -543,15 +546,37 @@ locations:
     region: NRW
     country: DE
     phone: "+49 221 123456"
+    profiles:
+      - https://www.google.com/maps/place/...
+      - https://www.example-verzeichnis.de/profil
 ```
 
 ```powershell
 seoboy local --locations .\local\standorte.yaml
+seoboy local --locations .\local\standorte.yaml --local-results .\local\rankings.csv
 ```
 
 Geprüft werden Erreichbarkeit, Indexierbarkeit, H1, Schema und die Konsistenz von Name,
-Adresse und Telefon im LocalBusiness-/Organization-JSON-LD. Die Prüfung ist
-beobachtungsbasiert; externe Unternehmensprofile und lokale Suchergebnisse folgen später.
+Adresse und Telefon im LocalBusiness-/Organization-JSON-LD. Zusätzlich werden
+konfigurierte Profil-URLs per Textabgleich auf Name, Ort und Telefon geprüft.
+
+Lokale Suchpositionen können als CSV mit
+`query,location,position,url,source,date` beigestellt werden. SeoBoy fragt keine
+Suchmaschine und keine offizielle Profil-API live ab; die Werte bleiben nachvollziehbare
+Messevidenz.
+
+### Performance
+
+PageSpeed Insights/Lighthouse und CrUX werden über einen API-Key abgefragt:
+
+```powershell
+$env:SEOBOY_PSI_API_KEY = "..."
+seoboy performance --url https://example.de/ --out .\reports\performance
+```
+
+Der Bericht enthält den Lighthouse-Performance-Score, FCP, LCP, TBT, CLS, Speed Index
+und TTI sowie CrUX-p75-Felddaten. Ohne API-Key endet der Befehl mit Exitcode 2. Es werden
+keine Werte geschätzt.
 
 ### GEO und AI-Readiness
 
@@ -622,6 +647,20 @@ unverändert.
 Geltungsbereich und Anwendbarkeit werden geprüft. Ein fehlender Linkdatensatz gilt nur
 dann als behoben, wenn die Quellseite im Ziellauf vollständig ausgewertet wurde.
 
+## Maßnahmenstatus
+
+Der Bearbeitungsstand einer Maßnahme wird projektweit über den stabilen
+`action_key` gepflegt:
+
+```powershell
+seoboy action-status --list
+seoboy action-status --action-key "..." --status in_progress --note "Umsetzung läuft"
+seoboy action-status --action-key "..." --history
+```
+
+Zulässig sind `open`, `in_progress`, `done` und `ignored`. Jede Änderung wird
+in `action_status_history` protokolliert und im Maßnahmenplan des Laufs angezeigt.
+
 ## Tests
 
 ```powershell
@@ -634,8 +673,9 @@ Redirect-Schleifen, Wiederaufnahme, Parallelität, Batch-Läufe, Unterseitenanal
 Wettbewerbsbenchmark, Content-Terme/TF-IDF, SimHash und manuelle Wettbewerbs-URLs,
 GSC-API/URL Inspection, OAuth-Helfer, GSC-Query-/Zielseitenbericht, GSC-Verlauf,
 URL-Inspection-Persistenz und -Diff, Playwright-Vergleich (mit injiziertem Browser),
-Local SEO, GEO, Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich, den
-Systemcheck und den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
+Local-SEO-Profile/-Messergebnisse, Performance-Adapter, Maßnahmenstatus mit Verlauf,
+GEO, Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich, den Systemcheck und
+den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
 kein Netzwerk; die Updater-Tests nutzen lokale Git-Repositories.
 
 ## Projektstruktur
@@ -650,6 +690,7 @@ Domain Events wäre für diesen lokalen Batch-Audit unnötiger Aufwand.
 ```text
 migrations/001_initial.sql     SQLite-Basisschema
 migrations/002_url_inspections.sql  persistente URL-Inspection-Ergebnisse
+migrations/003_action_statuses.sql  Maßnahmenstatus und Verlauf
 AGENTS.md                       Arbeitsanweisung für KI-Agenten
 .env.example                    dokumentierte lokale Umgebungsvariablen
 local/                          lokale Konfigurationen und Laufdaten (ignoriert)
@@ -690,7 +731,9 @@ src/seoboy/
     sampler.py                 robots-konforme Wettbewerbsstichprobe
     report.py                  Wettbewerbsvergleich, TF-IDF und Begriffskandidaten
   local_seo/
-    audit.py                   Standort-, NAP- und Schema-Prüfung
+    audit.py                   Standort-, NAP-, Profil- und Local-Result-Prüfung
+  performance/
+    audit.py                   PageSpeed/Lighthouse und CrUX
   geo/
     audit.py                   Bot-Zugriff, llms.txt und AI-Readiness
   shared/
@@ -718,9 +761,8 @@ Berichte werden nicht versioniert.
 - Retry/Backoff und Quotenbegrenzung für GSC-API-Aufrufe
 - Persistente Migrationen für Wettbewerber, Local SEO und GEO
 - Vollständige Wettbewerber-Läufe, SERP- und Backlink-Adapter
-- Playwright-Browser-Matrix, Screenshots und Performance-/CrUX-Messungen
+- Playwright-CI mit gepinnten Browser-Versionen und Screenshots
 - Reproduzierbare KI-Antwortstichproben für GEO
-- Manueller Maßnahmenstatus mit Verlauf
 
 Die detaillierte offene Liste steht in [todo.md](todo.md).
 

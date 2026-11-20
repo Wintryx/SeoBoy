@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.12.0
+Stand: 20.11.2026, Version 0.13.0
 
 ## Priorisierung
 
@@ -16,12 +16,13 @@ Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand �
 | B1 | URL Inspection in SQLite und Audit-Diff | Indexstatus und Canonical-Abweichungen dauerhaft nachvollziehen | **erledigt in 0.10.0** |
 | B2 | TF-IDF-Content-Gaps aus dem Hauptinhalt | Inhaltliche Lücken belastbarer priorisieren als Titel/H1-Listen | **erledigt in 0.11.0** |
 | B2b | Near-Duplicate/SimHash und manuelle Wettbewerbs-URL-Auswahl | Ähnliche Seiten und bewusst gewählte Vergleichsseiten erkennen | **erledigt in 0.12.0** |
-| B3 | Local SEO mit externen Profilen und lokalen Ergebnissen | Standortseiten an echten lokalen Signalen messen | offen |
-| B4 | Performance/CrUX und Lighthouse | Conversion- und Ladezeitrisiken sichtbar machen | offen |
-| C1 | Playwright-Browser-Matrix und CI | Rendering-Diagnose reproduzierbar machen | offen |
-| C2 | Reproduzierbare KI-Antwortstichproben für GEO | AI-Sichtbarkeit messen statt nur Bot-Zugriff prüfen | offen |
-| C3 | Vollständige Wettbewerber-Läufe, SERP-/Backlink-Adapter | Wettbewerb und Content-Lücken breiter einordnen | offen |
-| C4 | Manueller Maßnahmenstatus und Verlauf | Umsetzung und Wirkung im Tool nachhalten | offen |
+| B3 | Local SEO mit Profilen und lokalen Ergebnissen | Standortseiten an lokalen Signalen messen | **erledigt in 0.13.0** |
+| B4 | Performance/CrUX und Lighthouse | Conversion- und Ladezeitrisiken sichtbar machen | **erledigt in 0.13.0** |
+| C1 | Playwright-Browser-Auswahl | Chromium/Firefox/WebKit gezielt prüfen | **erledigt in 0.13.0** |
+| C1b | Playwright-CI mit gepinnten Browsern und Screenshots | Rendering-Diagnose reproduzierbar machen | offen |
+| C2 | Reproduzierbare KI-Antwortstichproben für GEO | AI-Sichtbarkeit messen statt nur Bot-Zugriff prüfen | blockiert: KI-Anbieter-Zugang |
+| C3 | Vollständige Wettbewerber-Läufe, SERP-/Backlink-Adapter | Wettbewerb und Content-Lücken breiter einordnen | blockiert: SERP-/Backlink-Zugang |
+| C4 | Manueller Maßnahmenstatus und Verlauf | Umsetzung und Wirkung im Tool nachhalten | **erledigt in 0.13.0** |
 
 ## A – Direkter Buchungsnutzen
 
@@ -110,29 +111,35 @@ H1, Inhalt oder CTA tatsächlich Klicks und Anfragen verändert hat.
 - **Umgesetzt:** Die Auswahl wird im Bericht und im Benchmark-Manifest ausgewiesen.
 - Grenze: SimHash ist ein Ähnlichkeitshinweis, kein Duplicate-Content-Urteil.
 
-### B3 – Local SEO
+### B3 – Local SEO (erledigt)
 
-- Standortmodell mit stabiler Standort-ID in SQLite
-- Abgleich mit externen Unternehmensprofilen und Google Business
-- Lokale Suchergebnisse mit Ort, Gerät, Zeitpunkt und Quelle
-- Konsistenzprüfung über mehrere Seiten und Profile
+- **Umgesetzt:** Standort-YAML unterstützt externe Profil-URLs.
+- **Umgesetzt:** Profilseiten werden robots-konform geladen und per Textabgleich auf
+  Name, Ort und Telefon geprüft.
+- **Umgesetzt:** Lokale Suchpositionen können als CSV
+  `query,location,position,url,source,date` beigestellt werden.
+- **Umgesetzt:** `local_profiles.csv` und `local_rankings.csv` im Report.
+- Grenze: keine offizielle Google-Business- oder Suchmaschinen-API; die Evidenz ist
+  beigestellt und nachvollziehbar.
 
-### B4 – Performance
+### B4 – Performance (erledigt)
 
-- CrUX-Felddaten und Lighthouse-Labordaten
-- HTTP-Connection-Pool/Keep-Alive
-- Last- und Langzeittests für große Sites
+- **Umgesetzt:** PageSpeed Insights/Lighthouse über API-Key.
+- **Umgesetzt:** CrUX-Felddaten mit p75-Werten und Formfaktor.
+- **Umgesetzt:** `00_PERFORMANCE.md` und `raw_data/performance.csv`.
+- Ohne API-Key bricht der Befehl mit Exitcode 2 ab; es werden keine Werte geschätzt.
+- Offen: HTTP-Connection-Pool/Keep-Alive und Last-/Langzeittests.
 
 ## C – Diagnose und Experimente
 
-### C1 – Playwright
+### C1 – Playwright (Browser-Auswahl erledigt)
 
-- Gepinnte Browser-Versionen und Chromium-/Firefox-/WebKit-Matrix
-- CI-Test mit Browser-Image
-- Screenshots und Performance-Messwerte optional
-- Integration in regelmäßige Crawl-Läufe
+- **Umgesetzt:** `--browser chromium|firefox|webkit`.
+- **Umgesetzt:** Browser wird im Rendering-Manifest ausgewiesen.
+- Offen: gepinnte Browser-Versionen, CI-Image, Screenshots, Performance-Messwerte und
+  Integration in regelmäßige Crawl-Läufe.
 
-### C2 – GEO
+### C2 – GEO (blockiert)
 
 - Versionierte Prompt-Sätze und reproduzierbare KI-Stichproben
 - Anbieter-, Modell-, Sprach-, Regions- und Suchmodus-Metadaten
@@ -140,17 +147,27 @@ H1, Inhalt oder CTA tatsächlich Klicks und Anfragen verändert hat.
 - Fehlerquote und Kostenbegrenzung je Lauf
 - `llms.txt`-Struktur und `@id`-/sameAs-Prüfung vertiefen
 
-### C3 – Wettbewerb
+Blockiert: Es liegt kein Zugang zu einem KI-Anbieter vor. Bot-Zugriff und llms.txt werden
+bereits geprüft; echte Antwortstichproben würden einen kostenpflichtigen Provider und
+eine belastbare Kosten-/Fehlerquote benötigen.
+
+### C3 – Wettbewerb (blockiert)
 
 - Vollständige Wettbewerbs-Läufe mit eigener Website-ID und eigenem Lauf
 - SERP- und Backlink-Adapter mit Quelle, Region, Gerät und Datum
 - Wettbewerbsvergleich in den Laufordner integrieren
 
-### C4 – Maßnahmenstatus
+Blockiert: SERP- und Backlink-Daten benötigen einen lizenzierten Anbieter oder eine
+ausdrücklich erlaubte API. Stichprobe und manuelle URLs sind vorhanden; ein vollständiger
+Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 
-- Manueller Status mit Verlauf
-- Einheitliche Erweiterungs-Abdeckung je Lauf
-- Migrations für URL Inspection, Wettbewerber, Local SEO und GEO
+### C4 – Maßnahmenstatus (erledigt)
+
+- **Umgesetzt:** Migration 003 mit `action_statuses` und `action_status_history`.
+- **Umgesetzt:** `seoboy action-status --list/--history`.
+- **Umgesetzt:** Status `open`, `in_progress`, `done`, `ignored` mit Notiz und Zeitstempel.
+- **Umgesetzt:** Status erscheint im Maßnahmenplan und wird bei `report` neu gerendert.
+- Offen: einheitliche Erweiterungs-Abdeckung je Lauf.
 
 ## Erledigt
 
@@ -170,6 +187,10 @@ H1, Inhalt oder CTA tatsächlich Klicks und Anfragen verändert hat.
 - Git-basierter CLI-Updater mit Fast-Forward, Smoke-Test und Rollback
 - Selbstständiger Systemcheck mit `seoboy doctor`
 - PDFs und andere Nicht-HTML-Ziele werden als „nicht bewertet“ geführt
+- Local-SEO-Profile und beigestellte lokale Messergebnisse
+- PageSpeed/Lighthouse- und CrUX-Adapter
+- Playwright-Browser-Auswahl für Chromium, Firefox und WebKit
+- Maßnahmenstatus mit Verlauf und Projektbindung
 
 ## Bewusste Grenzen
 
