@@ -20,6 +20,11 @@ from seoboy.shared.util import excel_safe, iso_utc
 
 DEFAULT_MODEL = "deepseek-flash"
 DEFAULT_BASE_URL = "https://api.deepseek.com/chat/completions"
+ALLOWED_API_HOSTS = {"api.deepseek.com"}
+MAX_PROMPTS = 50
+MAX_PROMPT_CHARS = 4000
+MAX_ID_CHARS = 80
+MAX_RESPONSE_BYTES = 5_000_000
 MODEL_VERSIONS = {
     "deepseek-flash": "DeepSeek-V4.1-Flash-1017",
     "deepseek-v4-pro": "DeepSeek-V4-Pro-0813",
@@ -178,6 +183,12 @@ def load_prompt_set(path: Path | str | None = None) -> PromptSet:
         raise GeoSamplingError("Prompt-Datei benötigt eine Liste oder ein Objekt.")
     if not isinstance(raw_prompts, list) or not raw_prompts:
         raise GeoSamplingError("Prompt-Datei enthält keine Prompts.")
+    if len(raw_prompts) > MAX_PROMPTS:
+        raise GeoSamplingError(
+            f"Prompt-Datei darf höchstens {MAX_PROMPTS} Prompts enthalten."
+        )
+    if len(version) > 120 or len(language) > 20 or len(region) > 20:
+        raise GeoSamplingError("Prompt-Metadaten sind zu lang.")
     prompts: list[PromptSpec] = []
     ids: set[str] = set()
     for index, item in enumerate(raw_prompts, start=1):
@@ -187,6 +198,16 @@ def load_prompt_set(path: Path | str | None = None) -> PromptSet:
         text = str(item.get("prompt") or item.get("query") or "").strip()
         if not prompt_id or not text:
             raise GeoSamplingError(f"Prompt {index} benötigt id und prompt.")
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", prompt_id):
+            raise GeoSamplingError(
+                f"Prompt-ID {index} darf nur A-Z, a-z, 0-9, Punkt, _ und - enthalten."
+            )
+        if len(prompt_id) > MAX_ID_CHARS:
+            raise GeoSamplingError(f"Prompt-ID {index} ist zu lang.")
+        if len(text) > MAX_PROMPT_CHARS:
+            raise GeoSamplingError(
+                f"Prompt {index} überschreitet {MAX_PROMPT_CHARS} Zeichen."
+            )
         if prompt_id in ids:
             raise GeoSamplingError(f"Prompt-ID doppelt: {prompt_id}")
         ids.add(prompt_id)
@@ -202,11 +223,32 @@ def load_prompt_set(path: Path | str | None = None) -> PromptSet:
     return PromptSet(version, language, region, tuple(prompts))
 
 
+def _clean_text(value: object, limit: int = 300) -> str:
+    text = re.sub(r"[\x00-\x1f\x7f]", " ", str(value))
+    return text[:limit]
+
+
 def _endpoint(base_url: str) -> str:
-    value = base_url.rstrip("/")
-    if value.endswith("/chat/completions"):
-        return value
-    return value + "/chat/completions"
+    parts = urlsplit(base_url)
+    if (
+        parts.scheme != "https"
+        or not parts.hostname
+        or parts.hostname.casefold() not in ALLOWED_API_HOSTS
+        or parts.username
+        or parts.password
+        or parts.query
+        or parts.fragment
+        or parts.path.rstrip("/") not in {"", "/chat/completions"}
+    ):
+        raise GeoSamplingError(
+            "GEO-Sampling ist ausschließlich auf https://api.deepseek.com erlaubt."
+        )
+    return "https://api.deepseek.com/chat/completions"
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def _post_json(
@@ -222,13 +264,16 @@ def _post_json(
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent": "SeoBoy/0.15",
+            "User-Agent": "SeoBoy/0.15.1",
         },
         method="POST",
     )
+    opener = urllib.request.build_opener(_NoRedirect)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            payload = response.read(5_000_000).decode("utf-8", errors="replace")
+        with opener.open(request, timeout=timeout) as response:
+            payload = response.read(MAX_RESPONSE_BYTES).decode(
+                "utf-8", errors="replace"
+            )
     except HTTPError as error:
         detail = error.read(2000).decode("utf-8", errors="replace")
         try:
@@ -236,7 +281,7 @@ def _post_json(
         except (ValueError, AttributeError):
             message = detail
         raise GeoSamplingError(
-            f"DeepSeek HTTP {error.code}: {str(message)[:300]}"
+            f"DeepSeek HTTP {error.code}: {_clean_text(message)}"
         ) from error
     except URLError as error:
         raise GeoSamplingError(f"DeepSeek nicht erreichbar: {error.reason}") from error
@@ -266,6 +311,10 @@ def chat_completion(
 ) -> dict[str, Any]:
     if not api_key:
         raise GeoSamplingError("Für GEO-Sampling wird ein DeepSeek-API-Key benötigt.")
+    if model not in MODEL_VERSIONS:
+        raise GeoSamplingError(
+            "Unbekanntes Modell; erlaubt sind deepseek-flash und deepseek-v4-pro."
+        )
     if reasoning_effort not in {"none", "low", "high", "max"}:
         raise GeoSamplingError(
             "reasoning_effort muss none, low, high oder max sein."
@@ -299,8 +348,9 @@ def chat_completion(
     citations: list[str] = []
 
     def add_citation(value: Any) -> None:
-        if isinstance(value, str) and value and value not in citations:
-            citations.append(value)
+        clean = _safe_citation(value)
+        if clean and clean not in citations:
+            citations.append(clean)
 
     for annotation in message.get("annotations") or []:
         if isinstance(annotation, dict):
@@ -329,12 +379,25 @@ def chat_completion(
     }
 
 
+def _safe_citation(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    value = _clean_text(value, 2000).strip()
+    if not value.startswith(("https://", "http://")):
+        return None
+    return value
+
+
+def _md_cell(value: object) -> str:
+    return _clean_text(value, 500).replace("|", "\\|")
+
+
 def _urls(text: str) -> tuple[str, ...]:
     values = re.findall(r"https?://[^\s)\]\"'<>]+", text)
     seen: set[str] = set()
     result: list[str] = []
     for value in values:
-        clean = value.rstrip(".,;:!?")
+        clean = _safe_citation(value.rstrip(".,;:!?"))
         if clean and clean not in seen:
             seen.add(clean)
             result.append(clean)
@@ -374,6 +437,17 @@ def analyze_answer(
     }
 
 
+def _max_call_cost(prompt: str, config: SamplingConfig) -> float:
+    estimated_prompt_tokens = max(1, len(prompt) // 3)
+    maximum = (
+        estimated_prompt_tokens * config.input_usd_per_mtok
+        + config.max_tokens * config.output_usd_per_mtok
+    ) / 1_000_000
+    if config.web_search:
+        maximum += config.search_usd_per_1000 / 1000
+    return maximum
+
+
 def _cost(usage: dict[str, Any], config: SamplingConfig) -> tuple[int, int, int, float]:
     prompt_tokens = int(usage.get("prompt_tokens") or 0)
     completion_tokens = int(usage.get("completion_tokens") or 0)
@@ -385,6 +459,43 @@ def _cost(usage: dict[str, Any], config: SamplingConfig) -> tuple[int, int, int,
     if config.web_search:
         cost += config.search_usd_per_1000 / 1000
     return prompt_tokens, completion_tokens, total_tokens, round(cost, 6)
+
+
+def _prepare_output(out: Path) -> None:
+    allowed_top = {"00_GEO_SAMPLING.md", "manifest.json", "raw_data"}
+    allowed_raw = {"geo_answers.jsonl", "geo_samples.csv", "geo_citations.csv"}
+    if out.is_symlink():
+        raise GeoSamplingError("Zielverzeichnis darf kein Symlink sein.")
+    if out.exists():
+        if not out.is_dir():
+            raise GeoSamplingError("Zielpfad ist keine Verzeichnis.")
+        try:
+            extras = sorted(
+                item.name for item in out.iterdir() if item.name not in allowed_top
+            )
+        except OSError as error:
+            raise GeoSamplingError(f"Zielverzeichnis nicht lesbar: {error}") from error
+        if extras:
+            raise GeoSamplingError(
+                "Zielverzeichnis enthält fremde Dateien; bitte einen neuen "
+                "Report-Ordner verwenden."
+            )
+        raw = out / "raw_data"
+        if raw.exists():
+            if raw.is_symlink() or not raw.is_dir():
+                raise GeoSamplingError("raw_data muss ein normales Verzeichnis sein.")
+            try:
+                raw_extras = sorted(
+                    item.name for item in raw.iterdir() if item.name not in allowed_raw
+                )
+            except OSError as error:
+                raise GeoSamplingError(f"raw_data nicht lesbar: {error}") from error
+            if raw_extras:
+                raise GeoSamplingError(
+                    "raw_data enthält fremde Dateien; bitte einen neuen "
+                    "Report-Ordner verwenden."
+                )
+    out.mkdir(parents=True, exist_ok=True)
 
 
 def _write_jsonl(path: Path, values: list[dict[str, Any]]) -> None:
@@ -417,8 +528,14 @@ def run_sampling(
 ) -> SamplingRun:
     if not api_key:
         raise GeoSamplingError("Für GEO-Sampling wird ein DeepSeek-API-Key benötigt.")
-    if not 1 <= config.max_calls <= 50:
-        raise GeoSamplingError("max_calls muss zwischen 1 und 50 liegen.")
+    if config.model not in MODEL_VERSIONS:
+        raise GeoSamplingError(
+            "Unbekanntes Modell; erlaubt sind deepseek-flash und deepseek-v4-pro."
+        )
+    if not 1 <= config.max_calls <= MAX_PROMPTS:
+        raise GeoSamplingError(
+            f"max_calls muss zwischen 1 und {MAX_PROMPTS} liegen."
+        )
     if not 16 <= config.max_tokens <= 8192:
         raise GeoSamplingError("max_tokens muss zwischen 16 und 8192 liegen.")
     if not 0 <= config.temperature <= 2:
@@ -440,11 +557,15 @@ def run_sampling(
         config=config,
         started_at=iso_utc(),
     )
-    out.mkdir(parents=True, exist_ok=True)
+    _prepare_output(out)
     raw_rows: list[dict[str, Any]] = []
     prompts = prompt_set.prompts[: config.max_calls]
     for spec in prompts:
-        if run.estimated_cost >= config.budget_usd:
+        if (
+            run.estimated_cost >= config.budget_usd
+            or run.estimated_cost + _max_call_cost(spec.prompt, config)
+            > config.budget_usd
+        ):
             run.stop_reason = "budget"
             break
         try:
@@ -603,11 +724,12 @@ def run_sampling(
         "# SeoBoy – GEO-Sampling",
         "",
         f"**Anbieter:** DeepSeek  ",
-        f"**Modell:** {config.model} "
-        f"({MODEL_VERSIONS.get(config.model, config.model)})  ",
-        f"**Thinking:** {config.thinking}, Effort {config.reasoning_effort}  ",
+        f"**Modell:** {_md_cell(config.model)} "
+        f"({_md_cell(MODEL_VERSIONS.get(config.model, config.model))})  ",
+        f"**Thinking:** {_md_cell(config.thinking)}, Effort {_md_cell(config.reasoning_effort)}  ",
         f"**Websuche:** {'ja' if config.web_search else 'nein'}  ",
-        f"**Prompt-Set:** {prompt_set.version} ({prompt_set.language}/{prompt_set.region})  ",
+        f"**Prompt-Set:** {_md_cell(prompt_set.version)} "
+        f"({_md_cell(prompt_set.language)}/{_md_cell(prompt_set.region)})  ",
         f"**Zeitraum:** {run.started_at} bis {run.finished_at}  ",
         f"**Aufbewahrungsrichtlinie der Rohantworten:** {config.retention_days} Tage "
         "(manuelle Löschung)  ",
@@ -633,13 +755,13 @@ def run_sampling(
             "| "
             + " | ".join(
                 [
-                    item.prompt_id,
+                    _md_cell(item.prompt_id),
                     "ja" if item.brand_mentions else "nein",
                     str(len(item.own_citations)),
                     str(item.competitor_mentions),
                     str(item.total_tokens),
                     f"{item.cost_usd:.6f}",
-                    item.error or "–",
+                    _md_cell(item.error or "–"),
                 ]
             )
             + " |"
@@ -658,7 +780,7 @@ def run_sampling(
             continue
         for citation in item.citations:
             lines.append(
-                f"| {item.prompt_id} | {citation} | "
+                f"| {_md_cell(item.prompt_id)} | {_md_cell(citation)} | "
                 f"{'ja' if citation in item.own_citations else 'nein'} |"
             )
     if not any(item.citations for item in run.samples):

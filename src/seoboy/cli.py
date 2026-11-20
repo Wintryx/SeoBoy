@@ -254,7 +254,11 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     geo_sample.add_argument("--prompts", type=Path)
     geo_sample.add_argument("--out", type=Path)
     geo_sample.add_argument("--api-key")
-    geo_sample.add_argument("--model", default=DEFAULT_MODEL)
+    geo_sample.add_argument(
+        "--model",
+        choices=["deepseek-flash", "deepseek-v4-pro"],
+        default=DEFAULT_MODEL,
+    )
     geo_sample.add_argument("--max-calls", type=int, default=6)
     geo_sample.add_argument("--max-tokens", type=int, default=8192)
     geo_sample.add_argument("--temperature", type=float, default=0.2)

@@ -147,6 +147,62 @@ class GeoSamplingTests(unittest.TestCase):
             result["citations"], ("https://example.de/a", "https://example.de/b")
         )
 
+    def test_rejects_untrusted_endpoint(self):
+        with self.assertRaises(sampling.GeoSamplingError):
+            sampling._post_json(
+                "key", {}, base_url="https://evil.example/chat/completions", timeout=1
+            )
+        with self.assertRaises(sampling.GeoSamplingError):
+            sampling.chat_completion(
+                "key", "Frage?", base_url="http://api.deepseek.com/chat/completions"
+            )
+
+    def test_rejects_oversized_prompt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "prompts.yaml"
+            path.write_text(
+                "prompts:\n  - id: lang\n    prompt: " + ("x" * 4001) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(sampling.GeoSamplingError):
+                sampling.load_prompt_set(path)
+
+    def test_rejects_foreign_output_files(self):
+        prompt_set = sampling.load_prompt_set()
+        config = sampling.SamplingConfig(max_calls=1)
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+            sampling, "chat_completion"
+        ) as call:
+            out = Path(tmp) / "report"
+            out.mkdir()
+            (out / "fremd.txt").write_text("nicht anfassen", encoding="utf-8")
+            with self.assertRaises(sampling.GeoSamplingError):
+                sampling.run_sampling(
+                    api_key="test-key",
+                    prompt_set=prompt_set,
+                    config=config,
+                    out=out,
+                )
+            call.assert_not_called()
+
+    def test_budget_stops_before_call(self):
+        prompt_set = sampling.load_prompt_set()
+        config = sampling.SamplingConfig(
+            max_calls=1, budget_usd=0.0001, max_tokens=8192
+        )
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+            sampling, "chat_completion"
+        ) as call:
+            run = sampling.run_sampling(
+                api_key="test-key",
+                prompt_set=prompt_set,
+                config=config,
+                out=Path(tmp) / "report",
+            )
+            call.assert_not_called()
+        self.assertEqual(run.samples, [])
+        self.assertEqual(run.stop_reason, "budget")
+
     def test_auth_error_stops(self):
         prompt_set = sampling.load_prompt_set()
         config = sampling.SamplingConfig(max_calls=6, budget_usd=1.0)
