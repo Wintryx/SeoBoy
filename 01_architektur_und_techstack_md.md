@@ -33,13 +33,18 @@ HTML-Volltexte werden standardmäßig nicht gespeichert. Für Befunde genügen r
 
 ## 3. CLI und Projektkonfiguration
 
+Der aktuelle MVP unterstützt `init`, `migrate`, `run` inklusive `--resume`, `inspect`, `diff`, `report` und `gsc-prepare`. Details und Beispiele stehen in der [README](README.md).
+
 ```powershell
 seoboy init --url https://example.de/
+seoboy migrate --config ./seoboy.yaml
 seoboy run --config ./seoboy.yaml
 seoboy run --config ./seoboy.yaml --gsc-dir ./imports/gsc
 seoboy run --config ./seoboy.yaml --resume <lauf-id>
 seoboy inspect https://example.de/leistungen/ --config ./seoboy.yaml
 seoboy diff --config ./seoboy.yaml --base <lauf-id> --target <lauf-id>
+seoboy report --config ./seoboy.yaml --run <lauf-id>
+seoboy gsc-prepare --input ./exports/seiten.csv --out ./imports/gsc --property sc-domain:example.de --start 2026-10-01 --end 2026-10-28
 ```
 
 `inspect` prüft eine einzelne URL und kennzeichnet Regeln, die den Linkgraphen oder weitere Seiten benötigen, als ungeprüft. CLI-Exitcodes sind `0` für erfolgreiche Ausführung, `1` für einen verwendbaren Teillauf und `2` für einen Fehler ohne verwendbares Ergebnis. Die Priorität eines Befunds beeinflusst den Exitcode der CLI nicht.

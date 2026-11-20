@@ -29,3 +29,7 @@ __pycache__/
 !.env.example
 /credentials/
 /secrets/
+
+# Lokale Test- und Arbeitsverzeichnisse
+/tmp_smoke/
+/tmp_test*/
