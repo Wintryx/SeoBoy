@@ -5,10 +5,11 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: MVP 0.5.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
-optionalem GSC-CSV-Import, technischen Kernregeln, Unterseiten-Inhaltsanalyse,
-Wettbewerbsbenchmark, Markdown-/CSV-Berichten, Audit-Diff und einem Batch-Modus für
-mehrere Projekte. Der Audit arbeitet ausschließlich lesend.
+Aktueller Stand: 0.6.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
+Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
+Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
+und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 
 ## Funktionsumfang
 
@@ -23,15 +24,19 @@ mehrere Projekte. Der Audit arbeitet ausschließlich lesend.
 - Unterseitenanalyse mit Titel-/Beschreibungslänge, H1, Wortzahl, Bild-Alt-Texten und Schema
 - Wettbewerbsbenchmark mit begrenzter, robots-konformer Seitenstichprobe
 - GSC-Import mit Manifest, Seiten- und URL-Suchanfrage-Granularität
+- GSC-API-Abruf über Refresh-Token und URL Inspection API
 - Aufbereiter für den deutschen GSC-UI-Seitenexport (Semikolon, Dezimalkomma)
+- Optionales Playwright-Rendering mit HTTP-/Browser-DOM-Vergleich
+- Local-SEO-Prüfung für Standorte, NAP und LocalBusiness-Schema
+- GEO-Readiness für AI-Bots, llms.txt und vorhandene Content-/Schema-Signale
 - Priorisierte Maßnahmen (P1 bis P4), Quick Wins und Evidenz je Befund
 - Markdown-Berichte, CSV-Rohdaten und Manifest je Lauf
 - Vergleich zweier Läufe mit den Zuständen neu, erstmals beobachtet, fortbestehend,
   behoben, ungeprüft und nicht vergleichbar
 
-Nicht im MVP: direkte GSC-API, Playwright-Rendering, URL Inspection, vollständige
-Wettbewerber-Crawls, SERP-/Backlink-Adapter, Local-SEO- und GEO-Module sowie ein manueller
-Maßnahmenstatus.
+Nicht in dieser Stufe: interaktiver OAuth-Browserflow, vollständige
+Wettbewerber-Crawls, SERP-/Backlink-Adapter, lokale Suchergebnisse, KI-Antwortstichproben,
+Performance-/CrUX-Messungen und ein manueller Maßnahmenstatus.
 
 ## Voraussetzungen
 
@@ -332,6 +337,93 @@ Trennzeichen (`;`, `,`, Tab) und Dezimalzeichen (`,` oder `.`) werden erkannt od
 `--delimiter` und `--decimal` gesetzt. Das Manifest wird angelegt oder um den Zeitraum
 ergänzt; abweichende Property- oder Filterangaben führen zu einem Fehler.
 
+### GSC-API und URL Inspection
+
+Für die direkte Search-Console-Anbindung wird eine Zugangsdatei außerhalb des Repositories
+benötigt. Sie enthält OAuth-Client und Refresh-Token:
+
+```json
+{
+  "client_id": "...",
+  "client_secret": "...",
+  "refresh_token": "..."
+}
+```
+
+Der Pfad kann über `--credentials` oder `SEOBOY_GSC_CREDENTIALS` gesetzt werden.
+`gsc-fetch` schreibt einen normalisierten Importordner, den `run --gsc-dir` direkt liest:
+
+```powershell
+seoboy gsc-fetch `
+  --property sc-domain:example.de `
+  --start 2026-10-01 --end 2026-10-31 `
+  --out .\imports\gsc-api
+seoboy run --gsc-dir .\imports\gsc-api
+```
+
+`url-inspection` fragt Googles gespeicherten Indexstand für eine URL ab und schreibt JSON
+und Markdown:
+
+```powershell
+seoboy url-inspection `
+  --property sc-domain:example.de `
+  --url https://example.de/leistungen/
+```
+
+Ein interaktiver OAuth-Browserflow und die dauerhafte Token-Ablage sind noch offen;
+aktuell wird ein vorhandener Refresh-Token verwendet. Zugangsdaten gehören nicht ins
+Repository und nicht in Berichte.
+
+### Playwright-Rendering
+
+Rendering ist optional und benötigt Playwright plus Chromium:
+
+```powershell
+.\venv\Scripts\python.exe -m pip install -e ".[rendering]"
+.\venv\Scripts\playwright.exe install chromium
+seoboy render --url https://example.de/ --url https://example.de/leistungen/
+```
+
+Der Bericht vergleicht HTTP-Dokument und Browser-DOM (Titel, Beschreibung, H1, Wörter,
+Links, Schema). Ohne installierten Browser endet der Befehl mit einer verständlichen
+Fehlermeldung.
+
+### Local SEO
+
+Standorte werden in einer YAML-Datei gepflegt:
+
+```yaml
+locations:
+  - label: Köln
+    url: https://example.de/standort/koeln/
+    name: Beispiel DJ
+    street: Musterweg 1
+    postal_code: "50667"
+    city: Köln
+    region: NRW
+    country: DE
+    phone: "+49 221 123456"
+```
+
+```powershell
+seoboy local --locations .\local\standorte.yaml
+```
+
+Geprüft werden Erreichbarkeit, Indexierbarkeit, H1, Schema und die Konsistenz von Name,
+Adresse und Telefon im LocalBusiness-/Organization-JSON-LD. Die Prüfung ist
+beobachtungsbasiert; externe Unternehmensprofile und lokale Suchergebnisse folgen später.
+
+### GEO und AI-Readiness
+
+```powershell
+seoboy geo --config .\seoboy.yaml
+```
+
+Der Bericht prüft robots.txt für Googlebot, Google-Extended, GPTBot, OAI-SearchBot,
+PerplexityBot und ClaudeBot, das Vorhandensein von `llms.txt` sowie Content-/Schema-Signale
+aus dem letzten abgeschlossenen Lauf. Es werden keine KI-Antworten abgefragt und kein
+GEO-Score berechnet.
+
 ## Regeln
 
 | Regel | Inhalt | Standardpriorität |
@@ -393,14 +485,15 @@ dann als behoben, wenn die Quellseite im Ziellauf vollständig ausgewertet wurde
 Die Tests decken URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter und -Import, den vollständigen Crawl, Limits, Wiederholungen,
 Redirect-Schleifen, Wiederaufnahme, Parallelität, Batch-Läufe, Unterseitenanalyse,
-Wettbewerbsbenchmark, Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich
-und den Git-Updater ab. Sie verwenden einen lokalen HTTP-Server und benötigen kein Netzwerk;
-die Updater-Tests nutzen lokale Git-Repositories.
+Wettbewerbsbenchmark, GSC-API/URL Inspection, Playwright-Vergleich (mit injiziertem
+Browser), Local SEO, GEO, Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich und
+den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen kein Netzwerk; die
+Updater-Tests nutzen lokale Git-Repositories.
 
 ## Projektstruktur
 
 Die Struktur ist ein domain-orientierter modularer Monolith. Fachliche Capabilities
-(Crawl, Analyse, GSC, Reporting) sind getrennt; technische Adapter liegen unter
+(Crawl, Analyse, GSC, Reporting, Benchmark, Local SEO, GEO) sind getrennt; technische Adapter liegen unter
 `infrastructure`, gemeinsam genutzte Primitiven unter `shared`. Die Abhängigkeitsrichtung
 läuft von `application`/CLI über die Capabilities zu `shared`; Reporting und Analyse
 kennen keine HTTP- oder CLI-Details. Vollständiges DDD mit Aggregaten, Repositories und
@@ -424,8 +517,11 @@ src/seoboy/
     crawler.py                 Worker-Pool, Budgets, Wiederaufnahme
     http_client.py             HTTP ohne Redirect-Verfolgung
     html_extract.py            HTML-Extraktion
+    rendering.py               optionaler Playwright-/Browser-Vergleich
     registry.py                URL-, Discovery- und Jobregistrierung
-  gsc/importer.py              GSC-Import und UI-Aufbereiter
+  gsc/
+    api.py                     GSC-API und URL Inspection
+    importer.py                GSC-Import und UI-Aufbereiter
   infrastructure/
     config.py                  Konfiguration und Kanonisierung
     database.py                SQLite und Migrationen
@@ -438,7 +534,11 @@ src/seoboy/
     diff_report.py             Lauf-Vergleich
   benchmark/
     sampler.py                 robots-konforme Wettbewerbsstichprobe
-    report.py                  Wettbewerbsvergleich
+    report.py                  Wettbewerbsvergleich und Begriffskandidaten
+  local_seo/
+    audit.py                   Standort-, NAP- und Schema-Prüfung
+  geo/
+    audit.py                   Bot-Zugriff, llms.txt und AI-Readiness
   shared/
     agents.py                  Googlebot-/SeoBoy-Agenten
     robots.py                  robots.txt-Parser
@@ -460,11 +560,14 @@ Berichte werden nicht versioniert.
 
 ## Nächste Ausbaustufen
 
-- GSC-API mit Desktop-OAuth, URL Inspection und gemeldetem Indexstatus
-- gezieltes Playwright-Rendering und Performance-Stichproben
-- vollständige Wettbewerber-Crawls, SERP- und Backlink-Adapter
-- Local SEO und experimentelle GEO-Auswertungen
-- manueller Maßnahmenstatus mit Verlauf
+- Interaktiver Desktop-OAuth-Flow und sichere Token-Ablage
+- Persistente Migrationen für URL Inspection, Wettbewerber, Local SEO und GEO
+- Vollständige Wettbewerber-Läufe, TF-IDF-Content-Gaps, SERP- und Backlink-Adapter
+- Playwright-Browser-Matrix, Screenshots und Performance-/CrUX-Messungen
+- Reproduzierbare KI-Antwortstichproben für GEO
+- Manueller Maßnahmenstatus mit Verlauf
+
+Die detaillierte offene Liste steht in [todo.md](todo.md).
 
 Die verbindlichen Anforderungen stehen in den Spezifikationen
 [Architektur](01_architektur_und_techstack_md.md),

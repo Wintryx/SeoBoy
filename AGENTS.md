@@ -5,9 +5,10 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist der MVP
-0.5.0: paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
-Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import,
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.6.0:
+paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
+Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
+optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
 Maßnahmenpriorisierung, Markdown-/CSV-Berichte, Audit-Diff, ein Batch-Modus für mehrere
 Projekte und ein Git-basierter CLI-Updater.
 
@@ -32,7 +33,7 @@ Projekte und ein Git-basierter CLI-Updater.
 ## Architektur
 
 Die Struktur ist ein domain-orientierter modularer Monolith. Fachliche Capabilities
-(Crawl, Analyse, GSC, Reporting, Benchmark) sind getrennt; technische Adapter liegen unter
+(Crawl, Analyse, GSC, Reporting, Benchmark, Local SEO, GEO) sind getrennt; technische Adapter liegen unter
 `infrastructure`, gemeinsam genutzte Primitiven unter `shared`. Vollständiges DDD mit
 Aggregaten, Repositories und Domain Events wäre für diesen lokalen Batch-Audit
 unnötiger Aufwand.
@@ -46,8 +47,10 @@ unnötiger Aufwand.
 | `src/seoboy/crawl/http_client.py` | HTTP ohne Redirect-Verfolgung, begrenzte Reads |
 | `src/seoboy/shared/robots.py` | robots.txt-Parser und Googlebot-Auswertung |
 | `src/seoboy/crawl/html_extract.py` | Titel, Beschreibung, H1, Wörter, Bilder, Schema, Links |
+| `src/seoboy/crawl/rendering.py` | optionaler Playwright-Renderer und DOM-Vergleich |
 | `src/seoboy/shared/urls.py` | URL-Normalisierung und Pfadmuster |
 | `src/seoboy/gsc/importer.py` | GSC-Manifest, CSV-Import, UI-Aufbereiter |
+| `src/seoboy/gsc/api.py` | GSC-API, OAuth-Refresh-Token und URL Inspection |
 | `src/seoboy/analysis/audit_data.py` | Geladene Laufdaten für Regeln und Berichte |
 | `src/seoboy/analysis/rules.py` | Technische Regeln und Prüfengine |
 | `src/seoboy/analysis/rules_gsc.py` | Search-Console-Regeln |
@@ -56,7 +59,9 @@ unnötiger Aufwand.
 | `src/seoboy/reporting/page_analysis.py` | Unterseiten- und Inhaltsanalyse |
 | `src/seoboy/reporting/diff_report.py` | Vergleich zweier Läufe |
 | `src/seoboy/benchmark/sampler.py` | robots-konforme Wettbewerbsstichprobe |
-| `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich |
+| `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich und Begriffskandidaten |
+| `src/seoboy/local_seo/audit.py` | Standort-, NAP- und LocalBusiness-Prüfung |
+| `src/seoboy/geo/audit.py` | AI-Bots, llms.txt und GEO-Readiness |
 | `src/seoboy/application/runner.py` | run/resume/inspect/report/diff, Batch und Benchmark |
 | `src/seoboy/infrastructure/env.py` | Optionales Laden von `.env` |
 | `src/seoboy/infrastructure/update.py` | Git-basierter CLI-Updater mit Rollback |
@@ -89,9 +94,10 @@ Die Tests benötigen nur die Standardbibliothek und PyYAML. Im Quellbaum kann
 
 Die Suite deckt URL-Normalisierung, robots.txt, Konfiguration, Migrationen,
 GSC-Aufbereiter/-Import, Crawl, Limits, Retries, Redirect-Schleifen, Resume,
-Parallelität, Batch-Läufe, Unterseitenanalyse, Wettbewerbsbenchmark, Einzel-URL-Prüfung,
-Ausnahmen, Berichte, Diff und den Git-Updater ab. Sie nutzt einen lokalen HTTP-Server,
-lokale Git-Repositories und benötigt kein Internet.
+Parallelität, Batch-Läufe, Unterseitenanalyse, Wettbewerbsbenchmark, GSC-API/URL
+Inspection, Playwright-Vergleich mit injiziertem Browser, Local SEO, GEO, Einzel-URL-Prüfung,
+Ausnahmen, Berichte, Diff und den Git-Updater ab. Sie nutzt lokale HTTP-Server, lokale
+Git-Repositories und benötigt kein Internet.
 
 ## Lokale .env
 
@@ -195,10 +201,15 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   die nächste Ausbaustufe.
 - Das Analyse-Read-Model liest SQLite direkt. Bei mehreren Bounded Contexts sollte es
   in Repository und Read-Model getrennt werden.
-- Der GSC-Importer nutzt die Crawl-Registry. Eine spätere API-Anbindung sollte über einen
-  eigenen Adapter mit klarer Abhängigkeitsrichtung laufen.
-- Keine GSC-API, kein Playwright-Rendering, keine vollständigen Wettbewerber-Audits,
-  keine Local-SEO-/GEO-Module.
+- Der GSC-Importer nutzt die Crawl-Registry. Die API-Anbindung liegt getrennt in
+  `gsc/api.py`.
+- GSC-API und URL Inspection benötigen einen vorhandenen Refresh-Token; ein interaktiver
+  OAuth-Browserflow und die persistente Token-Ablage sind offen.
+- Playwright ist optional und benötigt eine separate Browser-Installation.
+- Local SEO und GEO sind beobachtungsbasiert; externe Unternehmensprofile, lokale
+  Suchergebnisse und KI-Antwortstichproben sind noch nicht angebunden.
+- Vollständige Wettbewerber-Audits, SERP-/Backlink-Adapter und Performance-/CrUX-Messungen
+  bleiben Ausbaustufen.
 - Der CLI-Updater setzt einen Git-Checkout mit Upstream voraus; Wheel-/PyPI-Installationen
   werden mit pip aktualisiert.
 - Kein globaler SEO-Score; Priorisierung erfolgt über P1–P4 und Evidenz.
