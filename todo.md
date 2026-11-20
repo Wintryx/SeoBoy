@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.26.0
+Stand: 20.11.2026, Version 0.26.1
 
 ## Priorisierung
 

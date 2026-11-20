@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.26.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.26.1 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -880,7 +880,9 @@ seoboy rankings fetch `
 ```
 
 `--max-calls` ist absichtlich standardmäßig **1**; jeder Aufruf kostet ein
-Serper-Kontingent. Der Adapter schreibt rohe `snapshots.csv`/`results.csv` unter
+Serper-Kontingent. Mit `--skip-existing` werden Profile übersprungen, die bereits
+einen erfolgreichen Serper-Snapshot haben. Fehlgeschlagene Messungen werden erneut
+versucht. Der Adapter schreibt rohe `snapshots.csv`/`results.csv` unter
 `reports/serp/` und importiert sie anschließend. Serper liefert keine dokumentierte
 Geräteumschaltung; Mobile-Profile werden daher nicht als mobile Messung ausgegeben,
 sondern übersprungen. Ohne Key bricht der Befehl vor jedem Aufruf ab.

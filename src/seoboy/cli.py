@@ -527,6 +527,11 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     ranking_fetch.add_argument("--provider", choices=["serper"], default="serper")
     ranking_fetch.add_argument("--out", type=Path)
     ranking_fetch.add_argument("--max-calls", type=int, default=1)
+    ranking_fetch.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Profile mit vorhandenem Serper-Snapshot überspringen",
+    )
     ranking_fetch.add_argument("--interval", type=float, default=1.0)
     ranking_fetch.add_argument("--timeout", type=float, default=30.0)
     ranking_report = ranking_commands.add_parser(
@@ -1344,6 +1349,19 @@ def main(argv: list[str] | None = None) -> int:
                             "Kein Serper-Key. Bitte SEOBOY_SERP_API_KEY lokal in .env setzen."
                         )
                     profiles = load_keywords(keyword_path)
+                    if args.skip_existing:
+                        done = {
+                            row[0]
+                            for row in connection.execute(
+                                "SELECT DISTINCT keyword_id FROM ranking_snapshots "
+                                "WHERE project_id = ? AND source = 'serper' "
+                                "AND status IN ('ok', 'no_match')",
+                                (config.project_id,),
+                            )
+                        }
+                        profiles = tuple(
+                            profile for profile in profiles if profile.id not in done
+                        )
                     out = args.out or (
                         config.reports_dir
                         / "serp"
