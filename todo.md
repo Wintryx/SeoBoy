@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.24.0
+Stand: 20.11.2026, Version 0.25.0
 
 ## Priorisierung
 
@@ -34,6 +34,7 @@ Die nächsten Umsetzungsschritte mit Datenverträgen und Abnahmekriterien stehen
 | E4 | Lokales Keyword-Monitoring | Keywordprofile, CSV-Import, Soll-/Ist-URL, Verlauf | **erledigt in 0.22.0** |
 | E5 | Wettbewerber nach Suchanfrage | Gespeicherte SERP-Treffer gruppieren und Entscheidung ableiten | **erledigt in 0.23.0** |
 | E6 | Backlink-Import und Linkchancen | CSV-Import, Dublettenschutz, regionale Quellen | **erledigt in 0.24.0** |
+| E7 | KI-Sichtbarkeit im Zeitverlauf | Bestehende GEO-Samples vergleichen, Methodenwechsel markieren | **erledigt in 0.25.0** |
 
 ## A – Direkter Buchungsnutzen
 
@@ -283,6 +284,15 @@ Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 - **Umgesetzt:** `raw_data/backlink_observations.csv` mit Formelschutz.
 - Grenze: keine Live-Prüfung von Quellseiten, keine bestätigte Entfernung, kein Outreach,
   keine Anbieter-API.
+
+### E7 – KI-Sichtbarkeit im Zeitverlauf (erledigt)
+
+- **Umgesetzt:** `seoboy geo-trends` liest vorhandene GEO-Manifeste und Samples ohne API.
+- **Umgesetzt:** Erwähnung, eigene Zitate und Wettbewerber-Nennungen mit Erfolgsnenner.
+- **Umgesetzt:** `GEO_TRENDS.md` und `raw_data/geo_observations.csv`.
+- **Umgesetzt:** Methodenwechsel und eingeschränkt vergleichbare Altläufe.
+- Grenze: nur DeepSeek-Stichproben, keine Aussage über ChatGPT/Gemini/Perplexity/AI Overviews.
+- Offen: geplante Wiederholungen und weitere Plattformadapter.
 
 ## Erledigt
 

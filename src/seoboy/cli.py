@@ -20,6 +20,7 @@ from seoboy.local_seo.audit import (
     load_local_rankings,
     write_local_report,
 )
+from seoboy.geo.trends import write_geo_trends
 from seoboy.geo.sampling import (
     DEFAULT_BASE_URL,
     DEFAULT_BRANDS,
@@ -416,6 +417,15 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     geo_sample.add_argument("--competitor", action="append")
     geo_sample.add_argument("--timeout", type=float, default=90.0)
     geo_sample.add_argument("--dry-run", action="store_true")
+
+    geo_trends = commands.add_parser(
+        "geo-trends", help="Bestehende GEO-Stichproben im Zeitverlauf vergleichen"
+    )
+    geo_trends.add_argument("--config", type=Path, default=default_config)
+    geo_trends.add_argument(
+        "--dir", type=Path, action="append", default=[], help="Report-Ordner; mehrfach angebbar"
+    )
+    geo_trends.add_argument("--out", type=Path)
 
     geo = commands.add_parser(
         "geo", help="GEO- und AI-Readiness beobachtbar prüfen"
@@ -971,6 +981,11 @@ def main(argv: list[str] | None = None) -> int:
                 f"Kosten (Peak-Schätzung): {run.estimated_cost:.6f} USD"
             )
             return 0 if run.successful else 2
+        if args.command == "geo-trends":
+            config = _load(args.config)
+            folder = write_geo_trends(config, args.dir, args.out)
+            print(f"GEO-Trends geschrieben: {folder / 'GEO_TRENDS.md'}")
+            return 0
         if args.command == "geo":
             config = _load(args.config)
             try:

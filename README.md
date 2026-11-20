@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.24.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.25.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -48,6 +48,7 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - Lokales Keyword-Monitoring mit CSV-Import, Soll-/Ist-URL und Positionsverlauf
 - Wettbewerber-Gruppierung aus gespeicherten SERP-Treffern
 - Backlink-CSV-Import mit Dublettenschutz und regionalen Linkchancen
+- GEO-Zeitreihe aus bestehenden Stichproben
 - Priorisierte Maßnahmen (P1 bis P4), Quick Wins und Evidenz je Befund
 - Markdown-Berichte, CSV-Rohdaten und Manifest je Lauf
 - Vergleich zweier Läufe mit den Zuständen neu, erstmals beobachtet, fortbestehend,
@@ -892,6 +893,22 @@ Messdatum, Tiefe und Ergebnistyp gezeigt. Entscheidungen sind
 Diese Stufe ruft keine Konkurrenzseiten live ab und vergleicht noch keine Inhalte.
 Rollen sind ohne manuelle Zuordnung `unbekannt`; ohne Nachfragebeleg wird keine
 neue Inhaltsseite empfohlen.
+
+## GEO-Zeitreihe
+
+Bestehende lokale GEO-Sampling-Berichte lassen sich ohne neuen API-Aufruf vergleichen:
+
+```powershell
+seoboy geo-trends --config local/aw-audio/seoboy.yaml
+seoboy geo-trends --config local/aw-audio/seoboy.yaml --dir reports/geo-sampling-2026-11-20
+```
+
+Ausgabe: `geo-trends/GEO_TRENDS.md` und `raw_data/geo_observations.csv`.
+Gezählt werden Erwähnung, eigene Zitate und Wettbewerber-Nennungen mit
+Erfolgsnenner. Ältere Manifeste ohne Prompt-Version oder Websucheinstellung werden
+als eingeschränkt vergleichbar gekennzeichnet; Modell-/Methodenwechsel erscheinen
+separat. Eine DeepSeek-Stichprobe ist keine Aussage über ChatGPT, Gemini, Perplexity
+oder AI Overviews.
 
 ## Backlink-Import und Linkchancen
 
