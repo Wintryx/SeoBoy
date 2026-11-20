@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.15.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.15.1 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -636,27 +636,34 @@ aus dem letzten abgeschlossenen Lauf.
 
 ### GEO-Sampling mit DeepSeek
 
-`seoboy geo-sample` erzeugt echte, budgetierte KI-Antwortstichproben:
+`seoboy geo-sample` erzeugt echte, budgetierte KI-Antwortstichproben. Der Key steht
+in der lokalen, ignorierten `.env`:
+
+```text
+SEOBOY_GEO_API_KEY=<gesetzt>
+```
 
 ```powershell
-$env:DEEPSEEK_API_KEY = "sk-..."
 seoboy geo-sample `
   --domain aw-audio.de `
   --brand "AW Audio" `
   --brand "Arne Winter" `
   --max-calls 6 `
-  --budget-usd 0.50 `
+  --budget-usd 1.00 `
   --web-search
 ```
 
 Der Bericht enthält Marken-Erwähnungen, eigene und fremde URL-Zitate, Wettbewerber-
 Erwähnungen, Tokens und eine konservative Kosten-Schätzung. Standardmäßig werden sechs
-deutsche Prompts im Non-Thinking-Modus mit `deepseek-flash` verwendet. Eigene Prompt-Sets
-lassen sich per YAML mit `--prompts` übergeben.
+deutsche Prompts mit **DeepSeek-V4.1-Flash-1017** (`deepseek-flash`), aktiviertem
+Thinking und `reasoning_effort=max` verwendet. Für die höhere Qualitätsstufe:
+`--model deepseek-v4-pro`. `--thinking disabled` ist der günstige Modus ohne Reasoning.
+Eigene Prompt-Sets lassen sich per YAML mit `--prompts` übergeben.
 
-`--web-search` aktiviert die serverseitige DeepSeek-Websuche. Das Modell entscheidet,
-ob es sucht, und liefert Quellen und Zitate; die Suche kostet zusätzlich 0,75 USD je
-1.000 Suchschritte. Ohne `--web-search` wird nur Modellwissen gemessen.
+`--web-search` aktiviert die serverseitige DeepSeek-Websuche, auch im Max-Modus.
+Das Modell entscheidet, ob es sucht, und liefert Quellen und Zitate; die Suche kostet
+zusätzlich 0,75 USD je 1.000 Suchschritte. Ohne `--web-search` wird nur Modellwissen
+gemessen.
 
 Rohantworten werden nur lokal unter `reports/.../raw_data/geo_answers.jsonl` gespeichert;
 `--retention-days` dokumentiert die Aufbewahrungsfrist, die Löschung erfolgt manuell.

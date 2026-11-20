@@ -1,7 +1,7 @@
 # SeoBoy – Erweiterungsspezifikation
 
 Stand: 20.11.2026  
-Zielversion: 0.14.0
+Zielversion: 0.15.1
 
 ## 1. Zweck
 
@@ -276,9 +276,11 @@ Danach:
 ### 9.1 Anbieter
 
 - Provider: DeepSeek
-- Modell: deepseek-flash
+- Modell: deepseek-flash = DeepSeek-V4.1-Flash-1017
+- Höhere Stufe: deepseek-v4-pro = DeepSeek-V4-Pro-0813
 - Endpoint: https://api.deepseek.com/chat/completions
-- Modus: Non-Thinking, damit max_tokens nicht von Reasoning aufgebraucht wird
+- Standard: Thinking enabled, reasoning_effort=max
+- Optional: Thinking disabled für den günstigen Modus
 - Optional: serverseitige Websuche deepseek_web_search mit Quellen/Zitaten
 - API-Key: SEOBOY_GEO_API_KEY, DEEPSEEK_API_KEY oder --api-key; nie im Repo
 
@@ -289,7 +291,7 @@ Danach:
 Optionen:
 
 - --prompts YAML mit version, language, region und prompts
-- --model, --temperature, --max-tokens, --thinking
+- --model, --temperature, --max-tokens, --thinking, --reasoning-effort
 - --web-search, --search-price
 - --max-calls, --budget-usd, --input-price, --output-price
 - --retention-days
@@ -306,10 +308,12 @@ Optionen:
 
 ### 9.4 Kosten und Fehler
 
-- Standard: 6 Aufrufe, 800 Output-Tokens, 0.50 USD Budget.
+- Standard: 6 Aufrufe, 8192 Output-Tokens, 1.00 USD Budget.
+- Standard-Modell: DeepSeek-V4.1-Flash-1017 mit Thinking enabled und Effort max.
 - Peak-Preise als konservative Schätzung: 0.30 USD/1M Input, 1.20 USD/1M Output.
 - Websuche: 0.75 USD je 1.000 Suchschritte, zusätzlich zu Tokens.
-- Ein Suchlauf kann durch Seitenkontext deutlich mehr Input-Tokens erzeugen.
+- Max-Reasoning plus Websuche kann pro Prompt über 100.000 Input-Tokens erzeugen;
+  das Budget stoppt weitere Aufrufe.
 - 401/403 stoppt sofort.
 - Drei Fehler bei mindestens der Hälfte der Versuche stoppen den Lauf.
 - Eine leere Antwort ist ein Fehler, kein Erfolg.

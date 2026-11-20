@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.15.0
+Stand: 20.11.2026, Version 0.15.1
 
 ## Priorisierung
 
@@ -156,6 +156,9 @@ H1, Inhalt oder CTA tatsächlich Klicks und Anfragen verändert hat.
   AW Audio wurde in dieser Runde nicht genannt oder zitiert.
 - **Live, mit Websuche:** 6/6 erfolgreich, 70493 Tokens, ca. 0,030 USD;
   AW Audio/Arne Winter wurde 1/6 genannt, aw-audio.de 1/6 zitiert.
+- **Live, Max-Modus:** DeepSeek-V4.1-Flash-1017, Thinking enabled, Effort max;
+  ein Prompt mit 6978 Tokens, ein Prompt mit Websuche und 180518 Tokens.
+- Standard ist jetzt Max-Modus; `--thinking disabled` bleibt der günstige Modus.
 - Grenze: eine Momentaufnahme, keine Rankings; Wiederholungen und weitere Modelle nötig.
 - Offen: `llms.txt`-Struktur und `@id`-/sameAs-Prüfung vertiefen.
 

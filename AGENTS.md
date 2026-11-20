@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.15.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.15.1:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -240,7 +240,8 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   Messergebnisse aus CSV; offizielle Profil-APIs und Suchmaschinenabfragen sind nicht
   angebunden.
 - PageSpeed/CrUX benötigt einen API-Key; ohne Key bleibt der Befehl klar deaktiviert.
-- GEO-Sampling nutzt DeepSeek; Antworten sind Momentaufnahmen und keine Rankings.
+- GEO-Sampling nutzt standardmäßig DeepSeek-V4.1-Flash-1017 mit Thinking enabled
+  und reasoning_effort=max; Antworten sind Momentaufnahmen und keine Rankings.
 - Vollständige Wettbewerber-Audits und SERP-/Backlink-Adapter bleiben externe
   Ausbaustufen.
 - Der CLI-Updater setzt einen Git-Checkout mit Upstream voraus; Wheel-/PyPI-Installationen
