@@ -193,12 +193,14 @@ class EndToEndTests(unittest.TestCase):
                 "01_ACTION_PLAN_PRIORITIZED.md",
                 "02_TECHNICAL_SEO_AUDIT.md",
                 "03_PAGE_ANALYSIS.md",
+                "04_GSC_QUERY_PAGES.md",
                 "manifest.json",
                 "raw_data/all_urls.csv",
                 "raw_data/pages.csv",
                 "raw_data/rule_results.csv",
                 "raw_data/broken_links.csv",
                 "raw_data/gsc_metrics.csv",
+                "raw_data/gsc_query_pages.csv",
             ):
                 self.assertTrue((report / name).is_file(), name)
             self.assertTrue((report / "raw_data" / "all_urls.csv").read_bytes().startswith(b"\xef\xbb\xbf"))
@@ -206,6 +208,10 @@ class EndToEndTests(unittest.TestCase):
                 "Unterseiten- und Inhaltsanalyse",
                 (report / "03_PAGE_ANALYSIS.md").read_text(encoding="utf-8"),
             )
+            gsc_report = (report / "04_GSC_QUERY_PAGES.md").read_text(encoding="utf-8")
+            self.assertIn("Suchanfrage × Zielseite", gsc_report)
+            self.assertIn("Mehrere URLs für dieselbe Suchanfrage", gsc_report)
+            self.assertIn("seo", gsc_report)
             connection = connect(config.database)
             try:
                 run = dict(connection.execute("SELECT * FROM runs").fetchone())

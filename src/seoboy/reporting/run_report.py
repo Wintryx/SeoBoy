@@ -14,6 +14,7 @@ from typing import Any, Iterable
 from seoboy.analysis.audit_data import RunData
 from seoboy.infrastructure.config import ProjectConfig
 from seoboy.analysis.rules import RULE_VERSIONS
+from seoboy.reporting.gsc_report import write_gsc_query_report
 from seoboy.reporting.page_analysis import render_page_analysis, write_page_analysis_csv
 from seoboy.shared.urls import relative_url
 from seoboy.shared.util import (
@@ -433,6 +434,8 @@ def render_run_report(
     _write_text(folder / "01_ACTION_PLAN_PRIORITIZED.md", _action_plan(report, coverage, wins))
     _write_text(folder / "02_TECHNICAL_SEO_AUDIT.md", _technical_audit(report, coverage, counts, requests))
     _write_text(folder / "03_PAGE_ANALYSIS.md", render_page_analysis(data))
+    if data.datasets:
+        write_gsc_query_report(folder, data)
     _write_all_urls_csv(raw / "all_urls.csv", report)
     write_page_analysis_csv(raw / "pages.csv", data)
     _write_rule_results_csv(raw / "rule_results.csv", report)
@@ -486,12 +489,13 @@ def render_run_report(
             "01_ACTION_PLAN_PRIORITIZED.md",
             "02_TECHNICAL_SEO_AUDIT.md",
             "03_PAGE_ANALYSIS.md",
+            *(["04_GSC_QUERY_PAGES.md"] if data.datasets else []),
             "manifest.json",
             "raw_data/all_urls.csv",
             "raw_data/pages.csv",
             "raw_data/rule_results.csv",
             "raw_data/broken_links.csv",
-            *(["raw_data/gsc_metrics.csv"] if data.datasets else []),
+            *(["raw_data/gsc_metrics.csv", "raw_data/gsc_query_pages.csv"] if data.datasets else []),
         ],
     }
     _write_text(folder / "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
@@ -616,6 +620,11 @@ def _executive_summary(
             "- [Maßnahmenplan](01_ACTION_PLAN_PRIORITIZED.md)",
             "- [Technischer Audit](02_TECHNICAL_SEO_AUDIT.md)",
             "- [Unterseiten- und Inhaltsanalyse](03_PAGE_ANALYSIS.md)",
+            *(
+                ["- [GSC: Suchanfragen und Zielseiten](04_GSC_QUERY_PAGES.md)"]
+                if data.datasets
+                else []
+            ),
             "- [Maschinenlesbare Daten](raw_data/) und [Manifest](manifest.json)",
             "",
         ]
@@ -934,6 +943,8 @@ def _technical_audit(
     )
     if data.datasets:
         lines.append("- [GSC-Zeilen](raw_data/gsc_metrics.csv)")
+        lines.append("- [GSC-Suchanfragen × Zielseiten](04_GSC_QUERY_PAGES.md)")
+        lines.append("- [GSC-Query-/Seitenzeilen](raw_data/gsc_query_pages.csv)")
     lines.append("")
     return "\n".join(lines)
 
