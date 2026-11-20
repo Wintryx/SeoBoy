@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.16.3:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.17.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -64,6 +64,7 @@ unnötiger Aufwand.
 | `src/seoboy/reporting/gsc_report.py` | GSC-Auswertung Suchanfrage × Zielseite |
 | `src/seoboy/reporting/gsc_history.py` | GSC-Verlauf über mehrere Läufe |
 | `src/seoboy/reporting/diff_report.py` | Vergleich zweier Läufe |
+| `src/seoboy/reporting/cannibalization.py` | Keyword-Kannibalisierung aus GSC und On-Page |
 | `src/seoboy/benchmark/sampler.py` | robots-konforme Stichprobe und sitemapweiter Modus |
 | `src/seoboy/benchmark/report.py` | Wettbewerbsvergleich, TF-IDF und Begriffskandidaten |
 | `src/seoboy/local_seo/audit.py` | Standort-, NAP-, Profil- und Local-Result-Prüfung |
@@ -85,6 +86,7 @@ Die verbindlichen Anforderungen stehen in:
 - `03_reporting_und_priorisierung_md.md`
 - `04_datenmodell_sqlite_md.md`
 - `docs/ki_review_spezifikation.md`
+- `docs/keyword_kannibalisierung.md`
 - `README.md`
 
 ## Entwicklungsumgebung
@@ -113,7 +115,7 @@ Zielseitenbericht, GSC-Verlauf, GSC-API/URL Inspection, OAuth-Helfer,
 URL-Inspection-Persistenz und -Diff, Playwright-Vergleich mit injiziertem Browser,
 Local SEO-Profile/Local-Results, Performance-Adapter, Maßnahmenstatus,
 GEO-Readiness und DeepSeek-Sampling, KI-Review-Packung/-Validierung/-Cache,
-Einzel-URL-Prüfung,
+Keyword-Kannibalisierung, Einzel-URL-Prüfung,
 Ausnahmen, Berichte, Diff, den Systemcheck und den Git-Updater ab. Sie nutzt lokale
 HTTP-Server, lokale Git-Repositories und benötigt kein Internet.
 
@@ -252,6 +254,8 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
 - Die KI-Review ist advisory: Sie ändert keine Befunde, Maßnahmen oder Prioritäten.
 - KI-Review nutzt standardmäßig einen Aufruf, maximal 40 Befunde/25 Maßnahmen,
   ein Budget von 0,25 USD und einen SHA-256-Cache.
+- Keyword-Kannibalisierung kombiniert GSC- und On-Page-Evidenz; fehlende GSC-Daten
+  ergeben nur On-Page-Kandidaten, keinen Nachweis.
 - Vollständige Wettbewerber-Audits und SERP-/Backlink-Adapter bleiben externe
   Ausbaustufen.
 - Der CLI-Updater setzt einen Git-Checkout mit Upstream voraus; Wheel-/PyPI-Installationen

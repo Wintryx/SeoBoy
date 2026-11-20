@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.16.3
+Stand: 20.11.2026, Version 0.17.0
 
 ## Priorisierung
 
@@ -25,6 +25,7 @@ Reihenfolge nach erwartetem Nutzen für Buchungsanfragen, Diagnose und Aufwand �
 | C3 | Vollständige Wettbewerber-Läufe, SERP-/Backlink-Adapter | Wettbewerb und Content-Lücken breiter einordnen | blockiert: SERP-/Backlink-Zugang |
 | C4 | Manueller Maßnahmenstatus und Verlauf | Umsetzung und Wirkung im Tool nachhalten | **erledigt in 0.13.0** |
 | D1 | KI-Review des Gesamtaudits | Widersprüche, Datenlücken und Prioritätsfehler finden | **erledigt in 0.16.0** |
+| D2 | Keyword-Kannibalisierung | GSC- und On-Page-Evidenz statt bloßer URL-Zählung verbinden | **erledigt in 0.17.0** |
 
 ## A – Direkter Buchungsnutzen
 
@@ -195,6 +196,19 @@ Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 - **Live:** aw-audio-Review mit 20 Befunden/20 Maßnahmen, gültige Referenzen,
   ca. 0,0065 USD.
 - Grenze: KI-Review ist advisory und ändert keine Prioritäten automatisch.
+
+### D2 – Keyword-Kannibalisierung (erledigt)
+
+- **Umgesetzt:** eigener Bericht 08_KEYWORD_CANNIBALIZATION.md und CSV.
+- **Umgesetzt:** GSC-Query-/URL-Paare mit Impressionen, Klicks und Positionen.
+- **Umgesetzt:** Title-/H1- und Content-Überlappung als zweite Evidenzquelle.
+- **Umgesetzt:** Evidenzstufen A, B und C statt pauschaler Kannibalisierungsbehauptung.
+- **Umgesetzt:** Ausschluss von Markenqueries, noindex, Canonical-Zielen, Utility-
+  und Pagination-Seiten.
+- **Umgesetzt:** ohne GSC nur On-Page-Hinweise, ausdrücklich als solche gekennzeichnet.
+- **Live:** aw-audio zeigt ein GSC-Paar für /hochzeit-dj/ und /dj-koeln/ auf Stufe B
+  sowie ein schwaches Paar auf Stufe C; keine On-Page-Bestätigung.
+- Grenze: keine lizenzierte SERP-Überschneidung und keine Volltext-Embeddings.
 
 ## Erledigt
 

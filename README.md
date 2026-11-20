@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.16.3 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.17.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -42,6 +42,7 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - GEO-Readiness für AI-Bots, llms.txt und vorhandene Content-/Schema-Signale
 - Budgetiertes GEO-Sampling über DeepSeek mit Marken-/Zitat-Auswertung
 - Beratende KI-Review des Gesamtaudits mit Evidenzprüfung und Cache
+- Keyword-Kannibalisierung aus GSC- und On-Page-Evidenz
 - Priorisierte Maßnahmen (P1 bis P4), Quick Wins und Evidenz je Befund
 - Markdown-Berichte, CSV-Rohdaten und Manifest je Lauf
 - Vergleich zweier Läufe mit den Zuständen neu, erstmals beobachtet, fortbestehend,
@@ -677,6 +678,27 @@ Rohantworten werden nur lokal unter `reports/.../raw_data/geo_answers.jsonl` ges
 `--retention-days` dokumentiert die Aufbewahrungsfrist, die Löschung erfolgt manuell.
 Ein API-Key wird nie in Berichte, Logs oder Commits geschrieben.
 
+## Keyword-Kannibalisierung
+
+Jeder Lauf schreibt `08_KEYWORD_CANNIBALIZATION.md` und
+`raw_data/keyword_cannibalization.csv`. Die Prüfung kombiniert:
+
+- GSC-Query-/URL-Paare mit Impressionen, Klicks und Positionen,
+- Title-/H1-Überlappung,
+- Content-Ähnlichkeit aus aggregierten Termhäufigkeiten,
+- Canonical-, noindex-, Utility- und Pagination-Filter.
+
+Evidenzstufen:
+
+- **A:** GSC-Paar plus On-Page-Überlappung; stärkster Kandidat.
+- **B:** GSC-Paar ohne bestätigte On-Page-Überlappung; kann SERP-Diversität sein.
+- **C:** On-Page-Kandidat oder schwaches GSC-Signal; nur ein Hinweis.
+
+Die Prüfung ist eine Heuristik, kein automatischer Nachweis. Fehlende oder
+anonymisierte GSC-Daten werden ausdrücklich als Grenze ausgewiesen; es werden keine
+URLs automatisch geändert. Details:
+[docs/keyword_kannibalisierung.md](docs/keyword_kannibalisierung.md).
+
 ## KI-Review des Gesamtaudits
 
 Nach einem Lauf kann der gesamte Audit durch eine beratende KI-Review geprüft werden:
@@ -745,6 +767,7 @@ Ein Lauf schreibt in `reports/<datum>_<projekt-id>_<lauf-id>/`:
 | `05_GSC_HISTORY.md` | Vergleich des GSC-Zeitraums mit dem jüngsten vergleichbaren Lauf |
 | `06_URL_INSPECTION.md` | Gespeicherte URL-Inspection-Ergebnisse für wichtige URLs |
 | `07_AI_REVIEW.md` | Beratende KI-Review des Gesamtaudits, optional |
+| `08_KEYWORD_CANNIBALIZATION.md` | Keyword-Kannibalisierung nach Evidenzstufen |
 | `raw_data/all_urls.csv` | URL-Inventar mit Herkunft, Status, Profil, HTTP-Status |
 | `raw_data/pages.csv` | Seitenmetriken je Unterseite |
 | `raw_data/rule_results.csv` | vollständige Prüfergebnisse inklusive Evidenzverweisen |
@@ -792,8 +815,8 @@ GSC-API/URL Inspection, OAuth-Helfer, GSC-Query-/Zielseitenbericht, GSC-Verlauf,
 URL-Inspection-Persistenz und -Diff, Playwright-Vergleich (mit injiziertem Browser),
 Local-SEO-Profile/-Messergebnisse, Performance-Adapter, Maßnahmenstatus mit Verlauf,
 GEO-Readiness und DeepSeek-Sampling, KI-Review-Packung/-Validierung/-Cache,
-Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich, den Systemcheck und den
-Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
+Keyword-Kannibalisierung, Einzel-URL-Prüfung, Ausnahmen, Berichte, den Lauf-Vergleich,
+den Systemcheck und den Git-Updater ab. Sie verwenden lokale HTTP-Server und benötigen
 kein Netzwerk; die Updater-Tests nutzen lokale Git-Repositories.
 
 ## Projektstruktur

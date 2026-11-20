@@ -16,6 +16,7 @@ from seoboy.infrastructure.config import ProjectConfig
 from seoboy.analysis.rules import RULE_VERSIONS
 from seoboy.gsc.inspection_store import load_inspections, write_url_inspection_report
 from seoboy.reporting.gsc_history import write_gsc_history_report
+from seoboy.reporting.cannibalization import write_cannibalization_report
 from seoboy.reporting.gsc_report import write_gsc_query_report
 from seoboy.reporting.page_analysis import render_page_analysis, write_page_analysis_csv
 from seoboy.shared.urls import relative_url
@@ -449,6 +450,7 @@ def render_run_report(
     inspections = load_inspections(connection, run_id)
     inspection_written = bool(inspections)
     write_url_inspection_report(folder, data, inspections)
+    cannibalization_written = write_cannibalization_report(folder, data)
     _write_text(
         folder / "00_EXECUTIVE_SUMMARY.md",
         _executive_summary(
@@ -460,6 +462,7 @@ def render_run_report(
             history_written,
             inspection_written,
             (folder / "07_AI_REVIEW.md").is_file(),
+            cannibalization_written,
         ),
     )
     _write_text(folder / "01_ACTION_PLAN_PRIORITIZED.md", _action_plan(report, coverage, wins))
@@ -549,6 +552,7 @@ def _executive_summary(
     history_written: bool = False,
     inspection_written: bool = False,
     ai_review_written: bool = False,
+    cannibalization_written: bool = False,
 ) -> str:
     data = report.data
     run = data.run
@@ -685,6 +689,11 @@ def _executive_summary(
             *(
                 ["- [KI-Review (advisory)](07_AI_REVIEW.md)"]
                 if ai_review_written
+                else []
+            ),
+            *(
+                ["- [Keyword-Kannibalisierung](08_KEYWORD_CANNIBALIZATION.md)"]
+                if cannibalization_written
                 else []
             ),
             "- [Maschinenlesbare Daten](raw_data/) und [Manifest](manifest.json)",
