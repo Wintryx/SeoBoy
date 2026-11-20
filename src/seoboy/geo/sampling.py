@@ -528,6 +528,7 @@ def run_sampling(
     domain: str = "",
     base_url: str = DEFAULT_BASE_URL,
     timeout: float = 90.0,
+    progress: Any = None,
 ) -> SamplingRun:
     if not api_key:
         raise GeoSamplingError("Für GEO-Sampling wird ein DeepSeek-API-Key benötigt.")
@@ -604,6 +605,16 @@ def run_sampling(
                 run.stop_reason = "error_rate"
                 break
             continue
+        if progress is not None:
+            progress(
+                {
+                    "stage": "geo-sample",
+                    "message": f"Stichprobe {spec.id} wird ausgewertet",
+                    "completed": len(run.samples),
+                    "total": len(prompts),
+                    "unit": "Prompts",
+                }
+            )
         analysis = analyze_answer(
             response["content"], brands=brands, competitors=competitors, domain=domain
         )

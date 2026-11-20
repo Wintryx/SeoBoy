@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import gzip
 import time
+from typing import Any, Callable
 from urllib.parse import urlsplit
 from xml.etree import ElementTree
 
@@ -258,6 +259,7 @@ def collect_snapshot(
     timeout: float = 10.0,
     selected_urls: list[str] | None = None,
     full: bool = False,
+    progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> SiteSnapshot:
     try:
         normalized = normalize_url(start_url)
@@ -348,6 +350,16 @@ def collect_snapshot(
                 time.sleep(interval_seconds)
             result, _ = _fetch_follow(client, candidate_normalized.url)
         pages.append(_metric(candidate_normalized.url, result))
+        if progress is not None:
+            progress(
+                {
+                    "stage": f"benchmark:{label}",
+                    "message": f"{label}: {candidate_normalized.url}",
+                    "completed": len(pages),
+                    "total": min(len(candidates), max_pages),
+                    "unit": "Seiten",
+                }
+            )
     return SiteSnapshot(
         label=label,
         start_url=normalized.url,

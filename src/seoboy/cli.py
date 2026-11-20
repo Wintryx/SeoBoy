@@ -226,6 +226,7 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
         "benchmark", help="Eigene Seite mit Wettbewerbern vergleichen"
     )
     benchmark.add_argument("--config", type=Path, default=default_config)
+    _add_progress_options(benchmark)
     benchmark.add_argument(
         "--competitor",
         action="append",
@@ -321,6 +322,7 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     )
     ai_review.add_argument("--config", type=Path, default=default_config)
     ai_review.add_argument("--run", required=True, metavar="LAUF-ID")
+    _add_progress_options(ai_review)
     ai_review.add_argument(
         "--model",
         choices=["deepseek-flash", "deepseek-v4-pro"],
@@ -358,6 +360,7 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     )
     geo_sample.add_argument("--prompts", type=Path)
     geo_sample.add_argument("--out", type=Path)
+    _add_progress_options(geo_sample)
     geo_sample.add_argument("--api-key")
     geo_sample.add_argument(
         "--model",
@@ -748,6 +751,7 @@ def main(argv: list[str] | None = None) -> int:
                     or os.environ.get("DEEPSEEK_API_KEY")
                     or ""
                 )
+                reporter = ProgressReporter(args.progress, args.progress_interval)
                 outcome = run_ai_review(
                     connection,
                     config,
@@ -756,8 +760,17 @@ def main(argv: list[str] | None = None) -> int:
                     api_key=api_key,
                     review_config=review_config,
                     timeout=args.timeout,
+                    progress=reporter.handle,
                 )
                 path = write_ai_review(outcome)
+                reporter.emit(
+                    stage="fertig",
+                    message="KI-Review geschrieben",
+                    completed=1,
+                    total=1,
+                    unit="Schritt",
+                    force=True,
+                )
             except (AIReviewError, ValueError) as error:
                 print(f"SeoBoy: {error}", file=sys.stderr)
                 return 2
@@ -824,6 +837,15 @@ def main(argv: list[str] | None = None) -> int:
                 Path("reports")
                 / f"geo_sampling_{datetime.now().astimezone():%Y%m%dT%H%M%S}"
             )
+            reporter = ProgressReporter(args.progress, args.progress_interval)
+            reporter.emit(
+                stage="geo-sample",
+                message=f"GEO-Sampling mit {config.model} startet",
+                completed=0,
+                total=min(len(prompt_set.prompts), config.max_calls),
+                unit="Prompts",
+                force=True,
+            )
             try:
                 run = run_sampling(
                     api_key=api_key,
@@ -835,10 +857,19 @@ def main(argv: list[str] | None = None) -> int:
                     domain=args.domain,
                     base_url=os.environ.get("SEOBOY_GEO_BASE_URL") or DEFAULT_BASE_URL,
                     timeout=args.timeout,
+                    progress=reporter.handle,
                 )
             except GeoSamplingError as error:
                 print(f"SeoBoy: {error}", file=sys.stderr)
                 return 2
+            reporter.emit(
+                stage="fertig",
+                message="GEO-Sampling abgeschlossen",
+                completed=len(run.samples),
+                total=len(run.samples),
+                unit="Prompts",
+                force=True,
+            )
             print(f"GEO-Sampling geschrieben: {folder}")
             print(
                 f"Stichproben: {len(run.samples)}, erfolgreich: {run.successful}, "
@@ -1128,6 +1159,12 @@ def main(argv: list[str] | None = None) -> int:
                 parser.error(
                     "Mindestens --competitor oder --competitor-url ist erforderlich."
                 )
+            reporter = ProgressReporter(args.progress, args.progress_interval)
+            reporter.emit(
+                stage="benchmark",
+                message="Wettbewerber lesend erfassen",
+                force=True,
+            )
             folder = runner.run_benchmark(
                 config,
                 competitors,
@@ -1135,6 +1172,15 @@ def main(argv: list[str] | None = None) -> int:
                 out=args.out,
                 selected_urls=selected or None,
                 full=args.full,
+                progress=reporter.handle,
+            )
+            reporter.emit(
+                stage="fertig",
+                message="Wettbewerbsvergleich geschrieben",
+                completed=1,
+                total=1,
+                unit="Schritt",
+                force=True,
             )
             print(f"Wettbewerbsvergleich geschrieben: {folder}")
             return 0

@@ -453,6 +453,7 @@ def run_benchmark(
     out: Path | None = None,
     selected_urls: dict[str, list[str]] | None = None,
     full: bool = False,
+    progress: Progress = None,
 ) -> Path:
     """Compare the latest own run with read-only competitor samples."""
     if not competitors:
@@ -485,6 +486,7 @@ def run_benchmark(
                     max_pages=max_pages,
                     selected_urls=manual,
                     full=full,
+                    progress=progress,
                 )
             )
         except BenchmarkError as error:

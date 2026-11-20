@@ -409,6 +409,7 @@ def run_ai_review(
     api_key: str = "",
     review_config: ReviewConfig | None = None,
     timeout: float = 90.0,
+    progress: Any = None,
 ) -> ReviewOutcome:
     review_config = review_config or ReviewConfig()
     if not 1 <= review_config.max_findings <= 100:
@@ -432,6 +433,14 @@ def run_ai_review(
         folder = Path(report_dir)
         if not folder.is_dir():
             folder = render_run_report(connection, config, run_id)
+    if progress is not None:
+        progress(
+            {
+                "stage": "ai-review",
+                "message": "Evidenzpackung aus Befunden und Maßnahmen bauen",
+                "force": True,
+            }
+        )
     packet = build_review_packet(report, review_config)
     digest = packet_hash(packet)
     cache_key = hashlib.sha256(
@@ -444,6 +453,17 @@ def run_ai_review(
     if cached_payload and review_config.use_cache:
         review = cached_payload.get("review")
         if isinstance(review, dict):
+            if progress is not None:
+                progress(
+                    {
+                        "stage": "ai-review",
+                        "message": "Review aus dem Cache geladen",
+                        "completed": 1,
+                        "total": 1,
+                        "unit": "Schritt",
+                        "force": True,
+                    }
+                )
             return ReviewOutcome(
                 report_dir=folder,
                 packet=packet,
@@ -464,6 +484,14 @@ def run_ai_review(
     maximum_cost = (len(prompt) / 3 * 0.30 + review_config.max_tokens * 1.20) / 1_000_000
     if maximum_cost > review_config.budget_usd:
         raise AIReviewError(f"Review-Budget zu klein: maximal mögliche Kosten {maximum_cost:.6f} USD.")
+    if progress is not None:
+        progress(
+            {
+                "stage": "ai-review",
+                "message": "DeepSeek-Review wird abgefragt",
+                "force": True,
+            }
+        )
     try:
         response = chat_completion(
             api_key,
