@@ -1,1 +1,1 @@
-"""Google-Search-Console-Import und Export-Aufbereitung."""
+"""Google Search Console import and export preparation."""

@@ -1,4 +1,4 @@
-"""URL- und Warteschlangenregistrierung für einen Lauf."""
+"""URL and queue registration for a run."""
 
 from __future__ import annotations
 
@@ -188,7 +188,7 @@ class UrlRegistry:
 def classify_url(
     config: ProjectConfig, normalized: NormalizedUrl
 ) -> str | None:
-    """None = zulässig; sonst Ausschlussgrund."""
+    """None = allowed; otherwise an exclusion reason."""
     from seoboy.shared.urls import is_internal, matches_any_path
 
     if not is_internal(normalized, config.allowed_hosts):

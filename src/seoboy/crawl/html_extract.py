@@ -1,4 +1,4 @@
-"""HTML-Extraktion: Titel, Beschreibung, Robots-Signale, Canonicals, Links."""
+"""HTML extraction: titles, descriptions, robots signals, canonicals, and links."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ _LINK_CANONICAL = re.compile(
 
 
 def link_header_canonicals(header_items) -> tuple[str, ...]:
-    """Liest Canonical-Ziele aus HTTP-Link-Headern (rel="canonical")."""
+    """Read canonical targets from HTTP Link headers (rel="canonical")."""
     values: list[str] = []
     for name, value in header_items:
         if str(name).casefold() != "link":
@@ -178,7 +178,7 @@ def extract_page(
     try:
         parser.feed(html)
         parser.close()
-    except Exception:  # HTMLParser ist robust, aber Fremdmarkup soll den Lauf nicht stoppen
+    except Exception:  # HTMLParser is robust, but third-party markup must not stop the run.
         pass
 
     base = document_url

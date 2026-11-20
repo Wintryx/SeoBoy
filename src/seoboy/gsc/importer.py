@@ -1,4 +1,4 @@
-"""Google-Search-Console-Import und Aufbereitung von UI-Exporten."""
+"""Google Search Console import and preparation of UI exports."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ MAX_REPORTED_ERRORS = 200
 
 
 class GscError(ValueError):
-    """Der Search-Console-Import ist nicht verwendbar."""
+    """The Search Console import is not usable."""
 
 
 @dataclass(frozen=True)
@@ -315,9 +315,9 @@ def _mapping_for_rows(
     *,
     file_name: str,
 ) -> tuple[dict[str, tuple[str, int | None]], list[dict[str, Any]], dict[str, int]]:
-    """Ordnet Quell-URLs den normalisierten Projekt-URLs zu.
+    """Map source URLs to normalized project URLs.
 
-    Liefert Zuordnung je Quellseite, Mapping-Hinweise und Zählwerte.
+    Returns a mapping per source page, mapping notes, and counters.
     """
     counts = {"matched": 0, "unmatched": 0, "ambiguous": 0}
     issues: list[dict[str, Any]] = []
@@ -652,7 +652,7 @@ def _hash_inputs(gsc_dir: Path, manifest: GscManifest) -> str:
 
 
 def describe_inputs(gsc_dir: Path | None) -> dict[str, Any] | None:
-    """Bezeichner und Hashes der Importdateien für runs.inputs_json."""
+    """Identifiers and hashes of import files for runs.inputs_json."""
     if gsc_dir is None:
         return None
     description: dict[str, Any] = {"directory": str(gsc_dir.resolve())}
@@ -690,7 +690,7 @@ def describe_inputs(gsc_dir: Path | None) -> dict[str, Any] | None:
     return description
 
 
-# ---------------------------------------------------------------------- Vergleichsperioden
+# ---------------------------------------------------------------------- Comparison periods
 
 
 def period_length(period_start: str, period_end: str) -> int:
@@ -702,7 +702,7 @@ def period_length(period_start: str, period_end: str) -> int:
 def select_comparison_periods(
     datasets: list[dict[str, Any]],
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    """Wählt die beiden jüngsten überlappungsfreien Zeiträume gleicher Länge."""
+    """Select the two most recent non-overlapping periods of equal length."""
     if not datasets:
         return None, None
     ordered = sorted(
@@ -723,7 +723,7 @@ def select_comparison_periods(
     return latest, previous
 
 
-# ---------------------------------------------------------------------- Aufbereiter
+# ---------------------------------------------------------------------- Preparer
 
 
 PAGE_ALIASES = {
@@ -876,7 +876,7 @@ def prepare_export(
     decimal: str | None = None,
     columns: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Überführt einen GSC-UI-Seitenexport in das normalisierte CSV-Format."""
+    """Convert a GSC UI page export into the normalized CSV format."""
     if start > end:
         raise GscError("Der Startzeitraum liegt nach dem Endzeitraum.")
     if not property_name.strip():

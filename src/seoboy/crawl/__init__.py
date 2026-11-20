@@ -1,1 +1,1 @@
-"""HTTP-Crawl, HTML-Extraktion und URL-Registrierung."""
+"""HTTP crawl, HTML extraction, and URL registration."""

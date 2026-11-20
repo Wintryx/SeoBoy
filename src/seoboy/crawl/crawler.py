@@ -1,4 +1,4 @@
-"""HTTP-Crawl mit SQLite-Warteschlange, Limits und Wiederaufnahme."""
+"""HTTP crawl with a SQLite queue, limits, and resume support."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ STOP_HOP_LIMIT = "redirect_hop_limit"
 
 
 class ResumeError(RuntimeError):
-    """Der gespeicherte Lauf lässt sich mit dieser Konfiguration nicht fortsetzen."""
+    """The stored run cannot be resumed with this configuration."""
 
 
 class RequestLimitReached(RuntimeError):
@@ -86,7 +86,7 @@ class PageTask:
 
 
 class RequestPacer:
-    """Startet Anfragen pro Origin im konfigurierten Mindestabstand."""
+    """Starts requests per origin at the configured minimum interval."""
 
     def __init__(self, interval_seconds: float) -> None:
         self.interval = max(0.0, interval_seconds)
@@ -133,7 +133,7 @@ def create_run(
     inputs: dict[str, Any],
     initial_urls: list[str],
 ) -> str:
-    """Legt Lauf, initiale Warteschlange und Eingabe-Hashes in einer Transaktion an."""
+    """Create a run, initial queue, and input hashes in one transaction."""
     run_id = _new_run_id()
     started_at = iso_utc()
     max_urls = 1 if mode == "inspect" else config.crawl.max_urls
@@ -230,7 +230,7 @@ def validate_resume(
 
 
 def prepare_resume(connection: sqlite3.Connection, run_id: str) -> None:
-    """Kennzeichnet unterbrochene Versuche und plant offene Jobs erneut ein."""
+    """Mark interrupted attempts and schedule open jobs again."""
     now = iso_utc()
     with transaction(connection):
         connection.execute(
@@ -290,7 +290,7 @@ class Crawler:
         self._host_inflight: dict[str, int] = {}
         self._stop_reason_pending: str | None = None
 
-    # ------------------------------------------------------------------ Laufsteuerung
+    # ------------------------------------------------------------------ Run control
 
     def crawl(self) -> CrawlOutcome:
         self._normalize_interrupted()
@@ -834,7 +834,7 @@ class Crawler:
         priority = PRIORITY_LINK_BASE + depth if depth is not None else PRIORITY_UNLINKED
         self.registry.add_job(url_id, PAGE, priority, not_before_at=iso_utc())
 
-    # ------------------------------------------------------------------ Seiten
+    # ------------------------------------------------------------------ Pages
 
     def _prepare_page(self, job: sqlite3.Row) -> PageTask | None:
         run_url = self.connection.execute(
@@ -1112,7 +1112,7 @@ class Crawler:
         self.registry.add_job(target_id, PAGE, priority, not_before_at=iso_utc(now))
 
     def _redirect_chain_length(self, url_id: int) -> int:
-        """Anzahl interner Redirect-Schritte vor dieser URL (zyklensicher)."""
+        """Number of internal redirect steps before this URL (cycle-safe)."""
         edges = self.connection.execute(
             "SELECT j.url_id AS source, a.location_url_id AS target FROM http_attempts a "
             "JOIN crawl_jobs j ON j.run_id = a.run_id AND j.job_id = a.job_id "

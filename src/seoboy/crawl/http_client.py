@@ -1,4 +1,4 @@
-"""HTTP-Client ohne automatische Weiterleitungsverfolgung."""
+"""HTTP client without automatic redirect following."""
 
 from __future__ import annotations
 
@@ -127,7 +127,7 @@ class HttpClient:
     def __init__(self, timeout: float = 15.0, max_bytes: int = 5_000_000) -> None:
         self.timeout = timeout
         self.max_bytes = max_bytes
-        # Opener sind nicht für die gemeinsame Nutzung durch Threads gedacht.
+        # Openers are not designed to be shared across threads.
         self._local = threading.local()
 
     def _opener(self) -> urllib.request.OpenerDirector:
@@ -231,7 +231,7 @@ class HttpClient:
 
 
 def decode_body(result: FetchResult) -> str:
-    """Dekodiert den Antwortkörper anhand Header, Meta-Charset und Fallbacks."""
+    """Decode the response body using headers, meta charset, and fallbacks."""
     charset = result.charset
     if not charset:
         head = result.body[:4096].decode("ascii", errors="ignore")
