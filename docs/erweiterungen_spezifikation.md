@@ -1,7 +1,7 @@
 # SeoBoy – Erweiterungsspezifikation
 
 Stand: 20.11.2026  
-Zielversion: 0.15.1
+Zielversion: 0.15.2
 
 ## 1. Zweck
 
@@ -324,7 +324,20 @@ Optionen:
 Rohantworten werden lokal gespeichert. --retention-days dokumentiert die Frist; die
 Löschung erfolgt manuell. retention_days=0 schreibt keine Rohantworten.
 
-### 9.6 Grenzen
+### 9.6 Berechtigungsmodell
+
+Der Adapter ist kein autonomer Agent und hat nur diese Fähigkeiten:
+
+- Prompt-YAML lesen,
+- HTTPS-POST ausschließlich an api.deepseek.com,
+- einen sauberen Report-Ordner schreiben.
+
+Nicht möglich sind Shell, Browser, Website-Änderungen, Datenbankzugriffe, das Lesen
+beliebiger lokaler Dateien oder das Ausführen von Modellantworten. Zusätzlich gelten:
+Host-Allowlist, Redirect-Verbot, Modell-Allowlist, Prompt-/Antwortlimits, Budgetprüfung
+vor jedem Aufruf und ein Überschreibschutz für fremde Ausgabeordner.
+
+### 9.7 Grenzen
 
 Die Antworten sind KI-Momentaufnahmen, keine Suchmaschinen-Rankings. Marken- und
 URL-Erkennung ist Textabgleich. Für belastbare Aussagen sind Wiederholungen, weitere

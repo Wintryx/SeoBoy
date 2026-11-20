@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.15.1 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.15.2 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -115,7 +115,12 @@ Manuell:
 
 Die GitHub-Actions-Pipeline führt den History-Scan ebenfalls aus und blockiert den
 Build bei einem Treffer. `.env`, `local/`, `secrets/`, `credentials*`, `*.pem` und
-`*.key` sind ignoriert. Weitere Hinweise stehen in [SECURITY.md](SECURITY.md).
+`*.key` sind ignoriert.
+
+Der GEO-KI-Agent darf ausschließlich `https://api.deepseek.com` kontaktieren, keine
+Redirects folgen, keine Shell/Browser/Website verändern und nur in einen sauberen
+Report-Ordner schreiben. Die vollständige Berechtigungsmatrix steht in
+[SECURITY.md](SECURITY.md).
 
 ## GitHub-Upstream einrichten
 
