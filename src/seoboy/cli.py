@@ -1,10 +1,11 @@
 import argparse
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import json
 import os
 from pathlib import Path
 import sqlite3
 import sys
+import tempfile
 
 from seoboy.gsc import api as gsc_api
 from seoboy.gsc import importer as gsc_module
@@ -58,6 +59,28 @@ def _parse_columns(value: str | None) -> dict[str, str] | None:
     return mapping
 
 
+def _gsc_period(args: argparse.Namespace, parser: argparse.ArgumentParser) -> tuple[date, date]:
+    if not 1 <= args.gsc_days <= 366:
+        parser.error("--gsc-days muss zwischen 1 und 366 liegen.")
+    end = args.gsc_end or (date.today() - timedelta(days=1))
+    if args.gsc_start is not None:
+        start = args.gsc_start
+        if args.gsc_end is None:
+            end = start + timedelta(days=args.gsc_days - 1)
+    else:
+        start = end - timedelta(days=args.gsc_days - 1)
+    if start > end:
+        parser.error("GSC-Startdatum darf nicht nach dem Enddatum liegen.")
+    return start, end
+
+
+def _gsc_property(config, value: str | None) -> str:
+    selected = (value or os.environ.get("SEOBOY_GSC_PROPERTY") or "").strip()
+    if selected:
+        return selected
+    return config.start_url.rstrip("/") + "/"
+
+
 def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="seoboy",
@@ -75,7 +98,28 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
 
     run = commands.add_parser("run", help="Audit ausführen")
     run.add_argument("--config", type=Path, default=default_config)
-    run.add_argument("--gsc-dir", type=Path, help="Verzeichnis mit GSC-Manifest und CSV-Dateien")
+    run.add_argument(
+        "--gsc-dir",
+        type=Path,
+        help="Verzeichnis mit GSC-Manifest und CSV-Dateien (manueller Import)",
+    )
+    run.add_argument(
+        "--gsc-credentials",
+        type=Path,
+        help="GSC-Zugangsdatei; ohne Angabe wird SEOBOY_GSC_CREDENTIALS genutzt",
+    )
+    run.add_argument(
+        "--gsc-property",
+        help="GSC-Property; Standard ist die Start-URL mit abschließendem Slash",
+    )
+    run.add_argument("--gsc-start", type=_parse_date, help="GSC-Startdatum JJJJ-MM-TT")
+    run.add_argument("--gsc-end", type=_parse_date, help="GSC-Enddatum JJJJ-MM-TT")
+    run.add_argument(
+        "--gsc-days",
+        type=int,
+        default=28,
+        help="Zeitraum in Tagen, wenn kein Startdatum gesetzt ist (Standard: 28)",
+    )
     run.add_argument("--resume", metavar="LAUF-ID", help="Pausierten Lauf fortsetzen")
 
     batch = commands.add_parser("batch", help="Mehrere Projekte parallel prüfen")
@@ -237,8 +281,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "run":
             config = _load(args.config)
-            if args.resume and args.gsc_dir:
-                parser.error("--resume und --gsc-dir schließen sich aus.")
+            if args.resume and (args.gsc_dir or args.gsc_credentials):
+                parser.error(
+                    "--resume und die GSC-Optionen --gsc-dir/--gsc-credentials "
+                    "schließen sich aus."
+                )
             if args.resume:
                 outcome = runner.resume_project(config, args.resume)
             else:
@@ -246,8 +293,53 @@ def main(argv: list[str] | None = None) -> int:
                 if gsc_value is None:
                     env_gsc = os.environ.get("SEOBOY_GSC_DIR")
                     gsc_value = Path(env_gsc) if env_gsc else None
+                if gsc_value is not None and args.gsc_credentials is not None:
+                    print(
+                        "Hinweis: --gsc-dir hat Vorrang; automatischer GSC-Abruf "
+                        "wird übersprungen."
+                    )
                 gsc_dir = gsc_value.resolve() if gsc_value else None
-                outcome = runner.run_project(config, gsc_dir)
+                temporary_gsc: tempfile.TemporaryDirectory | None = None
+                if gsc_dir is None:
+                    credential_value = (
+                        args.gsc_credentials
+                        or os.environ.get("SEOBOY_GSC_CREDENTIALS")
+                    )
+                    if credential_value:
+                        try:
+                            credentials = gsc_api.load_credentials(credential_value)
+                            start, end = _gsc_period(args, parser)
+                            property_name = _gsc_property(config, args.gsc_property)
+                            temporary_gsc = tempfile.TemporaryDirectory(
+                                prefix="seoboy-gsc-"
+                            )
+                            summary = gsc_api.fetch_to_directory(
+                                credentials,
+                                property_name,
+                                start,
+                                end,
+                                Path(temporary_gsc.name),
+                            )
+                            gsc_dir = Path(temporary_gsc.name)
+                            print(
+                                f"GSC-API: {summary.pages} Seitenzeilen, "
+                                f"{summary.queries} Suchanfrage-Zeilen "
+                                f"({summary.period_start} bis {summary.period_end})."
+                            )
+                        except GscApiError as error:
+                            print(
+                                f"Hinweis: GSC-API nicht geladen: {error}",
+                                file=sys.stderr,
+                            )
+                            if temporary_gsc is not None:
+                                temporary_gsc.cleanup()
+                                temporary_gsc = None
+                            gsc_dir = None
+                try:
+                    outcome = runner.run_project(config, gsc_dir)
+                finally:
+                    if temporary_gsc is not None:
+                        temporary_gsc.cleanup()
             for warning in outcome.warnings:
                 print(f"Hinweis: {warning}")
             print(outcome.message)

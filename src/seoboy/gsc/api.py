@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import base64
 import csv
 from dataclasses import dataclass
 from datetime import date
+import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 import urllib.request
@@ -24,10 +30,17 @@ class GscApiError(RuntimeError):
 
 @dataclass(frozen=True)
 class GscCredentials:
-    client_id: str
-    client_secret: str
-    refresh_token: str
+    client_id: str = ""
+    client_secret: str = ""
+    refresh_token: str = ""
     access_token: str | None = None
+    service_account_email: str | None = None
+    private_key: str | None = None
+    token_uri: str | None = None
+
+    @property
+    def is_service_account(self) -> bool:
+        return bool(self.service_account_email and self.private_key)
 
 
 @dataclass(frozen=True)
@@ -55,6 +68,19 @@ def load_credentials(path: Path | str | None = None) -> GscCredentials:
         raise GscApiError(f"GSC-Zugangsdatei ist kein gültiges JSON: {error}") from error
     if not isinstance(payload, dict):
         raise GscApiError("GSC-Zugangsdatei muss ein JSON-Objekt enthalten.")
+    service_email = str(payload.get("client_email") or "").strip()
+    private_key = str(payload.get("private_key") or "").strip()
+    if payload.get("type") == "service_account" or (service_email and private_key):
+        if not service_email or not private_key:
+            raise GscApiError(
+                "Service-Account-Datei benötigt client_email und private_key."
+            )
+        token_uri = str(payload.get("token_uri") or "").strip() or None
+        return GscCredentials(
+            service_account_email=service_email,
+            private_key=private_key,
+            token_uri=token_uri,
+        )
     client_id = str(payload.get("client_id") or "").strip()
     client_secret = str(payload.get("client_secret") or "").strip()
     refresh_token = str(payload.get("refresh_token") or "").strip()
@@ -100,28 +126,163 @@ def _http_json(
     return payload
 
 
+_TOKEN_CACHE: dict[str, tuple[str, float]] = {}
+
+
+def _cache_key(credentials: GscCredentials) -> str:
+    material = "|".join(
+        [
+            credentials.service_account_email or "",
+            credentials.client_id,
+            credentials.refresh_token,
+            credentials.token_uri or "",
+        ]
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _base64url(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+
+def _openssl_path() -> str | None:
+    configured = os.environ.get("SEOBOY_OPENSSL")
+    if configured and Path(configured).is_file():
+        return configured
+    found = shutil.which("openssl")
+    if found:
+        return found
+    if os.name == "nt":
+        program_files = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
+        for candidate in (
+            program_files / "Git" / "usr" / "bin" / "openssl.exe",
+            program_files / "Git" / "mingw64" / "bin" / "openssl.exe",
+        ):
+            if candidate.is_file():
+                return str(candidate)
+    return None
+
+
+def _sign_with_openssl(signing_input: bytes, private_key: str) -> bytes:
+    executable = _openssl_path()
+    if not executable:
+        raise GscApiError(
+            "Service-Account-Anmeldung benötigt cryptography oder OpenSSL. "
+            "Installation: pip install 'seoboy[gsc-service-account]'."
+        )
+    try:
+        with tempfile.TemporaryDirectory(prefix="seoboy-jwt-") as temporary:
+            key_path = Path(temporary) / "key.pem"
+            input_path = Path(temporary) / "input.bin"
+            key_path.write_text(private_key, encoding="utf-8")
+            try:
+                key_path.chmod(0o600)
+            except OSError:
+                pass
+            input_path.write_bytes(signing_input)
+            result = subprocess.run(
+                [
+                    executable,
+                    "dgst",
+                    "-sha256",
+                    "-sign",
+                    str(key_path),
+                    "-binary",
+                    str(input_path),
+                ],
+                capture_output=True,
+                check=False,
+                timeout=30,
+            )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise GscApiError("OpenSSL-Signatur konnte nicht ausgeführt werden.") from error
+    if result.returncode != 0 or not result.stdout:
+        raise GscApiError("OpenSSL-Signatur ist fehlgeschlagen.")
+    return result.stdout
+
+
+def _service_account_token(credentials: GscCredentials) -> dict:
+    if not credentials.service_account_email or not credentials.private_key:
+        raise GscApiError("Service-Account-Zugangsdaten sind unvollständig.")
+    token_uri = credentials.token_uri or TOKEN_URL
+    header = _base64url(
+        json.dumps({"alg": "RS256", "typ": "JWT"}, separators=(",", ":")).encode("utf-8")
+    )
+    now = int(time.time())
+    claims = {
+        "iss": credentials.service_account_email,
+        "scope": "https://www.googleapis.com/auth/webmasters.readonly",
+        "aud": token_uri,
+        "exp": now + 3600,
+        "iat": now,
+    }
+    body = _base64url(
+        json.dumps(claims, separators=(",", ":")).encode("utf-8")
+    )
+    signing_input = f"{header}.{body}".encode("ascii")
+    try:
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding
+    except ImportError:
+        signature = _sign_with_openssl(signing_input, credentials.private_key)
+    else:
+        try:
+            private_key = serialization.load_pem_private_key(
+                credentials.private_key.encode("utf-8"), password=None
+            )
+            signature = private_key.sign(
+                signing_input, padding.PKCS1v15(), hashes.SHA256()
+            )
+        except (ValueError, TypeError) as error:
+            raise GscApiError("Service-Account-Private-Key ist ungültig.") from error
+    assertion = f"{header}.{body}.{_base64url(signature)}"
+    token_body = urlencode(
+        {
+            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            "assertion": assertion,
+        }
+    ).encode("utf-8")
+    return _http_json(
+        token_uri,
+        data=token_body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+
 def access_token(credentials: GscCredentials) -> str:
     if credentials.access_token:
         return credentials.access_token
     env_token = os.environ.get("SEOBOY_GSC_ACCESS_TOKEN")
     if env_token:
         return env_token
-    body = urlencode(
-        {
-            "client_id": credentials.client_id,
-            "client_secret": credentials.client_secret,
-            "refresh_token": credentials.refresh_token,
-            "grant_type": "refresh_token",
-        }
-    ).encode("utf-8")
-    payload = _http_json(
-        TOKEN_URL,
-        data=body,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-    )
+    key = _cache_key(credentials)
+    cached = _TOKEN_CACHE.get(key)
+    if cached is not None and cached[1] > time.monotonic() + 30:
+        return cached[0]
+    if credentials.is_service_account:
+        payload = _service_account_token(credentials)
+    else:
+        body = urlencode(
+            {
+                "client_id": credentials.client_id,
+                "client_secret": credentials.client_secret,
+                "refresh_token": credentials.refresh_token,
+                "grant_type": "refresh_token",
+            }
+        ).encode("utf-8")
+        payload = _http_json(
+            TOKEN_URL,
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
     token = str(payload.get("access_token") or "")
     if not token:
         raise GscApiError("OAuth-Antwort enthielt kein access_token.")
+    try:
+        expires_in = int(payload.get("expires_in") or 3600)
+    except (TypeError, ValueError):
+        expires_in = 3600
+    _TOKEN_CACHE[key] = (token, time.monotonic() + max(60, expires_in))
     return token
 
 

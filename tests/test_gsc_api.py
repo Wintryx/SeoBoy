@@ -165,6 +165,23 @@ class GscApiTests(unittest.TestCase):
         self.assertIn("Submitted and indexed", markdown)
         self.assertIn("Google Canonical", markdown)
 
+    def test_service_account_credentials_are_detected(self):
+        path = Path(self.tmp.name) / "service-account.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "type": "service_account",
+                    "client_email": "seo@example.iam.gserviceaccount.com",
+                    "private_key": "-----BEGIN PRIVATE KEY-----\n...",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                }
+            ),
+            encoding="utf-8",
+        )
+        credentials = gsc_api.load_credentials(path)
+        self.assertTrue(credentials.is_service_account)
+        self.assertEqual(credentials.service_account_email, "seo@example.iam.gserviceaccount.com")
+
     def test_invalid_credentials_file(self):
         bad = Path(self.tmp.name) / "bad.json"
         bad.write_text("{}", encoding="utf-8")

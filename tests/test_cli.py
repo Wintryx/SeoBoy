@@ -3,11 +3,14 @@ from __future__ import annotations
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import date
 import io
+import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from seoboy import cli
+from seoboy.gsc import api as gsc_api
 from seoboy.application import runner
 from seoboy.benchmark.sampler import collect_snapshot
 from seoboy.crawl.crawler import Crawler, create_run
@@ -49,6 +52,75 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0, error)
         self.assertIn("SQLite-Schema 1", output)
         self.assertTrue((self.directory / "data" / "seoboy.db").is_file())
+
+    def test_run_fetches_gsc_automatically(self):
+        with FixtureSite() as site:
+            site.add("/robots.txt", body="User-agent: *\nAllow: /\n", content_type="text/plain")
+            site.add_html("/", "Start", "<h1>Start</h1>")
+            config = make_config(self.directory, site.base)
+            credentials = self.directory / "gsc.json"
+            credentials.write_text("{}", encoding="utf-8")
+
+            def fake_fetch(credentials, property_name, start, end, out, **kwargs):
+                out = Path(out)
+                out.mkdir(parents=True, exist_ok=True)
+                (out / "manifest.json").write_text(
+                    json.dumps(
+                        {
+                            "property": property_name,
+                            "search_type": "web",
+                            "country": None,
+                            "device": None,
+                            "periods": [
+                                {
+                                    "start": start.isoformat(),
+                                    "end": end.isoformat(),
+                                    "source_format": "gsc_api",
+                                    "pages": "pages.csv",
+                                    "page_queries": "queries.csv",
+                                }
+                            ],
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                (out / "pages.csv").write_text(
+                    "page,clicks,impressions,position\n"
+                    f"{site.base}/,2,20,5.0\n",
+                    encoding="utf-8",
+                )
+                (out / "queries.csv").write_text(
+                    "page,query,clicks,impressions,position\n"
+                    f"{site.base}/,hochzeits dj,2,20,5.0\n",
+                    encoding="utf-8",
+                )
+                return gsc_api.GscFetchSummary(
+                    folder=out,
+                    period_start=start.isoformat(),
+                    period_end=end.isoformat(),
+                    pages=1,
+                    queries=1,
+                )
+
+            with patch.object(
+                gsc_api, "load_credentials", return_value=gsc_api.GscCredentials(access_token="test")
+            ), patch.object(gsc_api, "fetch_to_directory", side_effect=fake_fetch):
+                code, output, error = run_cli(
+                    [
+                        "run",
+                        "--config",
+                        str(config.config_path),
+                        "--gsc-credentials",
+                        str(credentials),
+                        "--gsc-start",
+                        "2026-10-01",
+                        "--gsc-end",
+                        "2026-10-31",
+                    ]
+                )
+        self.assertEqual(code, 0, error)
+        self.assertIn("GSC-API: 1 Seitenzeilen, 1 Suchanfrage-Zeilen", output)
+        self.assertIn("Berichte:", output)
 
     def test_run_inspect_report_and_diff(self):
         with FixtureSite() as site:

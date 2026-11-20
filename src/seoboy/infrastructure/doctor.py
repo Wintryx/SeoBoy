@@ -142,14 +142,19 @@ def _credential_check() -> Check:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
         return _check("GSC-API-Zugang", "warning", f"nicht lesbar: {error}")
+    if isinstance(payload, dict) and (
+        payload.get("type") == "service_account"
+        or (payload.get("client_email") and payload.get("private_key"))
+    ):
+        return _check("GSC-API-Zugang", "ok", f"{path} (Service-Account)")
     required = {"client_id", "client_secret", "refresh_token"}
     if not isinstance(payload, dict) or not required.issubset(payload):
         return _check(
             "GSC-API-Zugang",
             "warning",
-            "client_id, client_secret und refresh_token fehlen.",
+            "weder Service-Account noch client_id/client_secret/refresh_token vorhanden.",
         )
-    return _check("GSC-API-Zugang", "ok", str(path))
+    return _check("GSC-API-Zugang", "ok", f"{path} (OAuth)")
 
 
 def run_doctor(config_path: Path | str) -> DoctorReport:

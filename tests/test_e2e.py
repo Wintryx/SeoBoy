@@ -318,6 +318,16 @@ class EndToEndTests(unittest.TestCase):
                 self.assertIn("/missing/", action["title"])
             finally:
                 connection.close()
+            report = outcome.report_dir
+            self.assertIsNotNone(report)
+            action_plan = (report / "01_ACTION_PLAN_PRIORITIZED.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("Gemeinsame Ursache", action_plan)
+            self.assertIn("HTTP_UNAVAILABLE", action_plan)
+            self.assertIn("Ein Fix am Link behebt beide Befunde", action_plan)
+            summary = (report / "00_EXECUTIVE_SUMMARY.md").read_text(encoding="utf-8")
+            self.assertIn("Durch gemeinsame Ziel-URL verbunden", summary)
 
     def test_parallel_page_fetching(self):
         with FixtureSite() as site:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "seoboy"
-version = "0.7.0"
+version = "0.8.0"
 description = "Lokales SEO-Audit mit Crawl, GSC-Import und Reporting"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,6 +12,7 @@ dependencies = ["PyYAML>=6,<7"]
 
 [project.optional-dependencies]
 rendering = ["playwright>=1.40"]
+gsc-service-account = ["cryptography>=41"]
 
 [project.scripts]
 seoboy = "seoboy.cli:main"

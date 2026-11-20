@@ -515,6 +515,7 @@ def _executive_summary(
     for action in report.actions:
         priority_counts[action.priority] = priority_counts.get(action.priority, 0) + 1
     findings = report.findings()
+    causal_count = _causal_count(report)
     lines = [
         "# SeoBoy – Executive Summary",
         "",
@@ -596,6 +597,11 @@ def _executive_summary(
             f"- P3 Prüfen/verbessern: **{priority_counts.get(3, 0)}**",
             f"- P4 Pflege: **{priority_counts.get(4, 0)}**",
             f"- Befunde gesamt: **{len(findings)}**",
+            *(
+                [f"- Durch gemeinsame Ziel-URL verbunden: **{causal_count}**"]
+                if causal_count
+                else []
+            ),
             "",
             "### Wichtigste offene Maßnahmen",
             "",
@@ -755,9 +761,23 @@ def _action_plan(
                 f"- **Erneut prüfen:** {action.verification}",
                 f"- **Aufwand:** {_effort_label(action.effort)}",
                 f"- **Befunde:** {len(findings)}",
-                "",
             ]
         )
+        causal = _causal_findings(report, action, findings)
+        if causal:
+            targets = sorted(
+                {
+                    _display(data, url)
+                    for finding in causal
+                    for url in _result_urls(data, finding, "affected")
+                }
+            )
+            lines.append(
+                "- **Gemeinsame Ursache:** Derselbe Ziel-Status wird zusätzlich als "
+                f"HTTP_UNAVAILABLE für {', '.join(targets)} geführt. Ein Fix am Link "
+                "behebt beide Befunde."
+            )
+        lines.append("")
         if len(findings) > 1:
             lines.extend(["Beispiele:", ""])
             for finding in findings[:10]:
@@ -768,6 +788,42 @@ def _action_plan(
                 lines.append(f"- … {len(findings) - 10} weitere Befunde laut CSV")
             lines.append("")
     return "\n".join(lines)
+
+
+def _causal_count(report: ReportData) -> int:
+    target_ids = {
+        url_id
+        for finding in report.findings("LINK_BROKEN")
+        for url_id, relation in finding.urls
+        if relation == "target"
+    }
+    if not target_ids:
+        return 0
+    return sum(
+        1
+        for finding in report.findings("HTTP_UNAVAILABLE")
+        if any(url_id in target_ids for url_id, _relation in finding.urls)
+    )
+
+
+def _causal_findings(
+    report: ReportData, action: StoredAction, findings: list[StoredResult]
+) -> list[StoredResult]:
+    if action.rule_id != "LINK_BROKEN":
+        return []
+    target_ids = {
+        url_id
+        for finding in findings
+        for url_id, relation in finding.urls
+        if relation == "target"
+    }
+    if not target_ids:
+        return []
+    related: list[StoredResult] = []
+    for finding in report.findings("HTTP_UNAVAILABLE"):
+        if any(url_id in target_ids for url_id, _relation in finding.urls):
+            related.append(finding)
+    return related
 
 
 def _business_value(data: RunData, findings: list[StoredResult]) -> str:
