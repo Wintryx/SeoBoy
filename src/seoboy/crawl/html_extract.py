@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 import json
@@ -63,6 +64,7 @@ class ExtractedPage:
     images_missing_alt: int = 0
     schema_types: tuple[str, ...] = ()
     jsonld: tuple[str, ...] = ()
+    content_terms: dict[str, int] = field(default_factory=dict)
 
 
 def _directives(value: str | None) -> tuple[str, ...]:
@@ -142,6 +144,9 @@ class _Extractor(HTMLParser):
         self.text_parts: list[str] = []
         self._in_body = False
         self._seen_body = False
+        self._in_content = False
+        self._content_depth = 0
+        self.content_parts: list[str] = []
         self._in_script = False
         self._in_style = False
         self._in_jsonld = False
@@ -157,6 +162,9 @@ class _Extractor(HTMLParser):
         elif tag == "body":
             self._in_body = True
             self._seen_body = True
+        elif tag in {"main", "article"}:
+            self._content_depth += 1
+            self._in_content = True
         elif tag == "h1":
             self.h1_count += 1
             self._in_h1 = True
@@ -205,6 +213,9 @@ class _Extractor(HTMLParser):
             self._title_done = True
         elif tag == "body":
             self._in_body = False
+        elif tag in {"main", "article"} and self._content_depth > 0:
+            self._content_depth -= 1
+            self._in_content = self._content_depth > 0
         elif tag == "h1" and self._in_h1:
             self._in_h1 = False
         elif tag == "script":
@@ -232,6 +243,8 @@ class _Extractor(HTMLParser):
             self.text_parts.append(data)
             if self._in_body:
                 self.body_parts.append(data)
+            if self._in_content:
+                self.content_parts.append(data)
 
 
 def _schema_types(blocks: list[str]) -> tuple[str, ...]:
@@ -266,6 +279,23 @@ def _resolve(base: str, reference: str) -> str | None:
     if not resolved:
         return None
     return resolved
+
+
+_TERM = re.compile(r"[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9]{3,}")
+
+
+def content_terms(text: str, limit: int = 200) -> dict[str, int]:
+    """Count capitalised terms as a lightweight German noun heuristic.
+
+    Only term counts are stored, never the surrounding text. Capitalisation
+    filters many verbs, adjectives, and generic sentence fragments.
+    """
+    counts: Counter[str] = Counter()
+    for token in _TERM.findall(text):
+        if not token[0].isupper():
+            continue
+        counts[token.casefold()] += 1
+    return {term: count for term, count in counts.most_common(limit)}
 
 
 def extract_page(
@@ -304,6 +334,7 @@ def extract_page(
     body_text = normalize_whitespace(
         " ".join(parser.body_parts if parser._seen_body else parser.text_parts)
     )
+    main_text = normalize_whitespace(" ".join(parser.content_parts)) or body_text
     h1 = normalize_whitespace(" ".join(parser.h1_parts)) or None
 
     return ExtractedPage(
@@ -322,4 +353,5 @@ def extract_page(
         images_missing_alt=parser.images_missing_alt,
         schema_types=_schema_types(parser.jsonld_blocks),
         jsonld=tuple(parser.jsonld_blocks),
+        content_terms=content_terms(main_text),
     )

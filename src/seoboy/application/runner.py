@@ -32,6 +32,7 @@ from seoboy.reporting.run_report import render_run_report
 from seoboy.benchmark.report import (
     render_benchmark,
     write_benchmark_csv,
+    write_benchmark_content_terms_csv,
     write_benchmark_terms_csv,
 )
 from seoboy.benchmark.sampler import (
@@ -443,6 +444,9 @@ def run_benchmark(
     )
     write_benchmark_csv(raw / "benchmark_pages.csv", [own, *snapshots])
     write_benchmark_terms_csv(raw / "benchmark_terms.csv", own, snapshots)
+    write_benchmark_content_terms_csv(
+        raw / "benchmark_content_terms.csv", own, snapshots
+    )
     manifest = {
         "kind": "competitor_benchmark",
         "project_id": config.project_id,
@@ -454,6 +458,7 @@ def run_benchmark(
             "04_COMPETITOR_BENCHMARK.md",
             "raw_data/benchmark_pages.csv",
             "raw_data/benchmark_terms.csv",
+            "raw_data/benchmark_content_terms.csv",
         ],
         "sites": [
             {

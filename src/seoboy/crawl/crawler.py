@@ -983,6 +983,7 @@ class Crawler:
                 "h1": page.h1,
                 "h1_count": page.h1_count,
                 "word_count": page.word_count,
+                "content_terms": page.content_terms,
                 "image_count": page.image_count,
                 "images_missing_alt": page.images_missing_alt,
                 "schema_types": list(page.schema_types),

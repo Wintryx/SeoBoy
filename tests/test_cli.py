@@ -284,6 +284,13 @@ class CliTests(unittest.TestCase):
             self.assertIn("HTML-Seiten ausgewertet", report)
             self.assertTrue((folder / "raw_data" / "benchmark_pages.csv").is_file())
             self.assertTrue((folder / "raw_data" / "benchmark_terms.csv").is_file())
+            self.assertTrue(
+                (folder / "raw_data" / "benchmark_content_terms.csv").is_file()
+            )
+            self.assertIn(
+                "Inhaltliche Begriffe (TF-IDF)",
+                (folder / "04_COMPETITOR_BENCHMARK.md").read_text(encoding="utf-8"),
+            )
             self.assertTrue((folder / "manifest.json").is_file())
 
     def test_benchmark_respects_competitor_robots(self):

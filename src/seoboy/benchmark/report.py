@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 import csv
+import math
 from pathlib import Path
 import re
 from typing import Any, Iterable
@@ -21,7 +22,22 @@ _STOPWORDS = {
     "wird", "wo", "zu", "zum", "zur", "the", "and", "for", "with", "from",
     "this", "that", "your", "you", "our", "are", "was", "were", "has", "have",
     "not", "but", "all", "can", "will", "more", "one", "two", "der", "die",
-    "kreis", "buchen",
+    "kreis", "buchen", "seite", "seiten", "mehr", "unsere", "unser", "deine",
+    "dein", "eure", "euer", "wird", "werden", "sind", "haben", "können",
+    "sowie", "dich", "dir", "mich", "mir", "als", "wir", "ihr", "schon",
+    "sehr", "diese", "dieser", "dieses", "hier", "dort", "ohne", "unter",
+    "über", "durch", "gegen", "wenn", "dann", "aber", "auch", "euch", "eure",
+    "euren", "eurem", "eurer", "deine", "deinen", "deinem", "deiner", "meine",
+    "meinen", "meinem", "meiner", "keine", "keinen", "keinem", "keiner",
+    "dabei", "jetzt", "selbst", "wann", "warum", "welche", "welcher", "welches",
+    "diesem", "diesen", "kann", "können", "muss", "müssen", "soll", "sollen",
+    "will", "wollen", "habe", "haben", "hat", "hatte", "hatten", "bin", "bist",
+    "war", "waren", "wäre", "wären", "sich", "uns", "ihnen", "ihm", "ihn",
+    "ihre", "ihren", "ihrem", "ihrer", "mein", "dein", "euer", "unser",
+    "kopieren", "tipp", "tipps", "wirklich", "schnell", "erste", "ersten",
+    "richtige", "richtigen", "machen", "macht", "könnt", "möglichkeiten",
+    "besonders", "viele", "viel", "teil", "voraus", "wochen", "platz",
+    "unterschied", "abschnitt", "meta", "media",
 }
 
 
@@ -57,6 +73,81 @@ def content_gaps(
             candidates.append((score, term, frequencies))
     candidates.sort(key=lambda item: (-item[0], item[1]))
     return [(term, own_terms[term], frequencies) for _, term, frequencies in candidates[:20]]
+
+
+def _brand_terms(competitors: list[SiteSnapshot]) -> set[str]:
+    return {
+        term
+        for snapshot in competitors
+        for term in re.findall(r"[A-Za-zÄÖÜäöüß0-9]{4,}", snapshot.label.casefold())
+    }
+
+
+def _term_stats(snapshot: SiteSnapshot) -> tuple[Counter[str], Counter[str], int]:
+    counts: Counter[str] = Counter()
+    page_counts: Counter[str] = Counter()
+    pages = 0
+    for page in snapshot.pages:
+        if not page.has_content or not page.content_terms:
+            continue
+        pages += 1
+        for term, count in page.content_terms.items():
+            if count <= 0:
+                continue
+            counts[term] += count
+            page_counts[term] += 1
+    return counts, page_counts, pages
+
+
+def content_gaps_tfidf(
+    own: SiteSnapshot, competitors: list[SiteSnapshot]
+) -> list[dict[str, Any]]:
+    own_counts, own_pages, own_total = _term_stats(own)
+    competitor_stats = [_term_stats(snapshot) for snapshot in competitors]
+    if own_total == 0 or not any(item[2] for item in competitor_stats):
+        return []
+    total_pages = own_total + sum(item[2] for item in competitor_stats)
+    brand_terms = _brand_terms(competitors)
+    terms: set[str] = set()
+    for _counts, page_counts, _total in competitor_stats:
+        terms.update(page_counts)
+    candidates: list[dict[str, Any]] = []
+    for term in terms:
+        if term in _STOPWORDS or term.isdigit() or len(term) < 4 or term in brand_terms:
+            continue
+        comp_counts = [item[0][term] for item in competitor_stats]
+        comp_pages = [item[1][term] for item in competitor_stats]
+        comp_totals = [item[2] for item in competitor_stats]
+        coverage = sum(1 for value in comp_pages if value > 0) / len(
+            competitor_stats
+        )
+        comp_rate = sum(comp_counts) / max(1, sum(comp_totals))
+        if own_pages[term] > 0:
+            continue
+        if coverage < 0.5:
+            continue
+        df = (1 if own_pages[term] > 0 else 0) + sum(
+            1 for value in comp_pages if value > 0
+        )
+        idf = math.log((1 + total_pages) / (1 + df)) + 1
+        score = coverage * math.log1p(comp_rate) * idf
+        if score <= 0:
+            continue
+        candidates.append(
+            {
+                "term": term,
+                "own_count": own_counts[term],
+                "own_pages": own_pages[term],
+                "competitor_pages": comp_pages,
+                "competitor_counts": comp_counts,
+                "coverage": coverage,
+                "tfidf": score,
+            }
+        )
+    candidates.sort(
+        key=lambda item: (-item["tfidf"], -item["coverage"], item["term"])
+    )
+    return candidates[:30]
 
 
 def _content_pages(snapshot: SiteSnapshot) -> list[PageMetric]:
@@ -212,8 +303,8 @@ def render_benchmark(
                 "## Begriffskandidaten aus Titeln und H1",
                 "",
                 "Begriffe, die in den Wettbewerber-Titeln/-H1 vorkommen, in der eigenen "
-                "Stichprobe aber nicht. Das ist eine oberflächliche Kandidatenliste, "
-                "keine TF-IDF- oder Suchintentionsanalyse.",
+                "Stichprobe aber nicht. Diese Liste ist oberflächlich; die inhaltliche "
+                "Gewichtung steht im folgenden TF-IDF-Abschnitt.",
                 "",
                 "| Begriff | Eigene Seite | " + " | ".join(snapshot.label for snapshot in competitors) + " |",
                 "| --- | ---: | " + " | ".join("---:" for _ in competitors) + " |",
@@ -227,12 +318,53 @@ def render_benchmark(
             )
         lines.append("")
 
+    content = content_gaps_tfidf(own, competitors)
+    lines.extend(
+        [
+            "## Inhaltliche Begriffe (TF-IDF)",
+            "",
+            "Gewichtung aus den Termhäufigkeiten des Hauptinhalts. Gezeigt werden "
+            "Begriffe, die bei mindestens der Hälfte der Wettbewerber vorkommen, in "
+            "der eigenen Stichprobe aber fehlen. Marken- und Navigationsbegriffe "
+            "werden gefiltert.",
+            "",
+        ]
+    )
+    if content:
+        lines.extend(
+            [
+                "| Begriff | Eigene Seiten | "
+                + " | ".join(snapshot.label for snapshot in competitors)
+                + " | TF-IDF |",
+                "| --- | ---: | "
+                + " | ".join("---:" for _ in competitors)
+                + " | ---: |",
+            ]
+        )
+        for item in content:
+            lines.append(
+                f"| {item['term']} | {item['own_pages']} | "
+                + " | ".join(str(value) for value in item["competitor_pages"])
+                + f" | {item['tfidf']:.2f} |"
+            )
+        lines.append("")
+    else:
+        lines.extend(
+            [
+                "Keine auswertbaren Content-Terme vorhanden. Für diese Auswertung "
+                "muss der eigene Lauf mit einem Crawler ab Version 5 neu erstellt "
+                "werden.",
+                "",
+            ]
+        )
+
     lines.extend(
         [
             "## Rohdaten",
             "",
             "- [Seitenmetriken](raw_data/benchmark_pages.csv)",
             "- [Begriffskandidaten](raw_data/benchmark_terms.csv)",
+            "- [TF-IDF-Begriffe](raw_data/benchmark_content_terms.csv)",
             "",
             "Die Stichprobe ersetzt kein vollständiges Audit der Wettbewerbsseiten. "
             "Sie dient der relativen Einordnung von Inhaltstiefe, Metadaten, H1-Struktur "
@@ -262,6 +394,37 @@ def write_benchmark_terms_csv(
         [
             [term, own_count, *frequencies]
             for term, own_count, frequencies in gaps
+        ],
+    )
+
+
+def write_benchmark_content_terms_csv(
+    path: Path, own: SiteSnapshot, competitors: list[SiteSnapshot]
+) -> None:
+    rows = content_gaps_tfidf(own, competitors)
+    header = [
+        "term",
+        "own_pages",
+        "own_count",
+        "coverage",
+        "tfidf",
+        *[f"{snapshot.label}_pages" for snapshot in competitors],
+        *[f"{snapshot.label}_count" for snapshot in competitors],
+    ]
+    _write_csv(
+        path,
+        header,
+        [
+            [
+                item["term"],
+                item["own_pages"],
+                item["own_count"],
+                item["coverage"],
+                round(item["tfidf"], 6),
+                *item["competitor_pages"],
+                *item["competitor_counts"],
+            ]
+            for item in rows
         ],
     )
 

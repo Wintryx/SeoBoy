@@ -46,6 +46,7 @@ class PageMetric:
     internal_links: int
     title: str | None = None
     h1: str | None = None
+    content_terms: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -230,6 +231,7 @@ def _metric(url: str, result: FetchResult) -> PageMetric:
         internal_links=len(page.links),
         title=page.title,
         h1=page.h1,
+        content_terms=page.content_terms,
     )
 
 
@@ -342,6 +344,16 @@ def snapshot_from_run(data: RunData, label: str = "Eigene Seite") -> SiteSnapsho
         has_metrics = True
         status = attempt.status_code if attempt is not None else None
         schema_types = signals.get("schema_types")
+        terms = signals.get("content_terms")
+        content_terms = (
+            {
+                str(term): int(count)
+                for term, count in terms.items()
+                if str(term) and int(count) > 0
+            }
+            if isinstance(terms, dict)
+            else {}
+        )
         pages.append(
             PageMetric(
                 url=info.url,
@@ -368,6 +380,7 @@ def snapshot_from_run(data: RunData, label: str = "Eigene Seite") -> SiteSnapsho
                 internal_links=int(signals.get("link_count", 0) or 0),
                 title=observation.title,
                 h1=str(signals.get("h1") or "") or None,
+                content_terms=content_terms,
             )
         )
     if not has_metrics:

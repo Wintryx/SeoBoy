@@ -8,6 +8,8 @@ import unittest
 
 from seoboy.infrastructure.config import ConfigError, init_config, load_config
 from seoboy.crawl.html_extract import extract_page, link_header_canonicals
+from seoboy.benchmark.report import content_gaps_tfidf
+from seoboy.benchmark.sampler import PageMetric, SiteSnapshot
 from seoboy.infrastructure.database import DatabaseError, connect, migrate_database
 from seoboy.shared.robots import RobotsFile
 from seoboy.shared.agents import GOOGLEBOT, SEOBOY
@@ -167,6 +169,63 @@ class PageExtractionTests(unittest.TestCase):
         self.assertEqual(page.image_count, 2)
         self.assertEqual(page.images_missing_alt, 1)
         self.assertEqual(page.schema_types, ("LocalBusiness",))
+
+    def test_content_terms_use_main_content(self):
+        source = (
+            "<html><body><nav>Navigationwort</nav>"
+            "<main><h1>Hochzeit</h1><p>Hochzeits DJ Musik Planung.</p></main>"
+            "<footer>Footwort</footer></body></html>"
+        )
+        page = extract_page(source, "https://example.de/")
+        self.assertIn("hochzeits", page.content_terms)
+        self.assertIn("planung", page.content_terms)
+        self.assertNotIn("navigationwort", page.content_terms)
+        self.assertNotIn("footwort", page.content_terms)
+
+
+class BenchmarkContentTests(unittest.TestCase):
+    @staticmethod
+    def page(url: str, terms: dict[str, int]) -> PageMetric:
+        return PageMetric(
+            url=url,
+            status=200,
+            has_content=True,
+            indexable=True,
+            title_length=20,
+            description_length=80,
+            h1_count=1,
+            word_count=100,
+            image_count=0,
+            images_missing_alt=0,
+            schema_types=(),
+            internal_links=1,
+            content_terms=terms,
+        )
+
+    def test_tfidf_prefers_uncovered_competitor_terms(self):
+        own = SiteSnapshot(
+            label="own",
+            start_url="https://example.de/",
+            final_url="https://example.de/",
+            pages=[self.page("https://example.de/", {"hochzeit": 3, "dj": 2})],
+        )
+        first = SiteSnapshot(
+            label="one",
+            start_url="https://one.example/",
+            final_url="https://one.example/",
+            pages=[self.page("https://one.example/", {"licht": 8, "technik": 5})],
+        )
+        second = SiteSnapshot(
+            label="two",
+            start_url="https://two.example/",
+            final_url="https://two.example/",
+            pages=[self.page("https://two.example/", {"licht": 5, "planung": 4})],
+        )
+        gaps = content_gaps_tfidf(own, [first, second])
+        terms = {item["term"] for item in gaps}
+        self.assertIn("licht", terms)
+        self.assertIn("planung", terms)
+        self.assertNotIn("hochzeit", terms)
 
 
 class ConfigTests(unittest.TestCase):
