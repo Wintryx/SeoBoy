@@ -27,6 +27,25 @@ def _md(value: Any) -> str:
     return str(value).replace("|", "/").replace("\n", " ")
 
 
+def _content_label(row: dict[str, Any]) -> str:
+    if row["is_html"]:
+        return "HTML"
+    content_type = row["content_type"] or ""
+    if "pdf" in content_type:
+        return "PDF"
+    if content_type:
+        return content_type.split(";", 1)[0]
+    return "–"
+
+
+def _index_label(value: bool | None) -> str:
+    if value is True:
+        return "ja"
+    if value is False:
+        return "nein"
+    return "nicht bewertet"
+
+
 def _write_csv(path: Path, header: list[str], rows: Iterable[Iterable[Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as stream:
@@ -46,9 +65,26 @@ def page_analysis_rows(data: RunData) -> list[dict[str, Any]]:
         observation = data.observation(url_id)
         signals = observation.signals if observation else {}
         status = attempt.status_code if attempt is not None else None
+        content_type = (attempt.content_type or "").lower() if attempt is not None else ""
+        is_html = observation is not None
         title = observation.title if observation is not None else None
         description = observation.meta_description if observation is not None else None
         has_metrics = "h1_count" in signals
+        if is_html and has_metrics:
+            evaluation = "html"
+        elif is_html:
+            evaluation = "html_without_metrics"
+        elif status is not None and 200 <= status < 300 and content_type:
+            evaluation = "non_html"
+        elif status is not None and 300 <= status < 400:
+            evaluation = "redirect"
+        elif status is not None and status >= 400:
+            evaluation = "http_error"
+        else:
+            evaluation = "not_fetched"
+        indexable: bool | None = None
+        if is_html and status is not None and 200 <= status < 300:
+            indexable = not bool(signals.get("noindex"))
         canonicals = signals.get("canonical")
         canonical = str(canonicals[0]) if isinstance(canonicals, list) and canonicals else None
         schema_types = signals.get("schema_types")
@@ -58,12 +94,10 @@ def page_analysis_rows(data: RunData) -> list[dict[str, Any]]:
                 "page_type": info.page_type or "–",
                 "business_value": info.business_value,
                 "status": status,
-                "indexable": bool(
-                    status is not None
-                    and 200 <= status < 300
-                    and observation is not None
-                    and not bool(signals.get("noindex"))
-                ),
+                "content_type": content_type or None,
+                "evaluation": evaluation,
+                "is_html": is_html,
+                "indexable": indexable,
                 "title": title,
                 "title_length": int(signals.get("title_length", len(title or "")) or 0),
                 "description_length": int(
@@ -94,7 +128,14 @@ def render_page_analysis(data: RunData) -> str:
     run = data.run
     rows = page_analysis_rows(data)
     html_rows = [row for row in rows if row["has_metrics"]]
-    indexable = sum(1 for row in rows if row["indexable"])
+    html_targets = [row for row in rows if row["is_html"]]
+    indexable = sum(1 for row in rows if row["indexable"] is True)
+    non_html = sum(1 for row in rows if row["evaluation"] == "non_html")
+    not_evaluated = sum(
+        1
+        for row in rows
+        if row["evaluation"] in {"http_error", "redirect", "not_fetched"}
+    )
     missing_title = sum(1 for row in html_rows if not row["title"])
     short_title = sum(1 for row in html_rows if row["title"] and row["title_length"] < 30)
     long_title = sum(1 for row in html_rows if row["title"] and row["title_length"] > 60)
@@ -138,7 +179,9 @@ def render_page_analysis(data: RunData) -> str:
         "| --- | ---: |",
         f"| Seiten im Lauf | {len(rows)} |",
         f"| HTML-Seiten mit Inhaltsmetriken | {len(html_rows)} |",
-        f"| technisch indexierbar | {indexable} |",
+        f"| technisch indexierbar | {indexable} von {len(html_targets)} HTML-Seiten |",
+        f"| Nicht-HTML-Ziele (nicht bewertet) | {non_html} |",
+        f"| HTTP-Fehler/Weiterleitungen (nicht bewertet) | {not_evaluated} |",
         f"| Titel fehlt | {missing_title} |",
         f"| Titel kürzer als 30 Zeichen | {short_title} |",
         f"| Titel länger als 60 Zeichen | {long_title} |",
@@ -209,8 +252,8 @@ def render_page_analysis(data: RunData) -> str:
         [
             "## Seitenübersicht",
             "",
-            "| Seite | Typ | HTTP | Indexierbar | Titel | Beschreibung | H1 | Wörter | Alt fehlt | Schema | Tiefe |",
-            "| --- | --- | ---: | :---: | ---: | ---: | ---: | ---: | ---: | --- | ---: |",
+            "| Seite | Typ | Inhalt | HTTP | Indexierbar | Titel | Beschreibung | H1 | Wörter | Alt fehlt | Schema | Tiefe |",
+            "| --- | --- | --- | ---: | :---: | ---: | ---: | ---: | ---: | ---: | --- | ---: |",
         ]
     )
     for row in rows[:100]:
@@ -220,10 +263,11 @@ def render_page_analysis(data: RunData) -> str:
                 [
                     _md(_display(data, row["url"])),
                     _md(row["page_type"]),
+                    _md(_content_label(row)),
                     str(row["status"] if row["status"] is not None else "–"),
-                    "ja" if row["indexable"] else "nein",
-                    str(row["title_length"]),
-                    str(row["description_length"]),
+                    _index_label(row["indexable"]),
+                    str(row["title_length"]) if row["is_html"] else "–",
+                    str(row["description_length"]) if row["is_html"] else "–",
                     str(row["h1_count"] if row["h1_count"] is not None else "–"),
                     str(row["word_count"] if row["word_count"] is not None else "–"),
                     str(row["images_missing_alt"] if row["images_missing_alt"] is not None else "–"),
@@ -244,6 +288,9 @@ def render_page_analysis(data: RunData) -> str:
             "",
             "Die Wortzahl umfasst den sichtbaren Body-Text ohne Script-, Style- und "
             "JSON-LD-Inhalte. Titel- und Beschreibungslängen zählen Zeichen, nicht Pixel.",
+            "Nicht-HTML-Ziele wie PDFs sowie HTTP-Fehler und Weiterleitungen werden "
+            "nicht als Inhalts- oder Indexierungsfehler bewertet und erscheinen als "
+            "'nicht bewertet'.",
             "",
         ]
     )
@@ -259,6 +306,8 @@ def write_page_analysis_csv(path: Path, data: RunData) -> None:
             "page_type",
             "business_value",
             "http_status",
+            "content_type",
+            "evaluation",
             "indexable",
             "title",
             "title_length",
@@ -279,7 +328,9 @@ def write_page_analysis_csv(path: Path, data: RunData) -> None:
                 row["page_type"],
                 row["business_value"],
                 row["status"] if row["status"] is not None else "",
-                "1" if row["indexable"] else "0",
+                row["content_type"] or "",
+                row["evaluation"],
+                "1" if row["indexable"] is True else "0" if row["indexable"] is False else "",
                 row["title"] or "",
                 row["title_length"],
                 row["description_length"],
