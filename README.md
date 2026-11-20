@@ -5,7 +5,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.6.2 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.6.3 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -23,6 +23,7 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - Wiederholungen bei 429, 5xx und Timeouts, inklusive Retry-After
 - Regeln für HTTP, Indexierung, Canonicals, Sitemaps, interne Links und Metadaten
 - Unterseitenanalyse mit Titel-/Beschreibungslänge, H1, Wortzahl, Bild-Alt-Texten und Schema
+- PDFs, HTTP-Fehler und Weiterleitungen werden als „nicht bewertet“ statt als Inhaltsfehler geführt
 - Wettbewerbsbenchmark mit begrenzter, robots-konformer Seitenstichprobe
 - GSC-Import mit Manifest, Seiten- und URL-Suchanfrage-Granularität
 - GSC-API-Abruf über Refresh-Token und URL Inspection API
