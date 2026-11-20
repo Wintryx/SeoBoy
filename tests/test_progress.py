@@ -60,6 +60,11 @@ class ProgressTests(unittest.TestCase):
         self.assertIn("analysis", stages)
         self.assertIn("reports", stages)
         self.assertTrue(any(event.get("total") for event in events))
+        crawl_events = [event for event in events if event["stage"] == "crawl"]
+        self.assertTrue(
+            any(event.get("completed", 0) > 0 for event in crawl_events),
+            crawl_events,
+        )
 
     def test_off_and_handle(self):
         stream = StringIO()

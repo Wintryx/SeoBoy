@@ -302,11 +302,11 @@ class Crawler:
         self._last_progress_at = now
         row = self.connection.execute(
             "SELECT COUNT(*) AS total, "
-            "SUM(CASE WHEN state = 'done' THEN 1 ELSE 0 END) AS done "
+            "SUM(CASE WHEN state = 'finished' THEN 1 ELSE 0 END) AS done "
             "FROM run_urls WHERE run_id = ?",
             (self.run_id,),
         ).fetchone()
-        total = max(self.max_urls, int(row["total"] or 0))
+        total = self.max_urls
         done = int(row["done"] or 0)
         self.progress(
             {
@@ -332,6 +332,7 @@ class Crawler:
                     return self._pause()
                 try:
                     if self._pending_jobs() == 0:
+                        self._progress("Crawl abgeschlossen", force=True)
                         return self._finish()
                     if self._requests_used() >= self.max_requests:
                         return self._stop_partial(STOP_REQUEST_LIMIT)
@@ -350,6 +351,7 @@ class Crawler:
                     if tasks:
                         continue
                     if self._pending_jobs() == 0:
+                        self._progress("Crawl abgeschlossen", force=True)
                         return self._finish()
                     self._sleep_until_next()
                 except RequestLimitReached:
