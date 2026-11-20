@@ -1,4 +1,4 @@
-"""Befunde zu Maßnahmen bündeln, priorisieren und mit Textbausteinen versehen."""
+"""Group findings into actions, prioritize them, and add text templates."""
 
 from __future__ import annotations
 

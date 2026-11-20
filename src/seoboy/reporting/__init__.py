@@ -1,1 +1,1 @@
-"""Markdown-/CSV-Berichte und Lauf-Vergleich."""
+"""Markdown/CSV reports and run comparison."""

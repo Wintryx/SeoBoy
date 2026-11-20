@@ -1,4 +1,4 @@
-"""Search-Console-Regeln: Chancen, Trends, CTR und Mehrfach-URLs."""
+"""Search Console rules: opportunities, trends, CTR, and multiple URLs."""
 
 from __future__ import annotations
 
@@ -197,7 +197,7 @@ def evaluate_gsc(data: RunData) -> list[RuleResult]:
             results.append(result)
         return results
 
-    # Segmente nach Property, Suchtyp, Land und Gerät
+    # Segments by property, search type, country, and device
     segments: dict[str, list[dict[str, Any]]] = {}
     for dataset in data.datasets:
         segments.setdefault(

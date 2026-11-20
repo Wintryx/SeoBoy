@@ -1,4 +1,4 @@
-"""Ablaufsteuerung für run, resume, inspect, report und diff."""
+"""Orchestration for run, resume, inspect, report, and diff."""
 
 from __future__ import annotations
 
@@ -312,7 +312,7 @@ def rerender_report(config: ProjectConfig, run_id: str) -> Path:
 def run_projects(
     configs: list[ProjectConfig], *, workers: int = 4
 ) -> list[BatchResult]:
-    """Führt mehrere Projekte parallel aus; jede Konfiguration braucht eine eigene DB."""
+    """Run several projects in parallel; each configuration needs its own DB."""
     if not configs:
         return []
     databases = [os.path.normcase(str(config.database.resolve())) for config in configs]

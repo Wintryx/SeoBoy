@@ -1,4 +1,4 @@
-"""Testhilfen: lokaler HTTP-Server, Konfiguration und HTML-Bausteine."""
+"""Test helpers: local HTTP server, configuration, and HTML fixtures."""
 
 from __future__ import annotations
 

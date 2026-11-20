@@ -1,1 +1,1 @@
-"""Fachliche Auswertung: Laufdaten, Regeln und Maßnahmen."""
+"""Domain analysis: run data, rules, and actions."""

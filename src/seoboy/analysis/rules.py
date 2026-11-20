@@ -1,4 +1,4 @@
-"""Technisches Regelwerk mit Evidenz, Grundcodes und Geltungsbereichen."""
+"""Technical rule set with evidence, reason codes, and scopes."""
 
 from __future__ import annotations
 
@@ -697,7 +697,7 @@ def _normalized_canonicals(data: RunData, url_id: int) -> tuple[list[str], list[
 
 
 def canonical_variant_target(data: RunData, url_id: int) -> int | None:
-    """Prüft die Canonical-Variante für den Duplikat-Untercheck."""
+    """Check the canonical variant for the duplicate subcheck."""
     info = data.urls.get(url_id)
     if info is None or info.expected_indexable is True:
         return None

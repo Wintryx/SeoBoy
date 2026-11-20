@@ -1,4 +1,4 @@
-"""Markdown- und CSV-Berichte für einen gespeicherten Lauf."""
+"""Markdown and CSV reports for a stored run."""
 
 from __future__ import annotations
 

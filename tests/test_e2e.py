@@ -221,7 +221,7 @@ class EndToEndTests(unittest.TestCase):
                 self.assertIn("META_TITLE", rules)
                 self.assertIn("GSC_NEAR_TOP", rules)
                 self.assertIn("GSC_MULTI_URL", rules)
-                # Danke-Seite ist ausdrücklich nicht indexierbar.
+                # Thank-you page is explicitly non-indexable.
                 danke = connection.execute(
                     "SELECT outcome FROM rule_results WHERE rule_id = 'INDEX_NOINDEX' "
                     "AND subject_key LIKE ?", ('%' + site.url("/danke/") + '%',)
@@ -239,7 +239,7 @@ class EndToEndTests(unittest.TestCase):
                 self.assertLessEqual(
                     [row["priority"] for row in actions], sorted(row["priority"] for row in actions)
                 )
-                # Formel-Schutz nur im Export
+                # Formula protection only in the export
                 title = connection.execute(
                     "SELECT title FROM page_observations WHERE title LIKE '=SUM%'"
                 ).fetchone()[0]
@@ -559,7 +559,7 @@ class EndToEndTests(unittest.TestCase):
             finally:
                 connection.close()
 
-            # Konfigurationswechsel macht den Lauf nicht fortsetzbar.
+            # Configuration change makes the run non-resumable.
             with FixtureSite() as other:
                 other.add("/robots.txt", body="User-agent: *\nAllow: /\n", content_type="text/plain")
                 other.add_html("/", "Andere")

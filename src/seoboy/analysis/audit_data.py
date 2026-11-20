@@ -1,4 +1,4 @@
-"""Geladene Laufdaten für Regeln, Maßnahmen, Berichte und Diff."""
+"""Loaded run data for rules, actions, reports, and diff."""
 
 from __future__ import annotations
 
@@ -105,7 +105,7 @@ class RunData:
         self.metrics: dict[int, list[dict[str, Any]]] = {}
         self.load()
 
-    # ------------------------------------------------------------------ Laden
+    # ------------------------------------------------------------------ Loading
 
     def load(self) -> None:
         row = self.connection.execute(
@@ -294,7 +294,7 @@ class RunData:
             if dataset_id in self.metrics:
                 self.metrics[dataset_id].append(dict(row))
 
-    # ------------------------------------------------------------------ Zugriff
+    # ------------------------------------------------------------------ Access
 
     def url(self, url_id: int) -> UrlInfo | None:
         return self.urls.get(url_id)
@@ -371,9 +371,9 @@ class RunData:
         return url_id in self.page_url_ids
 
     def content_state(self, url_id: int) -> tuple[str, str | None]:
-        """Liefert (Zustand, Grund) für inhaltsabhängige Prüfungen.
+        """Return (state, reason) for content-dependent checks.
 
-        Zustände: checked, blocked, excluded, deferred, redirect, error, non_html,
+        States: checked, blocked, excluded, deferred, redirect, error, non_html,
         not_fetched.
         """
         info = self.urls.get(url_id)

@@ -1,1 +1,1 @@
-"""Anwendungsfälle für run, resume, inspect, report und diff."""
+"""Use cases for run, resume, inspect, report, and diff."""

@@ -1,4 +1,4 @@
-"""Vergleich zweier gespeicherter Läufe (05_AUDIT_DIFF.md)."""
+"""Compare two stored runs (05_AUDIT_DIFF.md)."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ DIFF_STATES = {
 
 
 class DiffError(ValueError):
-    """Die beiden Läufe lassen sich nicht vergleichen."""
+    """The two runs cannot be compared."""
 
 
 @dataclass

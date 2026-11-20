@@ -1,1 +1,1 @@
-"""Tests für SeoBoy."""
+"""Tests for SeoBoy."""
