@@ -27,7 +27,7 @@ und Git-basiertem CLI-Updater. Alle Prüfungen arbeiten ausschließlich lesend.
 - Wettbewerbsbenchmark mit begrenzter, robots-konformer Seitenstichprobe
 - GSC-Import mit Manifest, Seiten- und URL-Suchanfrage-Granularität
 - GSC-Auswertung Suchanfrage × Zielseite mit Chancen und Mehr-URL-Erkennung
-- GSC-API-Abruf über Refresh-Token und URL Inspection API
+- GSC-API-Abruf über Refresh-Token oder Service-Account und URL Inspection API
 - Aufbereiter für den deutschen GSC-UI-Seitenexport (Semikolon, Dezimalkomma)
 - Optionales Playwright-Rendering mit HTTP-/Browser-DOM-Vergleich
 - Local-SEO-Prüfung für Standorte, NAP und LocalBusiness-Schema

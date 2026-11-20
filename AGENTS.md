@@ -50,7 +50,7 @@ unnötiger Aufwand.
 | `src/seoboy/crawl/rendering.py` | optionaler Playwright-Renderer und DOM-Vergleich |
 | `src/seoboy/shared/urls.py` | URL-Normalisierung und Pfadmuster |
 | `src/seoboy/gsc/importer.py` | GSC-Manifest, CSV-Import, UI-Aufbereiter |
-| `src/seoboy/gsc/api.py` | GSC-API, OAuth-Refresh-Token und URL Inspection |
+| `src/seoboy/gsc/api.py` | GSC-API, OAuth/Service-Account und URL Inspection |
 | `src/seoboy/analysis/audit_data.py` | Geladene Laufdaten für Regeln und Berichte |
 | `src/seoboy/analysis/rules.py` | Technische Regeln und Prüfengine |
 | `src/seoboy/analysis/rules_gsc.py` | Search-Console-Regeln |
