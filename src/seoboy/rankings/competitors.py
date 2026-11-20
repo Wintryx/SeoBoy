@@ -58,6 +58,7 @@ def write_competitor_report(
     sections: list[str] = []
     decisions: list[str] = []
     successful = 0
+    missing = 0
     for profile in _profiles(connection, config):
         snapshots = _snapshots(connection, config, profile)
         measured = [item for item in snapshots if item["status"] in {"ok", "no_match"}]
@@ -76,9 +77,7 @@ def write_competitor_report(
                     "",
                 ]
             )
-            decisions.append(
-                f"- **{profile.query}** ({profile.id}): {decision} – {reason}"
-            )
+            missing += 1
             continue
         successful += 1
         results = latest["results"]
@@ -162,7 +161,15 @@ def write_competitor_report(
         "",
         "## Entscheidungen",
         "",
-        *(decisions or ["Keine Ranking-Profile vorhanden."]),
+        *(
+            decisions
+            or ["Keine erfolgreich gemessenen Profile. Zuerst SERP-Daten importieren."]
+        ),
+        *(
+            [f"- {missing} Profile ohne erfolgreiche Messung."]
+            if missing
+            else []
+        ),
         "",
         "## Suchanfragen und Vergleichsseiten",
         "",

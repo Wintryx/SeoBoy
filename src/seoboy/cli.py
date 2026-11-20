@@ -57,6 +57,7 @@ from seoboy.rankings.competitors import write_competitor_report
 from seoboy.rankings.config import KeywordConfigError, load_keywords
 from seoboy.rankings.importer import RankingImportError, import_rankings
 from seoboy.rankings.report import write_rankings_report
+from seoboy.rankings.serp import SerperError, fetch_serper_csv
 from seoboy.reporting.run_report import (
     find_report_dir,
     load_report_data,
@@ -518,6 +519,16 @@ def _build_parser(default_config: Path) -> argparse.ArgumentParser:
     ranking_import.add_argument("--csv", type=Path, required=True)
     ranking_import.add_argument("--results", type=Path)
     ranking_import.add_argument("--out", type=Path)
+    ranking_fetch = ranking_commands.add_parser(
+        "fetch", help="SERP-Snapshot über Serper erzeugen und importieren"
+    )
+    ranking_fetch.add_argument("--config", type=Path, default=default_config)
+    ranking_fetch.add_argument("--keywords", type=Path)
+    ranking_fetch.add_argument("--provider", choices=["serper"], default="serper")
+    ranking_fetch.add_argument("--out", type=Path)
+    ranking_fetch.add_argument("--max-calls", type=int, default=1)
+    ranking_fetch.add_argument("--interval", type=float, default=1.0)
+    ranking_fetch.add_argument("--timeout", type=float, default=30.0)
     ranking_report = ranking_commands.add_parser(
         "report", help="Ranking-Bericht aus der Datenbank neu schreiben"
     )
@@ -1317,12 +1328,54 @@ def main(argv: list[str] | None = None) -> int:
             migrate_database(config.database)
             connection = connect(config.database)
             try:
-                if args.rankings_command == "import":
-                    keyword_path = args.keywords or (
-                        (config.config_path.parent / "keywords.yaml")
-                        if config.config_path is not None
-                        else Path("keywords.yaml")
+                keyword_path = getattr(args, "keywords", None) or (
+                    (config.config_path.parent / "keywords.yaml")
+                    if config.config_path is not None
+                    else Path("keywords.yaml")
+                )
+                if args.rankings_command == "fetch":
+                    if args.max_calls < 1:
+                        raise RankingImportError("--max-calls muss mindestens 1 sein.")
+                    api_key = os.environ.get("SEOBOY_SERP_API_KEY") or os.environ.get(
+                        "SERPER_API_KEY"
                     )
+                    if not api_key:
+                        raise SerperError(
+                            "Kein Serper-Key. Bitte SEOBOY_SERP_API_KEY lokal in .env setzen."
+                        )
+                    profiles = load_keywords(keyword_path)
+                    out = args.out or (
+                        config.reports_dir
+                        / "serp"
+                        / datetime.now().astimezone().strftime("%Y%m%dT%H%M%S")
+                    )
+                    snapshots_path, results_path, stats = fetch_serper_csv(
+                        profiles,
+                        api_key,
+                        out,
+                        max_calls=args.max_calls,
+                        interval_seconds=args.interval,
+                        timeout=args.timeout,
+                    )
+                    print(
+                        f"Serper: {stats['calls']} Aufrufe, "
+                        f"{stats['profiles']} Profile, "
+                        f"{stats['skipped_mobile']} Mobile übersprungen."
+                    )
+                    for item in stats["errors"][:3]:
+                        print(f"Hinweis: {item}", file=sys.stderr)
+                    if not stats["profiles"]:
+                        raise SerperError("Keine Profile für den Serper-Lauf ausgewählt.")
+                    summary = import_rankings(
+                        connection, config, profiles, snapshots_path, results_path
+                    )
+                    folder = write_rankings_report(connection, config)
+                    print(
+                        f"Rankings importiert: {summary.snapshots} neu, "
+                        f"{summary.snapshots_skipped} identisch, "
+                        f"{summary.results} Treffer."
+                    )
+                elif args.rankings_command == "import":
                     profiles = load_keywords(keyword_path)
                     summary = import_rankings(
                         connection,
@@ -1343,7 +1396,7 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     folder = write_rankings_report(connection, config, args.out)
                     print("Ranking-Bericht geschrieben.")
-            except (KeywordConfigError, RankingImportError) as error:
+            except (KeywordConfigError, RankingImportError, SerperError) as error:
                 print(f"SeoBoy: {error}", file=sys.stderr)
                 return 2
             finally:

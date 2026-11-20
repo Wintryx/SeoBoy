@@ -1,6 +1,6 @@
 # SeoBoy – Offene Arbeiten nach Nutzen
 
-Stand: 20.11.2026, Version 0.25.0
+Stand: 20.11.2026, Version 0.26.0
 
 ## Priorisierung
 
@@ -35,6 +35,7 @@ Die nächsten Umsetzungsschritte mit Datenverträgen und Abnahmekriterien stehen
 | E5 | Wettbewerber nach Suchanfrage | Gespeicherte SERP-Treffer gruppieren und Entscheidung ableiten | **erledigt in 0.23.0** |
 | E6 | Backlink-Import und Linkchancen | CSV-Import, Dublettenschutz, regionale Quellen | **erledigt in 0.24.0** |
 | E7 | KI-Sichtbarkeit im Zeitverlauf | Bestehende GEO-Samples vergleichen, Methodenwechsel markieren | **erledigt in 0.25.0** |
+| E8 | Serper-Adapter | Kontrollierter SERP-Abruf, CSV-Erzeugung und Import | **erledigt in 0.26.0** |
 
 ## A – Direkter Buchungsnutzen
 
@@ -307,6 +308,18 @@ Wettbewerbs-Crawl wäre ohne eigene Budgets und Rechtsprüfung nicht vertretbar.
 | Echte AW-Audio-Keyword- und Backlinkdaten | **offen, blockiert** | `keywords.yaml`, SERP-/Backlink-CSV und Freigabe der Datenquellen |
 | Manuelle Rollen-/Review-Überschreibung | **offen** | CLI/UI für Rollen und Review-Status; Import schützt bereits lokale Review-Felder |
 | Filter nach Befundstatus/Priorität in der HTML-Übersicht | **offen** | derzeit nur Seitentyp und HTTP-Status |
+
+### E8 – Serper-Adapter (erledigt)
+
+- **Umgesetzt:** `seoboy rankings fetch` mit `--max-calls` (Default 1).
+- **Umgesetzt:** Serper-Key ausschließlich lokal aus `.env`.
+- **Umgesetzt:** Standortzuordnung für Köln/NRW/Gummersbach/Olpe/Attendorn/Bergisch Gladbach.
+- **Umgesetzt:** Top-10-CSV und direkter Import in den Ranking-Bericht.
+- **Umgesetzt:** Ein Live-Aufruf für `hochzeits dj köln`: eigene Seite nicht in Top 10,
+  neun Wettbewerber-Treffer importiert.
+- Grenze: Serper hat keine dokumentierte Geräteumschaltung; Mobile-Profile werden
+  übersprungen, nicht als mobile Messung ausgegeben.
+- Offen: Mobile-Messung über einen Provider mit Geräteumschaltung.
 
 ## Erledigt
 

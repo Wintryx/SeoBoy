@@ -7,7 +7,7 @@ jede Beobachtung in SQLite, wertet technische Regeln aus und verbindet die Befun
 Daten aus der Google Search Console. Das Ergebnis ist ein priorisierter Maßnahmenplan
 mit nachvollziehbarer Evidenz sowie ein Vergleich zweier Läufe.
 
-Aktueller Stand: 0.25.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
+Aktueller Stand: 0.26.0 mit einer Website pro Projekt, parallelem HTTP-Crawl,
 GSC-CSV-Import und GSC-API/URL Inspection, technischen Kernregeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, optionalem Playwright-Rendering,
 Local-SEO-/NAP-Prüfung, GEO-Readiness, Markdown-/CSV-Berichten, Audit-Diff, Batch-Modus
@@ -194,6 +194,7 @@ notepad .env
 | `SEOBOY_OPENSSL` | Optionaler OpenSSL-Pfad für die Service-Account-Signatur |
 | `SEOBOY_PSI_API_KEY` | API-Key für PageSpeed Insights und CrUX |
 | `SEOBOY_GEO_API_KEY` | DeepSeek-Key für GEO-Sampling; alternativ `DEEPSEEK_API_KEY` |
+| `SEOBOY_SERP_API_KEY` | Serper-Key für `rankings fetch`; nur lokal in `.env` |
 | `SEOBOY_GEO_MODEL` | `deepseek-flash` oder `deepseek-v4-pro` |
 | `SEOBOY_GEO_THINKING` | `enabled` oder `disabled` |
 | `SEOBOY_GEO_REASONING_EFFORT` | `none`, `low`, `high` oder `max`; Default `high` |
@@ -862,6 +863,27 @@ seoboy rankings import `
 
 seoboy rankings report --config local/aw-audio/seoboy.yaml
 ```
+
+### Serper-Abruf
+
+Für einen kleinen, kontrollierten SERP-Abruf:
+
+```text
+SEOBOY_SERP_API_KEY=...   # nur lokal in .env
+```
+
+```powershell
+seoboy rankings fetch `
+  --config local/aw-audio/seoboy.yaml `
+  --keywords local/aw-audio/keywords.yaml `
+  --max-calls 1
+```
+
+`--max-calls` ist absichtlich standardmäßig **1**; jeder Aufruf kostet ein
+Serper-Kontingent. Der Adapter schreibt rohe `snapshots.csv`/`results.csv` unter
+`reports/serp/` und importiert sie anschließend. Serper liefert keine dokumentierte
+Geräteumschaltung; Mobile-Profile werden daher nicht als mobile Messung ausgegeben,
+sondern übersprungen. Ohne Key bricht der Befehl vor jedem Aufruf ab.
 
 Kopfdatei: `snapshot_id,keyword_id,observed_at,source,engine,market,language,
 location_key,device,result_type,depth,status`. Trefferdatei:

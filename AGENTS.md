@@ -5,7 +5,7 @@ Spezifikationen, ersetzt sie aber nicht.
 
 ## Zweck und Status
 
-SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.25.0:
+SeoBoy ist ein lokales SEO-Audit für eigene Websites. Der aktuelle Stand ist 0.26.0:
 paralleler HTTP-Crawl, robots.txt, Sitemaps, URL-Normalisierung, technische Regeln,
 Unterseiten-Inhaltsanalyse, Wettbewerbsbenchmark, GSC-CSV-Import, GSC-API/URL Inspection,
 optionales Playwright-Rendering, Local-SEO-/NAP-Prüfung, GEO-Readiness,
@@ -71,6 +71,7 @@ unnötiger Aufwand.
 | `src/seoboy/rankings/config.py` | Keyword-/Messprofil-Konfiguration |
 | `src/seoboy/rankings/importer.py` | idempotenter CSV-Import von Ranking-Snapshots |
 | `src/seoboy/rankings/report.py` | Soll-/Ist-Auswertung, GSC-Ergänzung und Positionsverlauf |
+| `src/seoboy/rankings/serp.py` | kontrollierter Serper-Abruf und CSV-Erzeugung |
 | `src/seoboy/rankings/competitors.py` | Gruppierung gespeicherter SERP-Treffer je Suchanfrage |
 | `src/seoboy/backlinks/importer.py` | idempotenter Import von Backlink-Beobachtungen |
 | `src/seoboy/backlinks/report.py` | Linkchancen und Beobachtungsverlauf |
@@ -148,6 +149,7 @@ gesetzte Umgebungsvariablen werden nicht überschrieben.
 | `SEOBOY_OPENSSL` | Optionaler OpenSSL-Pfad für die Service-Account-Signatur |
 | `SEOBOY_PSI_API_KEY` | API-Key für PageSpeed Insights und CrUX |
 | `SEOBOY_GEO_API_KEY` | DeepSeek-Key für GEO-Sampling; alternativ `DEEPSEEK_API_KEY` |
+| `SEOBOY_SERP_API_KEY` | Serper-Key für `rankings fetch`; nur lokal in `.env` |
 | `SEOBOY_GEO_MODEL` | `deepseek-flash` oder `deepseek-v4-pro` |
 | `SEOBOY_GEO_THINKING` | `enabled` oder `disabled` |
 | `SEOBOY_GEO_REASONING_EFFORT` | `none`, `low`, `high` oder `max`; Default `high` |
@@ -285,6 +287,9 @@ Ergebnisse nicht umschreiben. Migration auf leerer und vorhandener Datenbank tes
   Ziel-URL ergänzt; ein kanonischer Alias zählt als Zieltreffer.
 - Die Wettbewerber-Auswertung gruppiert nur gespeicherte SERP-Treffer. Sie ruft keine
   Konkurrenzseiten live ab, vergleicht noch keine Inhalte und veröffentlicht nichts.
+- `rankings fetch` spricht nur `https://google.serper.dev/search` per HTTPS an, nutzt
+  `SEOBOY_SERP_API_KEY` nur lokal und hat standardmäßig `--max-calls 1`. Mobile-Profile
+  werden übersprungen, weil Serper keine dokumentierte Geräteumschaltung anbietet.
 - Backlink-Importe deduplizieren über einen Ereignisschlüssel. "Nicht erneut beobachtet"
   ist keine bestätigte Entfernung; Live-Prüfung und Outreach fehlen bewusst.
 - GEO-Trends lesen nur bestehende lokale Manifeste und Samples. Fehlende
