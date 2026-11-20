@@ -345,7 +345,9 @@ def render_report(
         "",
         f"**Erzeugt:** {datetime.now().astimezone():%Y-%m-%d %H:%M %Z}",
         f"**URLs:** {len(urls)}",
-        f"**Wartezeit:** {wait_until}, Timeout {timeout_ms} ms",
+        f"**Wartezeit:** "
+        f"{'Chrome --dump-dom (kein networkidle)' if any(item.engine == 'chrome' for item in rendered) else wait_until}"
+        f", Timeout {timeout_ms} ms",
         f"**Verwendete Engine:** {', '.join(sorted({item.engine for item in rendered}))}",
         *(
             [
